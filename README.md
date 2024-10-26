@@ -18,3 +18,14 @@ For commercial use, please use my [contact page](https://lesichkov.co.uk/contact
 ```
 go get -u github.com/gouniverse/statsstore
 ```
+
+## Setup
+
+```golang
+store, err := NewStore(NewStoreOptions{
+	VisitorTableName:     "stats_visitor",
+	DB:                 databaseInstance,
+	AutomigrateEnabled: true,
+})
+
+```
