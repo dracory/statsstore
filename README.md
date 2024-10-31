@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/gouniverse/statsstore)](https://goreportcard.com/report/github.com/gouniverse/statsstore)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/gouniverse/statsstore)](https://pkg.go.dev/github.com/gouniverse/statsstore)
 
-Vault - a secure value storage (data-at-rest) implementation for Go.
+Stats Store - a visitor stats storage implementation for Go.
 
 ## License
 
