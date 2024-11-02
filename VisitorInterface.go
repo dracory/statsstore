@@ -17,6 +17,9 @@ type VisitorInterface interface {
 	SetCreatedAt(createdAt string) VisitorInterface
 	DeletedAt() string
 	SetDeletedAt(deletedAt string) VisitorInterface
+	Fingerprint() string
+	FingerprintCalculate() string
+	SetFingerprint(fingerprint string) VisitorInterface
 	ID() string
 	SetID(id string) VisitorInterface
 	IpAddress() string

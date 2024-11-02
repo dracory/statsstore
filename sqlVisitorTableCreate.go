@@ -20,6 +20,11 @@ func (st *Store) sqlVisitorTableCreate() string {
 			Length: 512,
 		}).
 		Column(sb.Column{
+			Name:   COLUMN_FINGERPRINT,
+			Type:   sb.COLUMN_TYPE_STRING,
+			Length: 40,
+		}).
+		Column(sb.Column{
 			Name:   COLUMN_IP_ADDRESS,
 			Type:   sb.COLUMN_TYPE_STRING,
 			Length: 40,

@@ -1,29 +1,15 @@
 package statsstore
 
 import (
-	"github.com/goravel/framework/support/carbon"
+	"github.com/golang-module/carbon/v2"
 	"github.com/gouniverse/dataobject"
 	"github.com/gouniverse/sb"
 	"github.com/gouniverse/uid"
+	"github.com/gouniverse/utils"
 )
 
 type Visitor struct {
 	dataobject.DataObject
-	// id                 string
-	// urlID              string
-	// ipAddress          string
-	// country            string
-	// userAgent          string
-	// userAcceptLanguage string
-	// userBrowser        string
-	// userBrowserVersion string
-	// userDeviceType     string
-	// userDevice         string
-	// userOs             string
-	// userOsVersion      string
-	// createdAt          time.Time
-	// updatedAt          time.Time
-	// deletedAt          *time.Time
 }
 
 var _ VisitorInterface = (*Visitor)(nil)
@@ -35,6 +21,7 @@ func NewVisitor() VisitorInterface {
 		SetCountry("").
 		SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC)).
 		SetIpAddress("").
+		SetFingerprint("").
 		SetUserAcceptEncoding("").
 		SetUserAcceptLanguage("").
 		SetUserAgent("").
@@ -54,6 +41,12 @@ func NewVisitorFromExistingData(data map[string]string) VisitorInterface {
 	o := &Visitor{}
 	o.Hydrate(data)
 	return o
+}
+
+func (visitor *Visitor) FingerprintCalculate() string {
+	fingerprint := visitor.IpAddress() + visitor.UserAgent()
+	hash := utils.StrToMD5Hash(fingerprint)
+	return hash
 }
 
 func (visitor *Visitor) Country() string {
@@ -88,6 +81,15 @@ func (visitor *Visitor) DeletedAtCarbon() carbon.Carbon {
 
 func (visitor *Visitor) SetDeletedAt(deletedAt string) VisitorInterface {
 	visitor.Set(COLUMN_DELETED_AT, deletedAt)
+	return visitor
+}
+
+func (visitor *Visitor) Fingerprint() string {
+	return visitor.Get(COLUMN_FINGERPRINT)
+}
+
+func (visitor *Visitor) SetFingerprint(fingerprint string) VisitorInterface {
+	visitor.Set(COLUMN_FINGERPRINT, fingerprint)
 	return visitor
 }
 
