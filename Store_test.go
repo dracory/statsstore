@@ -10,20 +10,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func initDB(filepath string) *sql.DB {
-	os.Remove(filepath) // remove database
+func initDB(filepath string) (*sql.DB, error) {
+	err := os.Remove(filepath) // remove database
+
+	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
+		return nil, err
+	}
+
 	dsn := filepath + "?parseTime=true"
 	db, err := sql.Open("sqlite", dsn)
 
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return db
+	return db, nil
 }
 
 func TestStorevisitorCreate(t *testing.T) {
-	db := initDB(":memory:")
+	db, err := initDB(":memory:")
+
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 
 	store, err := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -49,7 +58,11 @@ func TestStorevisitorCreate(t *testing.T) {
 }
 
 func TestStorevisitorFindByID(t *testing.T) {
-	db := initDB(":memory:")
+	db, err := initDB(":memory:")
+
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 
 	store, err := NewStore(NewStoreOptions{
 		DB:                 db,
@@ -84,7 +97,11 @@ func TestStorevisitorFindByID(t *testing.T) {
 }
 
 func TestStorevisitorSoftDelete(t *testing.T) {
-	db := initDB(":memory:")
+	db, err := initDB(":memory:")
+
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
 
 	store, err := NewStore(NewStoreOptions{
 		DB:                 db,
