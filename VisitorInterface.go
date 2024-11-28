@@ -1,13 +1,13 @@
 package statsstore
 
-import "github.com/golang-module/carbon/v2"
+import "github.com/dromara/carbon/v2"
 
 type VisitorInterface interface {
 	// From dataobject
-
 	Data() map[string]string
 	DataChanged() map[string]string
 	MarkAsNotDirty()
+
 	Path() string
 	SetPath(path string) VisitorInterface
 	Country() string
