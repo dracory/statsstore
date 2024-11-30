@@ -17,7 +17,7 @@ func (st *Store) sqlVisitorTableCreate() string {
 		Column(sb.Column{
 			Name:   COLUMN_PATH,
 			Type:   sb.COLUMN_TYPE_STRING,
-			Length: 512,
+			Length: 510,
 		}).
 		Column(sb.Column{
 			Name:   COLUMN_FINGERPRINT,
@@ -47,7 +47,7 @@ func (st *Store) sqlVisitorTableCreate() string {
 		Column(sb.Column{
 			Name:   COLUMN_USER_AGENT,
 			Type:   sb.COLUMN_TYPE_STRING,
-			Length: 255,
+			Length: 510,
 		}).
 		Column(sb.Column{
 			Name:   COLUMN_USER_OS,
@@ -82,7 +82,7 @@ func (st *Store) sqlVisitorTableCreate() string {
 		Column(sb.Column{
 			Name:   COLUMN_USER_REFERRER,
 			Type:   sb.COLUMN_TYPE_STRING,
-			Length: 255,
+			Length: 510,
 		}).
 		Column(sb.Column{
 			Name: COLUMN_CREATED_AT,
