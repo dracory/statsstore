@@ -35,7 +35,7 @@ type homeControllerData struct {
 }
 
 func (c *homeController) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterface {
-	data, errorMessage := c.prepareData()
+	data, errorMessage := c.prepareData(r)
 
 	c.ui.layout.SetTitle("Dashboard | Kalleidoscope")
 
@@ -83,7 +83,7 @@ func (c *homeController) ToHTML() string {
 
 // == PRIVATE METHODS ==========================================================
 
-func (c *homeController) prepareData() (data homeControllerData, errorMessage string) {
+func (c *homeController) prepareData(r *http.Request) (data homeControllerData, errorMessage string) {
 	datesInRange := c.datesInRange(carbon.Now().SubDays(31), carbon.Now())
 
 	dates := []string{}
@@ -91,7 +91,7 @@ func (c *homeController) prepareData() (data homeControllerData, errorMessage st
 	totalVisits := []int64{}
 
 	for _, date := range datesInRange {
-		uniqueVisitorCount, err := c.ui.store.VisitorCount(statsstore.VisitorQueryOptions{
+		uniqueVisitorCount, err := c.ui.store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
 			CreatedAtGte: date + " 00:00:00",
 			CreatedAtLte: date + " 23:59:59",
 			Distinct:     statsstore.COLUMN_IP_ADDRESS,
@@ -101,7 +101,7 @@ func (c *homeController) prepareData() (data homeControllerData, errorMessage st
 			return data, err.Error()
 		}
 
-		totalVisitorCount, err := c.ui.store.VisitorCount(statsstore.VisitorQueryOptions{
+		totalVisitorCount, err := c.ui.store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
 			CreatedAtGte: date + " 00:00:00",
 			CreatedAtLte: date + " 23:59:59",
 		})

@@ -1,20 +1,24 @@
 package statsstore
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/gouniverse/sb"
+	"github.com/gouniverse/utils"
 	_ "modernc.org/sqlite"
 )
 
 func initDB(filepath string) (*sql.DB, error) {
-	err := os.Remove(filepath) // remove database
+	if filepath != ":memory:" && utils.FileExists(filepath) {
+		err := os.Remove(filepath) // remove database
 
-	if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
-		return nil, err
+		if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
+			return nil, err
+		}
 	}
 
 	dsn := filepath + "?parseTime=true"
@@ -27,18 +31,22 @@ func initDB(filepath string) (*sql.DB, error) {
 	return db, nil
 }
 
-func TestStorevisitorCreate(t *testing.T) {
-	db, err := initDB(":memory:")
+func initStore(filepath string) (StoreInterface, error) {
+	db, err := initDB(filepath)
 
 	if err != nil {
-		t.Fatal("unexpected error:", err)
+		return nil, err
 	}
 
-	store, err := NewStore(NewStoreOptions{
+	return NewStore(NewStoreOptions{
 		DB:                 db,
-		VisitorTableName:   "visitor_table_create",
+		VisitorTableName:   "visitor_table",
 		AutomigrateEnabled: true,
 	})
+}
+
+func TestStorevisitorCreate(t *testing.T) {
+	store, err := initStore(":memory:")
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -50,7 +58,7 @@ func TestStorevisitorCreate(t *testing.T) {
 
 	visitor := NewVisitor()
 
-	err = store.VisitorCreate(visitor)
+	err = store.VisitorCreate(context.Background(), visitor)
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -58,30 +66,26 @@ func TestStorevisitorCreate(t *testing.T) {
 }
 
 func TestStorevisitorFindByID(t *testing.T) {
-	db, err := initDB(":memory:")
+	store, err := initStore(":memory:")
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	store, err := NewStore(NewStoreOptions{
-		DB:                 db,
-		VisitorTableName:   "visitor_table_find_by_id",
-		AutomigrateEnabled: true,
-	})
-
-	if err != nil {
-		t.Fatal("unexpected error:", err)
+	if store == nil {
+		t.Fatal("unexpected nil store")
 	}
 
 	visitor := NewVisitor()
 
-	err = store.VisitorCreate(visitor)
+	ctx := context.Background()
+
+	err = store.VisitorCreate(ctx, visitor)
 	if err != nil {
 		t.Error("unexpected error:", err)
 	}
 
-	visitorFound, errFind := store.VisitorFindByID(visitor.ID())
+	visitorFound, errFind := store.VisitorFindByID(ctx, visitor.ID())
 
 	if errFind != nil {
 		t.Fatal("unexpected error:", errFind)
@@ -97,17 +101,7 @@ func TestStorevisitorFindByID(t *testing.T) {
 }
 
 func TestStorevisitorSoftDelete(t *testing.T) {
-	db, err := initDB(":memory:")
-
-	if err != nil {
-		t.Fatal("unexpected error:", err)
-	}
-
-	store, err := NewStore(NewStoreOptions{
-		DB:                 db,
-		VisitorTableName:   "visitor_table_find_by_id",
-		AutomigrateEnabled: true,
-	})
+	store, err := initStore(":memory:")
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -117,15 +111,17 @@ func TestStorevisitorSoftDelete(t *testing.T) {
 		t.Fatal("unexpected nil store")
 	}
 
+	ctx := context.Background()
+
 	visitor := NewVisitor()
 
-	err = store.VisitorCreate(visitor)
+	err = store.VisitorCreate(ctx, visitor)
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	err = store.VisitorSoftDeleteByID(visitor.ID())
+	err = store.VisitorSoftDeleteByID(ctx, visitor.ID())
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -135,7 +131,7 @@ func TestStorevisitorSoftDelete(t *testing.T) {
 		t.Fatal("visitor MUST NOT be soft deleted")
 	}
 
-	visitorFound, errFind := store.VisitorFindByID(visitor.ID())
+	visitorFound, errFind := store.VisitorFindByID(ctx, visitor.ID())
 
 	if errFind != nil {
 		t.Fatal("unexpected error:", errFind)
@@ -145,7 +141,7 @@ func TestStorevisitorSoftDelete(t *testing.T) {
 		t.Fatal("visitor MUST be nil")
 	}
 
-	visitorFindWithDeleted, err := store.VisitorList(VisitorQueryOptions{
+	visitorFindWithDeleted, err := store.VisitorList(ctx, VisitorQueryOptions{
 		ID:          visitor.ID(),
 		Limit:       1,
 		WithDeleted: true,

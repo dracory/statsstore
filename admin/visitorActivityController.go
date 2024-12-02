@@ -31,7 +31,7 @@ type visitorActivityControllerData struct {
 // == PUBLIC METHODS ===========================================================
 
 func (c *visitorActivityController) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterface {
-	data, errorMessage := c.prepareData()
+	data, errorMessage := c.prepareData(r)
 
 	c.ui.layout.SetTitle("Visitor Activity | Kalleidoscope")
 
@@ -208,11 +208,11 @@ func (c *visitorActivityController) tableVisitors(visitors []statsstore.VisitorI
 // 	return rangeDates
 // }
 
-func (c *visitorActivityController) prepareData() (data visitorActivityControllerData, errorMessage string) {
+func (c *visitorActivityController) prepareData(r *http.Request) (data visitorActivityControllerData, errorMessage string) {
 	startDate := carbon.Now().SubDays(31).ToDateString()
 	endDate := carbon.Now().ToDateString()
 
-	visitors, err := c.ui.store.VisitorList(statsstore.VisitorQueryOptions{
+	visitors, err := c.ui.store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
 		CreatedAtGte: startDate + " 00:00:00",
 		CreatedAtLte: endDate + " 23:59:59",
 	})

@@ -1,6 +1,7 @@
 package statsstore
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"log"
@@ -10,7 +11,7 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/dromara/carbon/v2"
-	"github.com/gouniverse/sb"
+	"github.com/gouniverse/base/database"
 	"github.com/gouniverse/utils"
 	"github.com/samber/lo"
 )
@@ -33,9 +34,9 @@ var _ StoreInterface = (*Store)(nil) // verify it extends the interface
 
 // AutoMigrate auto migrate
 func (store *Store) AutoMigrate() error {
-	sql := store.sqlVisitorTableCreate()
+	sqlStr := store.sqlVisitorTableCreate()
 
-	if sql == "" {
+	if sqlStr == "" {
 		return errors.New("visitor table create sql is empty")
 	}
 
@@ -43,7 +44,7 @@ func (store *Store) AutoMigrate() error {
 		return errors.New("visitorstore: database is nil")
 	}
 
-	_, err := store.db.Exec(sql)
+	_, err := store.db.Exec(sqlStr)
 
 	if err != nil {
 		return err
@@ -52,12 +53,17 @@ func (store *Store) AutoMigrate() error {
 	return nil
 }
 
+// DB returns the database
+func (store *Store) DB() *sql.DB {
+	return store.db
+}
+
 // EnableDebug - enables the debug option
 func (st *Store) EnableDebug(debug bool) {
 	st.debugEnabled = debug
 }
 
-func (store *Store) VisitorRegister(r *http.Request) error {
+func (store *Store) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
 	ip := utils.IP(r)
 	userAgent := r.UserAgent()
@@ -67,19 +73,14 @@ func (store *Store) VisitorRegister(r *http.Request) error {
 		SetIpAddress(ip).
 		SetUserAgent(userAgent)
 
-	return store.VisitorCreate(visitor)
+	return store.VisitorCreate(ctx, visitor)
 }
 
-func (store *Store) VisitorCount(options VisitorQueryOptions) (int64, error) {
+func (store *Store) VisitorCount(ctx context.Context, options VisitorQueryOptions) (int64, error) {
 	options.CountOnly = true
 	q := store.visitorQuery(options)
 
 	if options.Distinct != "" {
-		// q = q.Select(options.Distinct, goqu.COUNT(goqu.Star()).As("count")).Distinct()
-
-		// q = q.Select(goqu.COUNT(goqu.Star()).As("count"))
-		// q = q.GroupBy(options.Distinct)
-
 		innerq := q.Select(options.Distinct).Distinct()
 
 		q = goqu.Select(goqu.COUNT(goqu.Star()).As("count")).From(innerq)
@@ -104,8 +105,8 @@ func (store *Store) VisitorCount(options VisitorQueryOptions) (int64, error) {
 		log.Println(sqlStr)
 	}
 
-	db := sb.NewDatabase(store.db, store.dbDriverName)
-	mapped, err := db.SelectToMapString(sqlStr, params...)
+	mapped, err := database.SelectToMapString(store.toQuerableContext(ctx), sqlStr, params...)
+
 	if err != nil {
 		return -1, err
 	}
@@ -126,7 +127,7 @@ func (store *Store) VisitorCount(options VisitorQueryOptions) (int64, error) {
 	return i, nil
 }
 
-func (store *Store) VisitorCreate(visitor VisitorInterface) error {
+func (store *Store) VisitorCreate(ctx context.Context, visitor VisitorInterface) error {
 	visitor.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
@@ -150,7 +151,7 @@ func (store *Store) VisitorCreate(visitor VisitorInterface) error {
 		return errors.New("visitorstore: database is nil")
 	}
 
-	_, err := store.db.Exec(sqlStr, params...)
+	_, err := database.Execute(store.toQuerableContext(ctx), sqlStr, params...)
 
 	if err != nil {
 		return err
@@ -161,15 +162,15 @@ func (store *Store) VisitorCreate(visitor VisitorInterface) error {
 	return nil
 }
 
-func (store *Store) VisitorDelete(visitor VisitorInterface) error {
+func (store *Store) VisitorDelete(ctx context.Context, visitor VisitorInterface) error {
 	if visitor == nil {
 		return errors.New("visitor is nil")
 	}
 
-	return store.VisitorDeleteByID(visitor.ID())
+	return store.VisitorDeleteByID(ctx, visitor.ID())
 }
 
-func (store *Store) VisitorDeleteByID(id string) error {
+func (store *Store) VisitorDeleteByID(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("visitor id is empty")
 	}
@@ -188,17 +189,17 @@ func (store *Store) VisitorDeleteByID(id string) error {
 		log.Println(sqlStr)
 	}
 
-	_, err := store.db.Exec(sqlStr, params...)
+	_, err := database.Execute(store.toQuerableContext(ctx), sqlStr, params...)
 
 	return err
 }
 
-func (store *Store) VisitorFindByID(id string) (VisitorInterface, error) {
+func (store *Store) VisitorFindByID(ctx context.Context, id string) (VisitorInterface, error) {
 	if id == "" {
 		return nil, errors.New("visitor id is empty")
 	}
 
-	list, err := store.VisitorList(VisitorQueryOptions{
+	list, err := store.VisitorList(ctx, VisitorQueryOptions{
 		ID:    id,
 		Limit: 1,
 	})
@@ -214,7 +215,11 @@ func (store *Store) VisitorFindByID(id string) (VisitorInterface, error) {
 	return nil, nil
 }
 
-func (store *Store) VisitorList(options VisitorQueryOptions) ([]VisitorInterface, error) {
+func (store *Store) VisitorList(ctx context.Context, options VisitorQueryOptions) ([]VisitorInterface, error) {
+	if store.db == nil {
+		return []VisitorInterface{}, errors.New("visitorstore: database is nil")
+	}
+
 	q := store.visitorQuery(options)
 
 	sqlStr, _, errSql := q.Select().ToSQL()
@@ -227,17 +232,7 @@ func (store *Store) VisitorList(options VisitorQueryOptions) ([]VisitorInterface
 		log.Println(sqlStr)
 	}
 
-	if store.db == nil {
-		return []VisitorInterface{}, errors.New("visitorstore: database is nil")
-	}
-
-	db := sb.NewDatabase(store.db, store.dbDriverName)
-
-	if db == nil {
-		return []VisitorInterface{}, errors.New("visitorstore: database is nil")
-	}
-
-	modelMaps, err := db.SelectToMapString(sqlStr)
+	modelMaps, err := database.SelectToMapString(store.toQuerableContext(ctx), sqlStr)
 
 	if err != nil {
 		return []VisitorInterface{}, err
@@ -253,27 +248,31 @@ func (store *Store) VisitorList(options VisitorQueryOptions) ([]VisitorInterface
 	return list, nil
 }
 
-func (store *Store) VisitorSoftDelete(visitor VisitorInterface) error {
+func (store *Store) VisitorSoftDelete(ctx context.Context, visitor VisitorInterface) error {
 	if visitor == nil {
 		return errors.New("visitor is nil")
 	}
 
 	visitor.SetDeletedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
-	return store.VisitorUpdate(visitor)
+	return store.VisitorUpdate(ctx, visitor)
 }
 
-func (store *Store) VisitorSoftDeleteByID(id string) error {
-	visitor, err := store.VisitorFindByID(id)
+func (store *Store) VisitorSoftDeleteByID(ctx context.Context, id string) error {
+	visitor, err := store.VisitorFindByID(ctx, id)
 
 	if err != nil {
 		return err
 	}
 
-	return store.VisitorSoftDelete(visitor)
+	return store.VisitorSoftDelete(ctx, visitor)
 }
 
-func (store *Store) VisitorUpdate(visitor VisitorInterface) error {
+func (store *Store) VisitorUpdate(ctx context.Context, visitor VisitorInterface) error {
+	if store.db == nil {
+		return errors.New("visitorstore: database is nil")
+	}
+
 	if visitor == nil {
 		return errors.New("visitor is nil")
 	}
@@ -303,13 +302,17 @@ func (store *Store) VisitorUpdate(visitor VisitorInterface) error {
 		log.Println(sqlStr)
 	}
 
-	if store.db == nil {
-		return errors.New("visitorstore: database is nil")
-	}
-
-	_, err := store.db.Exec(sqlStr, params...)
+	_, err := database.Execute(store.toQuerableContext(ctx), sqlStr, params...)
 
 	visitor.MarkAsNotDirty()
 
 	return err
+}
+
+func (store *Store) toQuerableContext(ctx context.Context) database.QueryableContext {
+	if database.IsQueryableContext(ctx) {
+		return ctx.(database.QueryableContext)
+	}
+
+	return database.Context(ctx, store.db)
 }

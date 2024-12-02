@@ -28,7 +28,7 @@ type visitorPathsController struct {
 // == PUBLIC METHODS ===========================================================
 
 func (c *visitorPathsController) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterface {
-	data, errorMessage := c.prepareData()
+	data, errorMessage := c.prepareData(r)
 
 	c.ui.layout.SetTitle("Visitor Activity | Kalleidoscope")
 
@@ -214,11 +214,11 @@ func (c *visitorPathsController) tableVisitors(visitors []vistorActivity) hb.Tag
 	return cards
 }
 
-func (c *visitorPathsController) prepareData() (data visitorPathControllerData, errorMessage string) {
+func (c *visitorPathsController) prepareData(r *http.Request) (data visitorPathControllerData, errorMessage string) {
 	startDate := carbon.Now().SubDays(31).ToDateString()
 	endDate := carbon.Now().ToDateString()
 
-	visits, err := c.ui.store.VisitorList(statsstore.VisitorQueryOptions{
+	visits, err := c.ui.store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
 		CreatedAtGte: startDate + " 00:00:00",
 		CreatedAtLte: endDate + " 23:59:59",
 	})
