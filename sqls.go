@@ -37,7 +37,7 @@ func (st *Store) sqlVisitorTableCreate() string {
 		Column(sb.Column{
 			Name:   COLUMN_USER_ACCEPT_LANGUAGE,
 			Type:   sb.COLUMN_TYPE_STRING,
-			Length: 40,
+			Length: 100,
 		}).
 		Column(sb.Column{
 			Name:   COLUMN_USER_ACCEPT_ENCODING,
