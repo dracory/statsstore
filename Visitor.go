@@ -62,7 +62,7 @@ func (visitor *Visitor) CreatedAt() string {
 	return visitor.Get(COLUMN_CREATED_AT)
 }
 
-func (visitor *Visitor) CreatedAtCarbon() carbon.Carbon {
+func (visitor *Visitor) CreatedAtCarbon() *carbon.Carbon {
 	return carbon.Parse(visitor.CreatedAt(), carbon.UTC)
 }
 
@@ -75,7 +75,7 @@ func (visitor *Visitor) DeletedAt() string {
 	return visitor.Get(COLUMN_DELETED_AT)
 }
 
-func (visitor *Visitor) DeletedAtCarbon() carbon.Carbon {
+func (visitor *Visitor) DeletedAtCarbon() *carbon.Carbon {
 	return carbon.Parse(visitor.DeletedAt(), carbon.UTC)
 }
 
@@ -124,7 +124,7 @@ func (visitor *Visitor) UpdatedAt() string {
 	return visitor.Get(COLUMN_UPDATED_AT)
 }
 
-func (visitor *Visitor) UpdatedAtCarbon() carbon.Carbon {
+func (visitor *Visitor) UpdatedAtCarbon() *carbon.Carbon {
 	return carbon.Parse(visitor.UpdatedAt(), carbon.UTC)
 }
 

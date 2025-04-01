@@ -298,7 +298,7 @@ func (c *homeController) tableStatsSummary(data homeControllerData) hb.TagInterf
 		Child(table)
 }
 
-func (c *homeController) datesInRange(timeStart, timeEnd carbon.Carbon) []string {
+func (c *homeController) datesInRange(timeStart, timeEnd *carbon.Carbon) []string {
 	rangeDates := []string{}
 
 	if timeStart.Lte(timeEnd) {

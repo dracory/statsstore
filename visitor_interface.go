@@ -13,7 +13,7 @@ type VisitorInterface interface {
 	Country() string
 	SetCountry(country string) VisitorInterface
 	CreatedAt() string
-	CreatedAtCarbon() carbon.Carbon
+	CreatedAtCarbon() *carbon.Carbon
 	SetCreatedAt(createdAt string) VisitorInterface
 	DeletedAt() string
 	SetDeletedAt(deletedAt string) VisitorInterface
@@ -53,6 +53,6 @@ type VisitorInterface interface {
 	// Status() string
 	// SetStatus(status string) UserInterface
 	UpdatedAt() string
-	UpdatedAtCarbon() carbon.Carbon
+	UpdatedAtCarbon() *carbon.Carbon
 	SetUpdatedAt(updatedAt string) VisitorInterface
 }

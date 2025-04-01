@@ -289,7 +289,7 @@ type vistorActivity struct {
 }
 
 type visitorPath struct {
-	Date     carbon.Carbon
+	Date     *carbon.Carbon
 	Path     string
 	Referrer string
 }
