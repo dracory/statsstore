@@ -74,7 +74,7 @@ func (c *visitorActivityController) ToTag(w http.ResponseWriter, r *http.Request
 }
 
 func (c *visitorActivityController) ToHTML() string {
-	return c.ToTag(nil, nil).ToHTML()
+	return c.ToTag(c.ui.response, c.ui.request).ToHTML()
 }
 
 // == PRIVATE METHODS ==========================================================

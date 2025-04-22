@@ -78,7 +78,7 @@ func (c *homeController) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInt
 }
 
 func (c *homeController) ToHTML() string {
-	return c.ToTag(nil, nil).ToHTML()
+	return c.ToTag(c.ui.response, c.ui.request).ToHTML()
 }
 
 // == PRIVATE METHODS ==========================================================
