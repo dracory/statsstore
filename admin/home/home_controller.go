@@ -18,7 +18,7 @@ import (
 // == CONSTRUCTOR ==============================================================
 
 // New creates a new home page controller instance
-func New(ui shared.UIContext) http.Handler {
+func New(ui shared.ControllerOptions) http.Handler {
 	return &Controller{
 		ui: ui,
 	}
@@ -28,7 +28,7 @@ func New(ui shared.UIContext) http.Handler {
 
 // Controller handles the dashboard home page
 type Controller struct {
-	ui shared.UIContext
+	ui shared.ControllerOptions
 }
 
 // ControllerData contains the data needed for the home page
@@ -48,13 +48,12 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 	data, errorMessage := c.prepareData(r)
 
-	c.ui.GetLayout().SetTitle("Dashboard | Visitor Analytics")
+	c.ui.Layout.SetTitle("Dashboard | Visitor Analytics")
 
 	if errorMessage != "" {
-		c.ui.GetLayout().
+		c.ui.Layout.
 			SetBody(hb.Div().Class("alert alert-danger").Text(errorMessage).ToHTML())
-
-		return c.ui.GetLayout().Render(w, r)
+		return c.ui.Layout.Render(w, r)
 	}
 
 	// Load required scripts asynchronously
@@ -103,10 +102,10 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 		`,
 	}
 
-	c.ui.GetLayout().SetBody(c.page(data).ToHTML())
-	c.ui.GetLayout().SetScripts(scripts)
+	c.ui.Layout.SetBody(c.page(data).ToHTML())
+	c.ui.Layout.SetScripts(scripts)
 
-	return c.ui.GetLayout().Render(c.ui.GetResponse(), c.ui.GetRequest())
+	return c.ui.Layout.Render(w, r)
 }
 
 // == PRIVATE METHODS ==========================================================
@@ -122,7 +121,7 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	totalVisits := []int64{}
 
 	for _, date := range datesInRange {
-		uniqueVisitorCount, err := c.ui.GetStore().VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
+		uniqueVisitorCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
 			CreatedAtGte: date + " 00:00:00",
 			CreatedAtLte: date + " 23:59:59",
 			Distinct:     statsstore.COLUMN_IP_ADDRESS,
@@ -132,7 +131,7 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 			return data, err.Error()
 		}
 
-		totalVisitorCount, err := c.ui.GetStore().VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
+		totalVisitorCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
 			CreatedAtGte: date + " 00:00:00",
 			CreatedAtLte: date + " 23:59:59",
 		})
@@ -155,14 +154,14 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 
 // page builds the main page layout
 func (c *Controller) page(data ControllerData) hb.TagInterface {
-	breadcrumbs := c.ui.Breadcrumbs([]shared.Breadcrumb{
+	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
 		{
 			Name: "Home",
-			URL:  c.ui.URL(c.ui.GetHomeURL(), nil),
+			URL:  shared.UrlHome(data.Request),
 		},
 		{
 			Name: "Visitor Analytics",
-			URL:  c.ui.URL(c.ui.GetPathHome(), nil),
+			URL:  shared.UrlHome(data.Request),
 		},
 	})
 
@@ -174,7 +173,7 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Class("container").
 		Child(breadcrumbs).
 		Child(hb.HR()).
-		Child(c.ui.AdminHeader()).
+		Child(shared.AdminHeaderUI(data.Request, c.ui.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
 		Child(c.navigationPanel(data)).

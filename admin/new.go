@@ -47,8 +47,6 @@ func New(options Options) (http.Handler, error) {
 	}
 
 	adminInstance := &admin{
-		response:   options.ResponseWriter,
-		request:    options.Request,
 		store:      options.Store,
 		logger:     logger,
 		layout:     options.Layout,

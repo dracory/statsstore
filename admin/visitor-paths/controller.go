@@ -15,7 +15,7 @@ import (
 // == CONSTRUCTOR ==============================================================
 
 // New creates a new visitor paths controller
-func New(ui shared.UIContext) http.Handler {
+func New(ui shared.ControllerOptions) http.Handler {
 	return &Controller{
 		ui: ui,
 	}
@@ -25,11 +25,12 @@ func New(ui shared.UIContext) http.Handler {
 
 // Controller handles the visitor paths page
 type Controller struct {
-	ui shared.UIContext
+	ui shared.ControllerOptions
 }
 
 // ControllerData contains the data needed for the visitor paths page
 type ControllerData struct {
+	Request    *http.Request
 	paths      []statsstore.VisitorInterface
 	page       int
 	totalPages int
@@ -37,21 +38,21 @@ type ControllerData struct {
 
 // ServeHTTP implements the http.Handler interface
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c.ToTag(w, r)
+	w.Write([]byte(c.Handler(w, r)))
 }
 
 // ToTag renders the controller to an HTML tag
-func (c *Controller) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterface {
+func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 	data, errorMessage := c.prepareData(r)
 
-	c.ui.GetLayout().SetTitle("Visitor Paths | Visitor Analytics")
+	c.ui.Layout.SetTitle("Visitor Paths | Visitor Analytics")
 
 	if errorMessage != "" {
-		c.ui.GetLayout().SetBody(hb.Div().
+		c.ui.Layout.SetBody(hb.Div().
 			Class("alert alert-danger").
 			Text(errorMessage).ToHTML())
 
-		return hb.Raw(c.ui.GetLayout().Render(w, r))
+		return c.ui.Layout.Render(w, r)
 	}
 
 	// Load required scripts asynchronously
@@ -114,21 +115,19 @@ func (c *Controller) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterfa
 		`,
 	}
 
-	c.ui.GetLayout().SetBody(c.page(data).ToHTML())
-	c.ui.GetLayout().SetScripts(scripts)
+	c.ui.Layout.SetBody(c.page(data).ToHTML())
+	c.ui.Layout.SetScripts(scripts)
 
-	return hb.Raw(c.ui.GetLayout().Render(w, r))
-}
-
-// ToHTML renders the controller to HTML string
-func (c *Controller) ToHTML() string {
-	return c.ToTag(c.ui.GetResponse(), c.ui.GetRequest()).ToHTML()
+	return c.ui.Layout.Render(w, r)
 }
 
 // == PRIVATE METHODS ==========================================================
 
 // prepareData prepares the data for the visitor paths page
 func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMessage string) {
+	data.Request = r
+
+	// Get the current page
 	page := r.URL.Query().Get("page")
 	pageInt, err := strconv.Atoi(page)
 	if err != nil || pageInt < 1 {
@@ -139,7 +138,7 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	offset := (pageInt - 1) * perPage
 
 	// Get the most visited paths
-	paths, err := c.ui.GetStore().VisitorList(r.Context(), statsstore.VisitorQueryOptions{
+	paths, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
 		Limit:     perPage,
 		Offset:    offset,
 		OrderBy:   statsstore.COLUMN_CREATED_AT,
@@ -152,7 +151,7 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	}
 
 	// Get total unique paths
-	pathCount, err := c.ui.GetStore().VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
+	pathCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
 		Distinct: "path",
 	})
 
@@ -165,27 +164,27 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 		totalPages = 1
 	}
 
-	return ControllerData{
-		paths:      paths,
-		page:       pageInt,
-		totalPages: totalPages,
-	}, ""
+	data.paths = paths
+	data.page = pageInt
+	data.totalPages = totalPages
+
+	return data, ""
 }
 
 // page builds the main page layout
 func (c *Controller) page(data ControllerData) hb.TagInterface {
-	breadcrumbs := c.ui.Breadcrumbs([]shared.Breadcrumb{
+	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
 		{
 			Name: "Home",
-			URL:  c.ui.URL(c.ui.GetHomeURL(), nil),
+			URL:  c.ui.HomeURL,
 		},
 		{
 			Name: "Visitor Analytics",
-			URL:  c.ui.URL(c.ui.GetPathHome(), nil),
+			URL:  shared.UrlHome(data.Request),
 		},
 		{
 			Name: "Visitor Paths",
-			URL:  c.ui.URL(c.ui.GetPathVisitorPaths(), nil),
+			URL:  shared.UrlVisitorPaths(data.Request),
 		},
 	})
 
@@ -197,7 +196,7 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Class("container").
 		Child(breadcrumbs).
 		Child(hb.HR()).
-		Child(c.ui.AdminHeader()).
+		Child(shared.AdminHeaderUI(data.Request, c.ui.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
 		Child(c.cardVisitorPaths(data))
@@ -230,12 +229,12 @@ func (c *Controller) cardVisitorPaths(data ControllerData) hb.TagInterface {
 							Text("Export to CSV")))))).
 		Child(hb.Div().
 			Class("card-body").
-			Child(c.tableVisitorPaths(data.paths)).
-			Child(c.pagination(data.page, data.totalPages)))
+			Child(c.tableVisitorPaths(data.Request, data.paths)).
+			Child(c.pagination(data.Request, data.page, data.totalPages)))
 }
 
 // tableVisitorPaths creates the visitor paths table
-func (c *Controller) tableVisitorPaths(paths []statsstore.VisitorInterface) hb.TagInterface {
+func (c *Controller) tableVisitorPaths(r *http.Request, paths []statsstore.VisitorInterface) hb.TagInterface {
 	table := hb.Table().
 		ID("visitor-paths-table").
 		Class("table table-striped table-hover").
@@ -261,7 +260,7 @@ func (c *Controller) tableVisitorPaths(paths []statsstore.VisitorInterface) hb.T
 						Class("btn btn-sm btn-outline-primary").
 						Attr("data-bs-toggle", "tooltip").
 						Attr("title", "View visitors for this path").
-						Href(c.ui.URL(c.ui.GetPathVisitorActivity(), map[string]string{
+						Href(shared.UrlVisitorActivity(r, map[string]string{
 							"path": path.Path(),
 						})).
 						Child(hb.I().Class("bi bi-eye"))),
@@ -275,13 +274,13 @@ func (c *Controller) tableVisitorPaths(paths []statsstore.VisitorInterface) hb.T
 }
 
 // pagination creates the pagination component
-func (c *Controller) pagination(page int, totalPages int) hb.TagInterface {
+func (c *Controller) pagination(r *http.Request, page int, totalPages int) hb.TagInterface {
 	if totalPages <= 1 {
 		return hb.Div()
 	}
 
 	urlFunc := func(p int) string {
-		return c.ui.URL(c.ui.GetPathVisitorPaths(), map[string]string{
+		return shared.UrlVisitorPaths(r, map[string]string{
 			"page": cast.ToString(p),
 		})
 	}

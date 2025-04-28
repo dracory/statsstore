@@ -2,16 +2,27 @@ package shared
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gouniverse/hb"
 )
 
 // AdminHeaderUI creates the admin header navigation
-func AdminHeaderUI(ui UIContext) hb.TagInterface {
+func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
 	linkHome := hb.NewHyperlink().
 		HTML("Dashboard").
-		Href(URL(ui.GetRequest(), ControllerHome, nil)).
+		Href(URL(r, ControllerHome, nil)).
 		Class("nav-link")
+
+	linkVisitorActivity := hb.NewHyperlink().
+		HTML("Visitor Activity").
+		Href(URL(r, ControllerVisitorActivity, nil)).
+		Class("nav-link")
+
+	linkVisitorPaths := hb.NewHyperlink().
+		HTML("Visitor Paths").
+		Href(URL(r, ControllerVisitorPaths, nil)).
+		Class("nav-link active")
 
 	nav := hb.Nav().
 		Class("navbar navbar-expand-lg navbar-light bg-light").
@@ -19,13 +30,15 @@ func AdminHeaderUI(ui UIContext) hb.TagInterface {
 			Class("container-fluid").
 			Child(hb.A().
 				Class("navbar-brand").
-				Href(ui.GetHomeURL()).
-				HTML("Kalleidoscope")).
+				Href(homeURL).
+				HTML("Visitor Analytics")).
 			Child(hb.Div().
 				Class("collapse navbar-collapse").
 				Child(hb.Div().
 					Class("navbar-nav").
-					Child(linkHome))))
+					Child(linkHome).
+					Child(linkVisitorActivity).
+					Child(linkVisitorPaths))))
 
 	return nav
 }
