@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gouniverse/statsstore"
+	"github.com/dracory/statsstore"
 )
 
 // LayoutInterface defines the layout methods needed by controllers

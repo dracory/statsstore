@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gouniverse/base/req"
-	"github.com/gouniverse/statsstore"
-	"github.com/gouniverse/statsstore/admin/home"
-	"github.com/gouniverse/statsstore/admin/shared"
-	visitoractivity "github.com/gouniverse/statsstore/admin/visitor-activity"
-	visitorpaths "github.com/gouniverse/statsstore/admin/visitor-paths"
+	"github.com/dracory/req"
+	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/home"
+	"github.com/dracory/statsstore/admin/shared"
+	visitoractivity "github.com/dracory/statsstore/admin/visitor-activity"
+	visitorpaths "github.com/dracory/statsstore/admin/visitor-paths"
 )
 
 type admin struct {
@@ -30,7 +30,7 @@ var _ http.Handler = (*admin)(nil)
 
 // ServeHTTP implements the http.Handler interface
 func (a *admin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	path := req.ValueOr(r, "path", "home")
+	path := req.GetStringOr(r, "path", "home")
 
 	if path == "" {
 		path = shared.PathHome

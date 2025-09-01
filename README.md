@@ -1,10 +1,10 @@
 # Stats Store
 
-<a href="https://gitpod.io/#https://github.com/gouniverse/statsstore" style="float:right:"><img src="https://gitpod.io/button/open-in-gitpod.svg" alt="Open in Gitpod" loading="lazy"></a>
+<a href="https://gitpod.io/#https://github.com/dracory/statsstore" style="float:right:"><img src="https://gitpod.io/button/open-in-gitpod.svg" alt="Open in Gitpod" loading="lazy"></a>
 
-[![Tests Status](https://github.com/gouniverse/statsstore/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/gouniverse/statsstore/actions/workflows/tests.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/gouniverse/statsstore)](https://goreportcard.com/report/github.com/gouniverse/statsstore)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/gouniverse/statsstore)](https://pkg.go.dev/github.com/gouniverse/statsstore)
+[![Tests Status](https://github.com/dracory/statsstore/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/dracory/statsstore/actions/workflows/tests.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dracory/statsstore)](https://goreportcard.com/report/github.com/dracory/statsstore)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/dracory/statsstore)](https://pkg.go.dev/github.com/dracory/statsstore)
 
 Stats Store - a visitor stats storage implementation for Go.
 
@@ -15,7 +15,7 @@ For commercial use, please use my [contact page](https://lesichkov.co.uk/contact
 
 ## Installation
 ```
-go get -u github.com/gouniverse/statsstore
+go get -u github.com/dracory/statsstore
 ```
 
 ## Setup

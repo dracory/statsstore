@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/gouniverse/statsstore"
-	"github.com/gouniverse/statsstore/admin/shared"
+	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 )
 
 type Options struct {

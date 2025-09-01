@@ -1,11 +1,11 @@
 package statsstore
 
 import (
+	"github.com/dracory/dataobject"
+	"github.com/dracory/sb"
+	"github.com/dracory/str"
+	"github.com/dracory/uid"
 	"github.com/dromara/carbon/v2"
-	"github.com/gouniverse/dataobject"
-	"github.com/gouniverse/sb"
-	"github.com/gouniverse/uid"
-	"github.com/gouniverse/utils"
 )
 
 type Visitor struct {
@@ -45,7 +45,7 @@ func NewVisitorFromExistingData(data map[string]string) VisitorInterface {
 
 func (visitor *Visitor) FingerprintCalculate() string {
 	fingerprint := visitor.IpAddress() + visitor.UserAgent()
-	hash := utils.StrToMD5Hash(fingerprint)
+	hash := str.MD5(fingerprint)
 	return hash
 }
 

@@ -1,16 +1,16 @@
 package home
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/dromara/carbon/v2"
 
-	"github.com/gouniverse/cdn"
+	"github.com/dracory/cdn"
+	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 	"github.com/gouniverse/hb"
-	"github.com/gouniverse/statsstore"
-	"github.com/gouniverse/statsstore/admin/shared"
-	"github.com/gouniverse/utils"
 	"github.com/samber/lo"
 	"github.com/spf13/cast"
 )
@@ -270,17 +270,17 @@ func (c *Controller) chartStatsSummary(data ControllerData) hb.TagInterface {
 	uniqueVisitValues := data.uniqueVisits
 	totalVisitValues := data.totalVisits
 
-	labelsJSON, err := utils.ToJSON(labels)
+	labelsJSON, err := json.Marshal(labels)
 	if err != nil {
 		return hb.Div().Class("alert alert-danger").Text(err.Error())
 	}
 
-	uniqueVisitvaluesJSON, err := utils.ToJSON(uniqueVisitValues)
+	uniqueVisitvaluesJSON, err := json.Marshal(uniqueVisitValues)
 	if err != nil {
 		return hb.Div().Class("alert alert-danger").Text(err.Error())
 	}
 
-	totalVisitValuesJSON, err := utils.ToJSON(totalVisitValues)
+	totalVisitValuesJSON, err := json.Marshal(totalVisitValues)
 	if err != nil {
 		return hb.Div().Class("alert alert-danger").Text(err.Error())
 	}
@@ -300,7 +300,7 @@ func (c *Controller) chartStatsSummary(data ControllerData) hb.TagInterface {
 			const ctx = document.getElementById('statsChart').getContext('2d');
 			
 			const visitorData = {
-				labels: ` + labelsJSON + `,
+				labels: ` + string(labelsJSON) + `,
 				datasets: [
 					{
 						label: "Unique Visitors",
@@ -308,7 +308,7 @@ func (c *Controller) chartStatsSummary(data ControllerData) hb.TagInterface {
 						borderColor: "rgb(59, 130, 246)",
 						borderWidth: 2,
 						borderRadius: 4,
-						data: ` + uniqueVisitvaluesJSON + `
+						data: ` + string(uniqueVisitvaluesJSON) + `
 					},
 					{
 						label: "Total Visitors",
@@ -316,7 +316,7 @@ func (c *Controller) chartStatsSummary(data ControllerData) hb.TagInterface {
 						borderColor: "rgb(16, 185, 129)",
 						borderWidth: 2,
 						borderRadius: 4,
-						data: ` + totalVisitValuesJSON + `
+						data: ` + string(totalVisitValuesJSON) + `
 					}
 				]
 			};

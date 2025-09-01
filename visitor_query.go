@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/doug-martin/goqu/v9"
+	"github.com/dracory/sb"
 	"github.com/dromara/carbon/v2"
-	"github.com/gouniverse/sb"
 )
 
 func (store *Store) visitorQuery(options VisitorQueryOptions) *goqu.SelectDataset {

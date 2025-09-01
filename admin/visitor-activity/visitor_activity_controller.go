@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gouniverse/base/req"
+	"github.com/dracory/req"
+	"github.com/dracory/sb"
+	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 	"github.com/gouniverse/hb"
-	"github.com/gouniverse/sb"
-	"github.com/gouniverse/statsstore"
-	"github.com/gouniverse/statsstore/admin/shared"
 	"github.com/samber/lo"
 	"github.com/spf13/cast"
 )
@@ -42,7 +42,7 @@ type ControllerData struct {
 
 // ServeHTTP implements the http.Handler interface
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	visitorID := req.Value(r, "visitor_id")
+	visitorID := req.GetString(r, "visitor_id")
 	if visitorID != "" {
 		c.handleDetailView(w, r, visitorID)
 		return

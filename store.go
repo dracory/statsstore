@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/doug-martin/goqu/v9"
+	"github.com/dracory/database"
+	"github.com/dracory/req"
 	"github.com/dromara/carbon/v2"
-	"github.com/gouniverse/base/database"
-	"github.com/gouniverse/utils"
 	"github.com/samber/lo"
 )
 
@@ -65,7 +65,7 @@ func (st *Store) EnableDebug(debug bool) {
 
 func (store *Store) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
-	ip := utils.IP(r)
+	ip := req.GetIP(r)
 	userAgent := r.UserAgent()
 
 	visitor := NewVisitor().

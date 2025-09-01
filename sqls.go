@@ -1,7 +1,7 @@
 package statsstore
 
 import (
-	"github.com/gouniverse/sb"
+	"github.com/dracory/sb"
 )
 
 // sqlVisitorTableCreate returns a SQL string for creating the visitor table
