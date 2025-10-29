@@ -1,8 +1,9 @@
 package visitoractivity
 
-import "github.com/gouniverse/hb"
+import (
+	"github.com/gouniverse/hb"
+)
 
-// visitorDetailModal creates the modal container for visitor details
 func visitorDetailModal() hb.TagInterface {
 	modalTitle := hb.Heading5().
 		Class("modal-title").
