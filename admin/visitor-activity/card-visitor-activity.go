@@ -7,7 +7,7 @@ func cardVisitorActivity(data ControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(hb.Div().
-			Class("card-header bg-light d-flex justify-content-between align-items-center").
+			Class("card-header d-flex justify-content-between align-items-center").
 			Child(hb.Heading4().
 				Class("card-title mb-0").
 				HTML("Visitor Activity")).

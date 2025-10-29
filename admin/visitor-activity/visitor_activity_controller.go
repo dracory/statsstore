@@ -137,7 +137,7 @@ func (c *Controller) visitorDetailCard(visitor statsstore.VisitorInterface, rela
 	return hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(hb.Div().
-			Class("card-header bg-light").
+			Class("card-header").
 			Child(hb.Heading4().
 				Class("card-title mb-0").
 				HTML("Visitor Information"))).
