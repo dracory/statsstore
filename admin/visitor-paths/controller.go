@@ -8,8 +8,6 @@ import (
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
 	"github.com/gouniverse/hb"
-	"github.com/samber/lo"
-	"github.com/spf13/cast"
 )
 
 // == CONSTRUCTOR ==============================================================
@@ -229,61 +227,6 @@ func (c *Controller) cardVisitorPaths(data ControllerData) hb.TagInterface {
 							Text("Export to CSV")))))).
 		Child(hb.Div().
 			Class("card-body").
-			Child(c.tableVisitorPaths(data.Request, data.paths)).
-			Child(c.pagination(data.Request, data.page, data.totalPages)))
-}
-
-// tableVisitorPaths creates the visitor paths table
-func (c *Controller) tableVisitorPaths(r *http.Request, paths []statsstore.VisitorInterface) hb.TagInterface {
-	table := hb.Table().
-		ID("visitor-paths-table").
-		Class("table table-striped table-hover").
-		Children([]hb.TagInterface{
-			hb.Thead().
-				Class("table-light").
-				Children([]hb.TagInterface{
-					hb.TR().Children([]hb.TagInterface{
-						hb.TH().Text("URL"),
-						hb.TH().Class("text-end").Text("Visit Count"),
-						hb.TH().Text("Last Visit"),
-						hb.TH().Text("Actions"),
-					}),
-				}),
-			hb.Tbody().Children(lo.Map(paths, func(path statsstore.VisitorInterface, index int) hb.TagInterface {
-				// For now, we'll just show the path and created date
-				// In a real implementation, we would need to add count functionality to the statsstore
-				return hb.TR().Children([]hb.TagInterface{
-					hb.TD().Text(shared.StrTruncate(path.Path(), 50)),
-					hb.TD().Class("text-end").Text("1"), // Placeholder for count
-					hb.TD().Text(path.CreatedAt()),
-					hb.TD().Child(hb.A().
-						Class("btn btn-sm btn-outline-primary").
-						Attr("data-bs-toggle", "tooltip").
-						Attr("title", "View visitors for this path").
-						Href(shared.UrlVisitorActivity(r, map[string]string{
-							"path": path.Path(),
-						})).
-						Child(hb.I().Class("bi bi-eye"))),
-				})
-			})),
-		})
-
-	return hb.Div().
-		Class("table-responsive").
-		Child(table)
-}
-
-// pagination creates the pagination component
-func (c *Controller) pagination(r *http.Request, page int, totalPages int) hb.TagInterface {
-	if totalPages <= 1 {
-		return hb.Div()
-	}
-
-	urlFunc := func(p int) string {
-		return shared.UrlVisitorPaths(r, map[string]string{
-			"page": cast.ToString(p),
-		})
-	}
-
-	return shared.PaginationUI(page, totalPages, urlFunc)
+			Child(tableVisitorPaths(data.Request, data.paths)).
+			Child(pagination(data.Request, data.page, data.totalPages)))
 }

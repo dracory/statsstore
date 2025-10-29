@@ -131,23 +131,61 @@ func PaginationUI(currentPage int, totalPages int, urlFunc func(page int) string
 				HTML("&laquo;")))
 	}
 
-	// Page numbers
-	for i := 1; i <= totalPages; i++ {
-		if i == currentPage {
-			ul.Child(hb.LI().
-				Class("page-item active").
-				Child(hb.A().
-					Class("page-link").
-					Href(urlFunc(i)).
-					Text(fmt.Sprintf("%d", i))))
-		} else {
-			ul.Child(hb.LI().
-				Class("page-item").
-				Child(hb.A().
-					Class("page-link").
-					Href(urlFunc(i)).
-					Text(fmt.Sprintf("%d", i))))
+	addPage := func(page int, active bool) {
+		li := hb.LI().Class("page-item")
+		link := hb.A().
+			Class("page-link").
+			Href(urlFunc(page)).
+			Text(fmt.Sprintf("%d", page))
+
+		if active {
+			li.Class("page-item active")
+			link = link.Attr("aria-current", "page")
 		}
+
+		li = li.Child(link)
+		ul.Child(li)
+	}
+
+	addEllipsis := func() {
+		ul.Child(hb.LI().
+			Class("page-item disabled").
+			Child(hb.Span().
+				Class("page-link").
+				HTML("&hellip;")))
+	}
+
+	if totalPages <= 7 {
+		for i := 1; i <= totalPages; i++ {
+			addPage(i, i == currentPage)
+		}
+	} else {
+		// Always show the first page
+		addPage(1, currentPage == 1)
+
+		start := currentPage - 2
+		if start < 2 {
+			start = 2
+		}
+
+		end := currentPage + 2
+		if end > totalPages-1 {
+			end = totalPages - 1
+		}
+
+		if start > 2 {
+			addEllipsis()
+		}
+
+		for i := start; i <= end; i++ {
+			addPage(i, i == currentPage)
+		}
+
+		if end < totalPages-1 {
+			addEllipsis()
+		}
+
+		addPage(totalPages, currentPage == totalPages)
 	}
 
 	// Next button
