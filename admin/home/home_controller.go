@@ -185,7 +185,7 @@ func (c *Controller) navigationPanel(data ControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("card mb-4 shadow-sm").
 		Child(hb.Div().
-			Class("card-header bg-light").
+			Class("card-header").
 			Child(hb.Heading4().
 				Class("card-title mb-0").
 				HTML("Navigation"))).
@@ -206,7 +206,7 @@ func (c *Controller) cardStatsSummary(data ControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(hb.Div().
-			Class("card-header bg-light d-flex justify-content-between align-items-center").
+			Class("card-header d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center").
 			Child(hb.Heading4().
 				Class("card-title mb-0").
 				HTML("Stats Summary")).

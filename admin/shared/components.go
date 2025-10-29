@@ -3,44 +3,75 @@ package shared
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gouniverse/hb"
 )
 
 // AdminHeaderUI creates the admin header navigation
 func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
-	linkHome := hb.NewHyperlink().
-		HTML("Dashboard").
-		Href(URL(r, ControllerHome, nil)).
-		Class("nav-link")
+	type navItem struct {
+		title string
+		href  string
+		path  string
+	}
 
-	linkVisitorActivity := hb.NewHyperlink().
-		HTML("Visitor Activity").
-		Href(URL(r, ControllerVisitorActivity, nil)).
-		Class("nav-link")
+	items := []navItem{
+		{
+			title: "Visitor Analytics",
+			href:  UrlHome(r),
+			path:  PathHome,
+		},
+		{
+			title: "Visitor Activity",
+			href:  UrlVisitorActivity(r),
+			path:  PathVisitorActivity,
+		},
+		{
+			title: "Visitor Paths",
+			href:  UrlVisitorPaths(r),
+			path:  PathVisitorPaths,
+		},
+	}
 
-	linkVisitorPaths := hb.NewHyperlink().
-		HTML("Visitor Paths").
-		Href(URL(r, ControllerVisitorPaths, nil)).
-		Class("nav-link active")
+	currentPath := strings.TrimSuffix(r.URL.Path, "/")
+	if currentPath == "" {
+		currentPath = PathHome
+	}
 
 	nav := hb.Nav().
-		Class("navbar navbar-expand-lg navbar-light bg-light").
-		Child(hb.Div().
-			Class("container-fluid").
-			Child(hb.A().
-				Class("navbar-brand").
-				Href(homeURL).
-				HTML("Visitor Analytics")).
-			Child(hb.Div().
-				Class("collapse navbar-collapse").
-				Child(hb.Div().
-					Class("navbar-nav").
-					Child(linkHome).
-					Child(linkVisitorActivity).
-					Child(linkVisitorPaths))))
+		Class("nav nav-pills nav-fill flex-column flex-sm-row gap-2").
+		Attr("role", "tablist")
 
-	return nav
+	for _, item := range items {
+		itemPath := strings.TrimSuffix(item.path, "/")
+		isActive := currentPath == itemPath
+
+		linkClasses := "nav-link fw-semibold text-center"
+		if isActive {
+			linkClasses += " active"
+		}
+
+		link := hb.A().
+			Class(linkClasses).
+			Attr("role", "tab").
+			Href(item.href).
+			Text(item.title)
+
+		if isActive {
+			link = link.Attr("aria-current", "page")
+		}
+
+		nav = nav.Child(link)
+	}
+
+	return hb.Div().
+		Class("d-flex flex-column flex-lg-row align-items-lg-center gap-3 mb-3").
+		Child(hb.A().
+			Class("navbar-brand fw-semibold text-decoration-none").
+			Href(homeURL).
+			HTML("Visitor Analytics")).
+		Child(nav)
 }
 
 // CardUI creates a standard card component
@@ -48,7 +79,7 @@ func CardUI(title string, body hb.TagInterface) hb.TagInterface {
 	return hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(hb.Div().
-			Class("card-header bg-light").
+			Class("card-header").
 			Child(hb.Heading4().
 				Class("card-title mb-0").
 				HTML(title))).
@@ -60,7 +91,7 @@ func CardUI(title string, body hb.TagInterface) hb.TagInterface {
 // StatCardUI creates a card displaying a single statistic
 func StatCardUI(title string, value string, icon string, color string) hb.TagInterface {
 	return hb.Div().
-		Class("card h-100 border-0 shadow-sm").
+		Class("card h-100 shadow-sm").
 		Child(hb.Div().
 			Class("card-body").
 			Child(hb.Div().
@@ -72,7 +103,7 @@ func StatCardUI(title string, value string, icon string, color string) hb.TagInt
 				Child(hb.Div().
 					Class("flex-grow-1 ms-3").
 					Child(hb.P().
-						Class("card-text text-muted mb-0").
+						Class("card-text mb-0").
 						Text(title)).
 					Child(hb.Heading3().
 						Class("mb-0 fw-bold").
@@ -82,22 +113,22 @@ func StatCardUI(title string, value string, icon string, color string) hb.TagInt
 // NavCardUI creates a navigation card with icon and description
 func NavCardUI(title string, href string, icon string, description string) hb.TagInterface {
 	return hb.Div().
-		Class("card h-100 border-0 shadow-sm hover-shadow").
+		Class("card h-100 shadow-sm").
 		Style("transition: all 0.3s ease;").
 		Child(hb.Div().
 			Class("card-body text-center").
 			Child(hb.Div().
 				Class("mb-3").
 				Child(hb.I().
-					Class(icon + " fs-1 text-primary"))).
+					Class(icon + " fs-1"))).
 			Child(hb.Heading5().
 				Class("card-title").
 				HTML(title)).
 			Child(hb.P().
-				Class("card-text text-muted").
+				Class("card-text text-muted mb-3").
 				Text(description)).
 			Child(hb.A().
-				Class("btn btn-outline-primary mt-2").
+				Class("btn btn-outline-primary").
 				Href(href).
 				Text("View Details")))
 }
