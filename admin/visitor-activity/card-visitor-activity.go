@@ -1,7 +1,12 @@
 package visitoractivity
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 	"github.com/gouniverse/hb"
 	"github.com/samber/lo"
 )
@@ -18,26 +23,307 @@ func CardVisitorActivity(data ControllerData) hb.TagInterface {
 		Child(visitorDetailModal())
 }
 
-func cardHeader(title string) hb.TagInterface {
+func footerControls(data ControllerData) hb.TagInterface {
 	return hb.Div().
-		Class("card-header d-flex justify-content-between align-items-center").
+		Class("d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mt-4").
+		Child(paginationSummary(data)).
+		Child(quickRangeButtons(data)).
+		Child(paginationControls(data))
+}
+
+func paginationSummary(data ControllerData) hb.TagInterface {
+	if data.TotalCount == 0 {
+		return hb.Span().Class("text-muted").Text("No visitors recorded yet")
+	}
+
+	start := (data.Page-1)*data.PageSize + 1
+	end := data.Page * data.PageSize
+	if int64(end) > data.TotalCount {
+		end = int(data.TotalCount)
+	}
+
+	return hb.Span().
+		Class("small text-muted").
+		Text(fmt.Sprintf("Showing %d-%d of %d visitors", start, end, data.TotalCount))
+}
+
+func quickRangeButtons(data ControllerData) hb.TagInterface {
+	btn := func(label, rng string) hb.TagInterface {
+		params := map[string]string{"page": "1", "from": "", "to": ""}
+		if rng != "" {
+			params["range"] = rng
+		}
+		return hb.A().
+			Class("btn btn-sm btn-outline-secondary").
+			Href(shared.UrlVisitorActivity(data.Request, queryParamsWith(data, params))).
+			Text(label)
+	}
+
+	return hb.Div().
+		Class("btn-group").
+		Attr("role", "group").
+		Child(btn("All", "")).
+		Child(btn("Last 24 Hours", "24h")).
+		Child(btn("Today", "today"))
+}
+
+func paginationControls(data ControllerData) hb.TagInterface {
+	urlFunc := func(page int) string {
+		params := queryParamsWith(data, map[string]string{"page": fmt.Sprintf("%d", page)})
+		return shared.UrlVisitorActivity(data.Request, params)
+	}
+
+	return shared.PaginationUI(data.Page, data.TotalPages, urlFunc)
+}
+
+func queryParamsWith(data ControllerData, overrides map[string]string) map[string]string {
+	values := url.Values{}
+	for key, val := range data.Request.URL.Query() {
+		for _, v := range val {
+			values.Add(key, v)
+		}
+	}
+
+	for key, val := range overrides {
+		if val == "" {
+			values.Del(key)
+			continue
+		}
+		values.Set(key, val)
+	}
+
+	result := map[string]string{}
+	for key := range values {
+		result[key] = values.Get(key)
+	}
+
+	return result
+}
+
+func cardHeader(title string) hb.TagInterface {
+	actions := hb.Div().
+		Class("d-flex align-items-center gap-2").
+		Child(exportDropdown()).
+		Child(optionsButton())
+
+	return hb.Div().
+		Class("card-header d-flex flex-wrap justify-content-between align-items-center gap-2").
 		Child(hb.Heading4().
 			Class("card-title mb-0").
 			HTML(title)).
-		Child(exportDropdown())
+		Child(actions)
 }
 
 func cardBody(data ControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("card-body").
-		Child(hb.Table().
-			Class("table table-dark table-striped").
-			ID("visitor-activity-table").
-			Children([]hb.TagInterface{
-				tableHead(),
-				tableBody(data.Visitors),
-			})).
-		Child(pagination(data, data.Page, data.TotalPages))
+		Child(filterToolbar(data)).
+		Child(hb.Div().
+			Class("list-group list-group-flush border rounded-3 overflow-hidden").
+			Children(lo.Map(data.Visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
+				return visitorRow(data, visitor, index)
+			}))).
+		Child(exportDataTable(data)).
+		Child(footerControls(data))
+}
+
+func filterToolbar(data ControllerData) hb.TagInterface {
+	return hb.Div().
+		Class("d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3").
+		Child(addFilterDropdown(data)).
+		Child(activeFilterBadges(data.Filters))
+}
+
+func addFilterDropdown(data ControllerData) hb.TagInterface {
+	items := []struct {
+		label  string
+		params map[string]string
+	}{
+		{"Last 24 Hours", queryParamsWith(data, map[string]string{"range": "24h", "from": "", "to": "", "page": "1"})},
+		{"Today", queryParamsWith(data, map[string]string{"range": "today", "from": "", "to": "", "page": "1"})},
+		{"Country: Unknown", queryParamsWith(data, map[string]string{"country": "empty", "page": "1"})},
+		{"Device: Desktop", queryParamsWith(data, map[string]string{"device": "desktop", "page": "1"})},
+	}
+
+	menu := hb.UL().Class("dropdown-menu")
+	for _, item := range items {
+		menu = menu.Child(hb.LI().
+			Child(hb.A().
+				Class("dropdown-item").
+				Href(shared.UrlVisitorActivity(data.Request, item.params)).
+				Text(item.label)))
+	}
+
+	return hb.Div().
+		Class("dropdown").
+		Child(hb.Button().
+			Class("btn btn-outline-primary dropdown-toggle").
+			Attr("type", "button").
+			Attr("data-bs-toggle", "dropdown").
+			Attr("aria-expanded", "false").
+			HTML(`<i class="bi bi-funnel"></i> Add Filter`)).
+		Child(menu)
+}
+
+func activeFilterBadges(filters FilterOptions) hb.TagInterface {
+	tags := []hb.TagInterface{}
+
+	if filters.Range != "" {
+		tags = append(tags, hb.Span().Class("badge rounded-pill text-bg-primary").Text(fmt.Sprintf("Range: %s", rangeLabel(filters.Range))))
+	}
+
+	if filters.Country != "" {
+		label := filters.Country
+		if filters.Country == "empty" {
+			label = "Unknown"
+		}
+		tags = append(tags, hb.Span().Class("badge rounded-pill text-bg-info").Text(fmt.Sprintf("Country: %s", strings.ToUpper(label))))
+	}
+
+	if filters.Device != "" {
+		tags = append(tags, hb.Span().Class("badge rounded-pill text-bg-secondary").Text(fmt.Sprintf("Device: %s", strings.Title(filters.Device))))
+	}
+
+	if len(tags) == 0 {
+		return hb.Span().Class("text-muted small").Text("No active filters")
+	}
+
+	return hb.Div().Class("d-flex flex-wrap gap-2").Children(tags)
+}
+
+func rangeLabel(value string) string {
+	switch strings.ToLower(value) {
+	case "24h", "last24hours", "last_24_hours":
+		return "Last 24 Hours"
+	case "today":
+		return "Today"
+	case "7d", "last7days":
+		return "Last 7 Days"
+	case "30d", "last30days":
+		return "Last 30 Days"
+	default:
+		return value
+	}
+}
+
+func visitorRow(data ControllerData, visitor statsstore.VisitorInterface, index int) hb.TagInterface {
+	header := hb.Div().
+		Class("d-flex flex-wrap align-items-center justify-content-between gap-3")
+
+	leftHeader := hb.Div().
+		Class("d-flex align-items-center gap-2").
+		Child(countryBadge(visitor)).
+		Child(hb.Div().
+			Class("d-flex flex-column").
+			Child(hb.Span().Class("fw-semibold").Text(formatLocation(visitor))).
+			Child(hb.Span().Class("small text-muted").Text(visitor.IpAddress())))
+
+	rightHeader := hb.Div().
+		Class("d-flex align-items-center gap-2").
+		Child(sessionBadge(visitor)).
+		Child(systemSummary(visitor))
+
+	header = header.Child(leftHeader).Child(rightHeader)
+
+	body := hb.Div().
+		Class("row g-3 align-items-start mt-2")
+
+	leftCol := hb.Div().
+		Class("col-lg-6 d-flex flex-column gap-2").
+		Child(hb.Div().
+			Class("small text-muted").
+			HTML(fmt.Sprintf("Visit Time: %s", formatVisitorTimestamp(visitor.CreatedAt())))).
+		Child(hb.Div().
+			Class("small text-muted").
+			HTML(fmt.Sprintf("Duration: %s", formatVisitDuration(visitor, data.Visitors, index))))
+
+	rightCol := hb.Div().
+		Class("col-lg-6 d-flex flex-column gap-2").
+		Child(referrerBlock(visitor)).
+		Child(pathBlock(visitor))
+
+	body = body.Child(leftCol).Child(rightCol)
+
+	return hb.Div().
+		Class("list-group-item py-3").
+		Child(header).
+		Child(body)
+}
+
+func systemSummary(visitor statsstore.VisitorInterface) hb.TagInterface {
+	systemText := strings.TrimSpace(fmt.Sprintf("%s %s", visitor.UserBrowser(), visitor.UserBrowserVersion()))
+	if systemText == "" {
+		systemText = "Unknown Browser"
+	}
+	osText := strings.TrimSpace(fmt.Sprintf("%s %s", visitor.UserOs(), visitor.UserOsVersion()))
+	if osText == "" {
+		osText = "Unknown OS"
+	}
+
+	return hb.Div().
+		Class("d-flex align-items-center gap-2").
+		Child(deviceIcon(visitor)).
+		Child(osIcon(visitor)).
+		Child(hb.Span().Class("small").Text(systemText + " on " + osText))
+}
+
+func locationBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
+	country := visitor.Country()
+	if country == "" {
+		country = "Unknown"
+	}
+	ip := visitor.IpAddress()
+	if ip == "" {
+		ip = "Unknown"
+	}
+
+	return hb.Div().
+		Class("d-flex flex-column gap-1").
+		Child(hb.Span().Class("fw-semibold").Text(country)).
+		Child(hb.Span().Class("small text-muted").Text(fmt.Sprintf("IP Address: %s", ip)))
+}
+
+func referrerBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
+	referrer := visitor.UserReferrer()
+	linkText := referrer
+	if referrer == "" {
+		linkText = "(No referring link)"
+	}
+
+	link := hb.Span().Class("text-success").Text(linkText)
+	if referrer != "" {
+		link = hb.A().
+			Href(referrer).
+			Class("text-success text-decoration-none").
+			Attr("target", "_blank").
+			Text(linkText)
+	}
+
+	return hb.Div().
+		Class("d-flex flex-column gap-1").
+		Child(hb.Span().Class("fw-semibold small").Text("Referrer")).
+		Child(link)
+}
+
+func pathBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
+	return hb.Div().
+		Class("d-flex flex-column gap-1").
+		Child(hb.Span().Class("fw-semibold small").Text("Visited URL")).
+		Child(hb.Raw(getVisitPageLink(visitor.Path())))
+}
+
+func sessionBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
+	fingerprint := visitor.Fingerprint()
+	if len(fingerprint) > 8 {
+		fingerprint = fingerprint[:8]
+	}
+	if fingerprint == "" {
+		fingerprint = "Session"
+	}
+
+	return hb.Span().
+		Class("badge text-bg-secondary").
+		Text(fmt.Sprintf("Session %s", strings.ToUpper(fingerprint)))
 }
 
 func exportDropdown() hb.TagInterface {
@@ -59,29 +345,76 @@ func exportDropdown() hb.TagInterface {
 					Text("Export to CSV"))))
 }
 
-func tableHead() hb.TagInterface {
-	return hb.Thead().
-		Class("table-dark").
-		Children([]hb.TagInterface{
-			hb.TR().Children([]hb.TagInterface{
-				hb.TH().Text("ID"),
-				hb.TH().Text("Path"),
-				hb.TH().Text("Timestamp"),
-				hb.TH().Text("Duration"),
-			}),
-		})
+func optionsButton() hb.TagInterface {
+	return hb.Button().
+		Class("btn btn-sm btn-outline-secondary").
+		Attr("type", "button").
+		HTML(`<i class="bi bi-gear"></i>`)
 }
 
-func tableBody(visitors []statsstore.VisitorInterface) hb.TagInterface {
-	return hb.Tbody().Children(lo.Map(visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
-		timestamp := formatVisitorTimestamp(visitor.CreatedAt())
-		duration := formatVisitDuration(visitor, visitors, index)
+func exportDataTable(data ControllerData) hb.TagInterface {
+	head := hb.Thead().
+		Child(hb.TR().Children([]hb.TagInterface{
+			hb.TH().Text("Visit Time"),
+			hb.TH().Text("Path"),
+			hb.TH().Text("Country"),
+			hb.TH().Text("IP Address"),
+			hb.TH().Text("Referrer"),
+			hb.TH().Text("Browser"),
+			hb.TH().Text("OS"),
+			hb.TH().Text("User Agent"),
+		}))
 
-		return hb.TR().Children([]hb.TagInterface{
-			hb.TD().Text(visitor.ID()),
-			hb.TD().HTML(getVisitPageLink(visitor.Path())),
-			hb.TD().Text(timestamp),
-			hb.TD().Text(duration),
-		})
-	}))
+	body := hb.Tbody().
+		Children(lo.Map(data.Visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
+			return hb.TR().Children([]hb.TagInterface{
+				hb.TD().Text(formatVisitorTimestamp(visitor.CreatedAt())),
+				hb.TD().Text(visitor.Path()),
+				hb.TD().Text(strings.ToUpper(visitor.Country())),
+				hb.TD().Text(visitor.IpAddress()),
+				hb.TD().Text(visitor.UserReferrer()),
+				hb.TD().Text(strings.TrimSpace(visitor.UserBrowser() + " " + visitor.UserBrowserVersion())),
+				hb.TD().Text(strings.TrimSpace(visitor.UserOs() + " " + visitor.UserOsVersion())),
+				hb.TD().Text(visitor.UserAgent()),
+			})
+		}))
+
+	return hb.Table().
+		Class("table table-sm d-none").
+		ID("visitor-activity-table").
+		Child(head).
+		Child(body)
+}
+
+func countryBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
+	code := strings.ToUpper(visitor.Country())
+	flag := countryFlagEmoji(code)
+	if code == "" {
+		code = "--"
+	}
+
+	return hb.Span().
+		Class("badge bg-light text-dark border").
+		Text(fmt.Sprintf("%s %s", flag, code))
+}
+
+func formatLocation(visitor statsstore.VisitorInterface) string {
+	country := visitor.Country()
+	if country == "" {
+		return "Unknown Location"
+	}
+	return strings.ToUpper(country)
+}
+
+func countryFlagEmoji(code string) string {
+	if len(code) != 2 {
+		return "🌐"
+	}
+	code = strings.ToUpper(code)
+	r1 := rune(code[0])
+	r2 := rune(code[1])
+	if r1 < 'A' || r1 > 'Z' || r2 < 'A' || r2 > 'Z' {
+		return "🌐"
+	}
+	return string(r1-65+0x1F1E6) + string(r2-65+0x1F1E6)
 }

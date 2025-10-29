@@ -13,7 +13,19 @@ type ControllerData struct {
 	Visitors   []statsstore.VisitorInterface
 	Page       int
 	TotalPages int
+	PageSize   int
+	TotalCount int64
+	Filters    FilterOptions
 }
 
 // ControllerOptions configures the visitor activity controller views
 type ControllerOptions = shared.ControllerOptions
+
+// FilterOptions describes the active filters applied to the visitor list
+type FilterOptions struct {
+	Range   string
+	From    string
+	To      string
+	Country string
+	Device  string
+}

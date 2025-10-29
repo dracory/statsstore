@@ -3,6 +3,7 @@ package visitoractivity
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -16,31 +17,63 @@ import (
 func buildControllerData(r *http.Request, store statsstore.StoreInterface) (ControllerData, string) {
 	data := ControllerData{Request: r}
 
-	page := r.URL.Query().Get("page")
+	query := r.URL.Query()
+	page := query.Get("page")
 	pageInt, err := strconv.Atoi(page)
 	if err != nil || pageInt < 1 {
 		pageInt = 1
 	}
 
+	perPageParam := query.Get("per_page")
 	perPage := 10
+	if perPageParam != "" {
+		if val, errConv := strconv.Atoi(perPageParam); errConv == nil && val > 0 && val <= 100 {
+			perPage = val
+		}
+	}
+
+	filters := parseFilters(query)
+
 	offset := (pageInt - 1) * perPage
 
-	visitors, err := store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
+	options := statsstore.VisitorQueryOptions{
 		Limit:     perPage,
 		Offset:    offset,
 		OrderBy:   statsstore.COLUMN_CREATED_AT,
 		SortOrder: "DESC",
-	})
+	}
+
+	if filters.Country != "" {
+		options.Country = filters.Country
+	}
+
+	if filters.From != "" {
+		options.CreatedAtGte = filters.From
+	}
+
+	if filters.To != "" {
+		options.CreatedAtLte = filters.To
+	}
+
+	visitors, err := store.VisitorList(r.Context(), options)
 	if err != nil {
 		return data, err.Error()
 	}
 
-	visitorCount, err := store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{})
+	countOptions := options
+	countOptions.Limit = 0
+	countOptions.Offset = 0
+	countOptions.CountOnly = true
+
+	visitorCount, err := store.VisitorCount(r.Context(), countOptions)
 	if err != nil {
 		return data, err.Error()
 	}
 
-	totalPages := (int(visitorCount) + perPage - 1) / perPage
+	totalPages := int(visitorCount) / perPage
+	if int(visitorCount)%perPage != 0 {
+		totalPages++
+	}
 	if totalPages < 1 {
 		totalPages = 1
 	}
@@ -48,8 +81,46 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 	data.Visitors = visitors
 	data.Page = pageInt
 	data.TotalPages = totalPages
+	data.PageSize = perPage
+	data.TotalCount = visitorCount
+	data.Filters = filters
 
 	return data, ""
+}
+
+func parseFilters(values url.Values) FilterOptions {
+	get := func(key string) string {
+		return strings.TrimSpace(values.Get(key))
+	}
+
+	filters := FilterOptions{
+		Range:   get("range"),
+		From:    get("from"),
+		To:      get("to"),
+		Country: get("country"),
+		Device:  get("device"),
+	}
+
+	if filters.Range != "" {
+		now := time.Now().UTC()
+		switch strings.ToLower(filters.Range) {
+		case "24h", "last24hours", "last_24_hours":
+			filters.From = now.Add(-24 * time.Hour).Format(time.RFC3339)
+			filters.To = now.Format(time.RFC3339)
+		case "today":
+			start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+			filters.From = start.Format(time.RFC3339)
+			filters.To = start.Add(24 * time.Hour).Format(time.RFC3339)
+		case "7d", "last7days":
+			filters.From = now.Add(-7 * 24 * time.Hour).Format(time.RFC3339)
+			filters.To = now.Format(time.RFC3339)
+		case "30d", "last30days":
+			filters.From = now.Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+			filters.To = now.Format(time.RFC3339)
+		}
+	}
+
+	return filters
 }
 
 // Helper Functions
