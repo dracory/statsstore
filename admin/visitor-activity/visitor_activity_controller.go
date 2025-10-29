@@ -60,7 +60,7 @@ func (c *Controller) handleList(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) handleDetailView(w http.ResponseWriter, r *http.Request, visitorID string) {
 	visitor, err := c.ui.Store.VisitorFindByID(r.Context(), visitorID)
 	if err != nil || visitor == nil {
-		http.Error(w, "Visitor not found", http.StatusNotFound)
+		w.Write([]byte(hb.Div().Class("alert alert-danger").Text("Visitor not found").ToHTML()))
 		return
 	}
 
@@ -73,7 +73,7 @@ func (c *Controller) handleDetailView(w http.ResponseWriter, r *http.Request, vi
 		Limit:     50, // Get more visits than we need to filter
 	})
 	if err != nil {
-		http.Error(w, "Failed to load related visits: "+err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(hb.Div().Class("alert alert-danger").Text("Failed to load related visits: " + err.Error()).ToHTML()))
 		return
 	}
 
@@ -89,6 +89,15 @@ func (c *Controller) handleDetailView(w http.ResponseWriter, r *http.Request, vi
 		}
 	}
 
+	// Check if this is a modal request
+	isModal := req.GetString(r, "modal") == "1"
+	if isModal {
+		// Return just the modal content
+		w.Write([]byte(c.visitorDetailTable(visitor, relatedVisits).ToHTML()))
+		return
+	}
+
+	// Return full page view
 	w.Write([]byte(c.detailViewToTag(w, r, visitor, relatedVisits)))
 }
 

@@ -10,10 +10,10 @@ import (
 // deviceIcon returns an icon representing the device type
 func deviceIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 	deviceType := strings.ToLower(visitor.UserDeviceType())
-	
+
 	iconClass := "bi bi-question-circle"
 	color := "text-secondary"
-	
+
 	switch {
 	case strings.Contains(deviceType, "desktop"):
 		iconClass = "bi bi-display"
@@ -28,17 +28,17 @@ func deviceIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 		iconClass = "bi bi-robot"
 		color = "text-warning"
 	}
-	
-	return hb.I().Class(iconClass + " " + color).Attr("title", visitor.UserDevice())
+
+	return hb.I().Class(iconClass+" "+color).Attr("title", visitor.UserDevice())
 }
 
 // osIcon returns an icon representing the operating system
 func osIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 	os := strings.ToLower(visitor.UserOs())
-	
+
 	iconClass := "bi bi-circle"
 	color := "text-secondary"
-	
+
 	switch {
 	case strings.Contains(os, "windows"):
 		iconClass = "bi bi-windows"
@@ -53,6 +53,8 @@ func osIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 		iconClass = "bi bi-ubuntu"
 		color = "text-warning"
 	}
-	
-	return hb.I().Class(iconClass + " " + color).Attr("title", visitor.UserOs() + " " + visitor.UserOsVersion())
+
+	return hb.I().
+		Class(iconClass + " " + color).
+		Title(visitor.UserOs() + " " + visitor.UserOsVersion())
 }
