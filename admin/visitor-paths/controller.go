@@ -2,10 +2,7 @@ package visitorpaths
 
 import (
 	"net/http"
-	"strconv"
 
-	"github.com/dracory/sb"
-	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
 	"github.com/gouniverse/hb"
 )
@@ -26,14 +23,6 @@ type Controller struct {
 	ui shared.ControllerOptions
 }
 
-// ControllerData contains the data needed for the visitor paths page
-type ControllerData struct {
-	Request    *http.Request
-	paths      []statsstore.VisitorInterface
-	page       int
-	totalPages int
-}
-
 // ServeHTTP implements the http.Handler interface
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(c.Handler(w, r)))
@@ -41,7 +30,7 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ToTag renders the controller to an HTML tag
 func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
-	data, errorMessage := c.prepareData(r)
+	data, errorMessage := buildControllerData(r, c.ui.Store)
 
 	c.ui.Layout.SetTitle("Visitor Paths | Visitor Analytics")
 
@@ -121,54 +110,6 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 
 // == PRIVATE METHODS ==========================================================
 
-// prepareData prepares the data for the visitor paths page
-func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMessage string) {
-	data.Request = r
-
-	// Get the current page
-	page := r.URL.Query().Get("page")
-	pageInt, err := strconv.Atoi(page)
-	if err != nil || pageInt < 1 {
-		pageInt = 1
-	}
-
-	perPage := 10
-	offset := (pageInt - 1) * perPage
-
-	// Get the most visited paths
-	paths, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
-		Limit:     perPage,
-		Offset:    offset,
-		OrderBy:   statsstore.COLUMN_CREATED_AT,
-		SortOrder: sb.DESC,
-		// Note: We need to implement proper path grouping in the statsstore package
-	})
-
-	if err != nil {
-		return data, err.Error()
-	}
-
-	// Get total unique paths
-	pathCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
-		Distinct: "path",
-	})
-
-	if err != nil {
-		return data, err.Error()
-	}
-
-	totalPages := (int(pathCount) + perPage - 1) / perPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-
-	data.paths = paths
-	data.page = pageInt
-	data.totalPages = totalPages
-
-	return data, ""
-}
-
 // page builds the main page layout
 func (c *Controller) page(data ControllerData) hb.TagInterface {
 	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
@@ -197,36 +138,5 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Child(shared.AdminHeaderUI(data.Request, c.ui.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
-		Child(c.cardVisitorPaths(data))
-}
-
-// cardVisitorPaths creates the visitor paths card
-func (c *Controller) cardVisitorPaths(data ControllerData) hb.TagInterface {
-	return hb.Div().
-		Class("card shadow-sm mb-4").
-		Child(hb.Div().
-			Class("card-header d-flex justify-content-between align-items-center").
-			Child(hb.Heading4().
-				Class("card-title mb-0").
-				HTML("Most Visited Paths")).
-			Child(hb.Div().
-				Class("dropdown").
-				Child(hb.Button().
-					Class("btn btn-sm btn-outline-secondary dropdown-toggle").
-					Attr("type", "button").
-					Attr("data-bs-toggle", "dropdown").
-					Attr("aria-expanded", "false").
-					Text("Export")).
-				Child(hb.UL().
-					Class("dropdown-menu").
-					Child(hb.LI().
-						Child(hb.A().
-							Class("dropdown-item").
-							Href("#").
-							Attr("onclick", "exportTableToCSV('visitor-paths-table', 'visitor_paths.csv')").
-							Text("Export to CSV")))))).
-		Child(hb.Div().
-			Class("card-body").
-			Child(tableVisitorPaths(data.Request, data.paths)).
-			Child(pagination(data.Request, data.page, data.totalPages)))
+		Child(CardVisitorPaths(data, c.ui))
 }

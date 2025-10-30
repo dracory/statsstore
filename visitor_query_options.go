@@ -7,6 +7,9 @@ type VisitorQueryOptions struct {
 	// StatusIn     []string
 	Distinct     string // distinct select column
 	Country      string
+	PathContains string
+	PathExact    string
+	DeviceType   string
 	CreatedAtGte string
 	CreatedAtLte string
 	Offset       int

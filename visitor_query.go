@@ -37,6 +37,21 @@ func (store *Store) visitorQuery(options VisitorQueryOptions) *goqu.SelectDatase
 		q = q.Where(goqu.C(COLUMN_COUNTRY).Eq(options.Country))
 	}
 
+	if options.PathExact != "" {
+		q = q.Where(goqu.C(COLUMN_PATH).Eq(options.PathExact))
+	} else if options.PathContains != "" {
+		pattern := "%" + options.PathContains + "%"
+		q = q.Where(goqu.C(COLUMN_PATH).ILike(pattern))
+	}
+
+	if options.DeviceType != "" {
+		if strings.EqualFold(options.DeviceType, "empty") {
+			q = q.Where(goqu.C(COLUMN_USER_DEVICE_TYPE).Eq(""))
+		} else {
+			q = q.Where(goqu.C(COLUMN_USER_DEVICE_TYPE).Eq(options.DeviceType))
+		}
+	}
+
 	if options.CreatedAtGte != "" && options.CreatedAtLte != "" {
 		q = q.Where(
 			goqu.C(COLUMN_CREATED_AT).Gte(options.CreatedAtGte),
