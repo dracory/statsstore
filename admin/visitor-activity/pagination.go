@@ -1,8 +1,8 @@
 package visitoractivity
 
 import (
+	"github.com/dracory/hb"
 	"github.com/dracory/statsstore/admin/shared"
-	"github.com/gouniverse/hb"
 	"github.com/spf13/cast"
 )
 

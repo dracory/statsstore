@@ -1,7 +1,7 @@
 package visitoractivity
 
 import (
-	"github.com/gouniverse/hb"
+	"github.com/dracory/hb"
 )
 
 func visitorDetailModal() hb.TagInterface {

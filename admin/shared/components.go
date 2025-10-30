@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gouniverse/hb"
+	"github.com/dracory/hb"
 )
 
 // AdminHeaderUI creates the admin header navigation
@@ -31,6 +31,11 @@ func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
 			title: "Visitor Paths",
 			href:  UrlVisitorPaths(r),
 			path:  PathVisitorPaths,
+		},
+		{
+			title: "Page View Activity",
+			href:  UrlPageViewActivity(r),
+			path:  PathPageViewActivity,
 		},
 	}
 

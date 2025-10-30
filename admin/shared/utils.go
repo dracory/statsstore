@@ -4,7 +4,7 @@ import (
 	"net/http"
 	urlpkg "net/url"
 
-	"github.com/gouniverse/hb"
+	"github.com/dracory/hb"
 	"github.com/samber/lo"
 )
 
@@ -34,6 +34,16 @@ func UrlVisitorPaths(r *http.Request, params ...map[string]string) string {
 	p := lo.IfF(len(params) > 0, func() map[string]string { return params[0] }).Else(map[string]string{})
 
 	p["path"] = PathVisitorPaths
+
+	return URL(r, endpoint, p)
+}
+
+func UrlPageViewActivity(r *http.Request, params ...map[string]string) string {
+	endpoint := lo.IfF(r.Context().Value(KeyEndpoint) != nil, func() string { return r.Context().Value(KeyEndpoint).(string) }).Else("/")
+
+	p := lo.IfF(len(params) > 0, func() map[string]string { return params[0] }).Else(map[string]string{})
+
+	p["path"] = PathPageViewActivity
 
 	return URL(r, endpoint, p)
 }

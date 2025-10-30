@@ -3,8 +3,8 @@ package visitoractivity
 import (
 	"net/http"
 
+	"github.com/dracory/hb"
 	"github.com/dracory/statsstore/admin/shared"
-	"github.com/gouniverse/hb"
 )
 
 // New creates a new visitor activity controller

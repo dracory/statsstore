@@ -11,14 +11,16 @@ const (
 
 // Controller name constants
 const (
-	ControllerHome            = "home"
-	ControllerVisitorActivity = "visitor-activity"
-	ControllerVisitorPaths    = "visitor-paths"
+	ControllerHome             = "home"
+	ControllerVisitorActivity  = "visitor-activity"
+	ControllerVisitorPaths     = "visitor-paths"
+	ControllerPageViewActivity = "page-view-activity"
 )
 
 // Path constants for admin routes
 const (
-	PathHome            = "/admin/home"
-	PathVisitorActivity = "/admin/visitor-activity"
-	PathVisitorPaths    = "/admin/visitor-paths"
+	PathHome             = "/admin/home"
+	PathVisitorActivity  = "/admin/visitor-activity"
+	PathVisitorPaths     = "/admin/visitor-paths"
+	PathPageViewActivity = "/admin/page-view-activity"
 )

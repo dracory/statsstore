@@ -27,6 +27,6 @@ The statsstore admin panel delivers ready-made dashboards and tables for monitor
 - Scripts are currently injected as inline strings; replace or extend via layout hooks if bundling assets differently.
 
 ## Dependencies
-- HTML generation uses `github.com/gouniverse/hb`.
+- HTML generation uses `github.com/dracory/hb`.
 - Charts and interactions rely on external CDNs (Chart.js, HTMX, SweetAlert2) loaded on demand.
 - Pagination utilities depend on `github.com/spf13/cast` for string conversion.

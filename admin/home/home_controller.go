@@ -8,9 +8,9 @@ import (
 	"github.com/dromara/carbon/v2"
 
 	"github.com/dracory/cdn"
+	"github.com/dracory/hb"
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
-	"github.com/gouniverse/hb"
 	"github.com/samber/lo"
 	"github.com/spf13/cast"
 )

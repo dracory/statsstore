@@ -6,7 +6,7 @@ This roadmap reflects the current implementation inside `github.com/dracory/stat
 
 - **Available screens**: Home dashboard, Visitor Activity table, Visitor Paths list.
 - **Data source**: `statsstore.StoreInterface` providing CRUD, counting, and soft-deletion of visitor records.
-- **UI stack**: Server-rendered templates via `github.com/gouniverse/hb`, Bootstrap styling, and lightweight script injection for Chart.js, HTMX, and SweetAlert2.
+- **UI stack**: Server-rendered templates via `github.com/dracory/hb`, Bootstrap styling, and lightweight script injection for Chart.js, HTMX, and SweetAlert2.
 - **Navigation**: Shared header/breadcrumb helpers with URL generation that respects the hosting endpoint.
 
 ## Guiding Principles

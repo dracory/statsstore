@@ -3,9 +3,9 @@ package visitorpaths
 import (
 	"net/http"
 
+	"github.com/dracory/hb"
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
-	"github.com/gouniverse/hb"
 	"github.com/samber/lo"
 )
 
