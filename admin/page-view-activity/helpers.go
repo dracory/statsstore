@@ -11,8 +11,11 @@ import (
 )
 
 // buildControllerData prepares the controller data and returns an optional error message.
-func buildControllerData(r *http.Request, store statsstore.StoreInterface) (ControllerData, string) {
-	data := ControllerData{Request: r}
+func buildControllerData(r *http.Request, store statsstore.StoreInterface) (
+	data ControllerData,
+	errMessage string,
+) {
+	data = ControllerData{Request: r}
 
 	query := r.URL.Query()
 

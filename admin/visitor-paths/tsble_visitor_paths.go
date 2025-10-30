@@ -1,7 +1,7 @@
 package visitorpaths
 
 import (
-	"net/http"
+	"strings"
 
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore"
@@ -9,42 +9,42 @@ import (
 	"github.com/samber/lo"
 )
 
-// tableVisitorPaths creates the visitor paths table
-func tableVisitorPaths(r *http.Request, paths []statsstore.VisitorInterface) hb.TagInterface {
-	table := hb.Table().
-		ID("visitor-paths-table").
-		Class("table table-striped table-hover").
-		Children([]hb.TagInterface{
-			hb.Thead().
-				Class("table-light").
-				Children([]hb.TagInterface{
-					hb.TR().Children([]hb.TagInterface{
-						hb.TH().Text("URL"),
-						hb.TH().Class("text-end").Text("Visit Count"),
-						hb.TH().Text("Last Visit"),
-						hb.TH().Text("Actions"),
-					}),
-				}),
-			hb.Tbody().Children(lo.Map(paths, func(path statsstore.VisitorInterface, index int) hb.TagInterface {
-				// For now, we'll just show the path and created date
-				// In a real implementation, we would need to add count functionality to the statsstore
-				return hb.TR().Children([]hb.TagInterface{
-					hb.TD().Text(shared.StrTruncate(path.Path(), 50)),
-					hb.TD().Class("text-end").Text("1"), // Placeholder for count
-					hb.TD().Text(path.CreatedAt()),
-					hb.TD().Child(hb.A().
-						Class("btn btn-sm btn-outline-primary").
-						Attr("data-bs-toggle", "tooltip").
-						Attr("title", "View visitors for this path").
-						Href(shared.UrlVisitorActivity(r, map[string]string{
-							"path": path.Path(),
-						})).
-						Child(hb.I().Class("bi bi-eye"))),
-				})
-			})),
-		})
+// tableVisitorPaths builds the hidden export table used for CSV downloads.
+func tableVisitorPaths(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
+	head := hb.Thead().
+		Child(hb.TR().Children([]hb.TagInterface{
+			hb.TH().Text("Visit Time"),
+			hb.TH().Text("Path"),
+			hb.TH().Text("Absolute URL"),
+			hb.TH().Text("Country"),
+			hb.TH().Text("IP Address"),
+			hb.TH().Text("Referrer"),
+			hb.TH().Text("Session"),
+			hb.TH().Text("Device"),
+			hb.TH().Text("Browser"),
+		}))
 
-	return hb.Div().
-		Class("table-responsive").
-		Child(table)
+	body := hb.Tbody().
+		Children(lo.Map(data.Paths, func(visitor statsstore.VisitorInterface, _ int) hb.TagInterface {
+			absolute := fullPathURL(ui, visitor.Path())
+			browser := strings.TrimSpace(visitor.UserBrowser() + " " + visitor.UserBrowserVersion())
+
+			return hb.TR().Children([]hb.TagInterface{
+				hb.TD().Text(formatTimestamp(visitor.CreatedAt())),
+				hb.TD().Text(visitor.Path()),
+				hb.TD().Text(absolute),
+				hb.TD().Text(strings.ToUpper(visitor.Country())),
+				hb.TD().Text(visitor.IpAddress()),
+				hb.TD().Text(visitor.UserReferrer()),
+				hb.TD().Text(sessionLabel(visitor)),
+				hb.TD().Text(visitor.UserDevice()),
+				hb.TD().Text(browser),
+			})
+		}))
+
+	return hb.Table().
+		Class("table table-sm d-none").
+		ID("visitor-paths-table").
+		Child(head).
+		Child(body)
 }
