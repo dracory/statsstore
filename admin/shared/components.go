@@ -95,24 +95,24 @@ func CardUI(title string, body hb.TagInterface) hb.TagInterface {
 
 // StatCardUI creates a card displaying a single statistic
 func StatCardUI(title string, value string, icon string, color string) hb.TagInterface {
+	iconWrapperClasses := "rounded-circle d-flex align-items-center justify-content-center text-" + color
+	backgroundClass := "bg-" + color + "-subtle"
+
 	return hb.Div().
-		Class("card h-100 shadow-sm").
+		Class("card h-100 shadow-sm border-0").
 		Child(hb.Div().
-			Class("card-body").
+			Class("card-body d-flex flex-column align-items-center justify-content-center gap-3 py-4").
 			Child(hb.Div().
-				Class("d-flex align-items-center").
-				Child(hb.Div().
-					Class("flex-shrink-0").
-					Child(hb.I().
-						Class(icon + " fs-1 text-" + color))).
-				Child(hb.Div().
-					Class("flex-grow-1 ms-3").
-					Child(hb.P().
-						Class("card-text mb-0").
-						Text(title)).
-					Child(hb.Heading3().
-						Class("mb-0 fw-bold").
-						Text(value)))))
+				Class(iconWrapperClasses + " " + backgroundClass).
+				Style("width: 60px; height: 60px;").
+				Child(hb.I().
+					Class(icon + " fs-3"))).
+			Child(hb.Small().
+				Class("text-uppercase text-muted fw-semibold text-center letter-spacing-1").
+				Text(title)).
+			Child(hb.Heading3().
+				Class("mb-0 fw-bold").
+				Text(value)))
 }
 
 // NavCardUI creates a navigation card with icon and description
