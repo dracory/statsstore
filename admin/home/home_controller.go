@@ -103,10 +103,38 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMessage string) {
 	data.Request = r
 
-	start := carbon.Now().SubDays(31)
-	end := carbon.Now()
+	periodOptions := []periodOption{
+		{Value: "this-week", Label: "This Week"},
+		{Value: "last-week", Label: "Last Week"},
+		{Value: "this-month", Label: "This Month"},
+		{Value: "last-month", Label: "Last Month"},
+	}
 
-	dateRange := datesInRange(start, end)
+	selectedPeriod := r.URL.Query().Get("period")
+	if selectedPeriod == "" {
+		selectedPeriod = "this-week"
+	}
+
+	now := carbon.Now()
+	start := now.Copy()
+	end := now.Copy()
+
+	switch selectedPeriod {
+	case "last-week":
+		start = now.SubWeeks(1).StartOfWeek()
+		end = start.Copy().EndOfWeek()
+	case "this-month":
+		start = now.StartOfMonth()
+		end = now.EndOfMonth()
+	case "last-month":
+		start = now.SubMonths(1).StartOfMonth()
+		end = start.Copy().EndOfMonth()
+	default: // this-week
+		start = now.StartOfWeek()
+		end = now.EndOfWeek()
+	}
+
+	dateRange := datesInRange(start.Copy(), end.Copy())
 	createdAtGte := start.ToDateString() + " 00:00:00"
 	createdAtLte := end.ToDateString() + " 23:59:59"
 
@@ -183,6 +211,8 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	data.totalVisits = totalVisits
 	data.firstVisits = firstVisits
 	data.returnVisits = returnVisits
+	data.selectedPeriod = selectedPeriod
+	data.periodOptions = periodOptions
 
 	return data, ""
 }

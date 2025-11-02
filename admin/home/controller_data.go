@@ -10,4 +10,11 @@ type ControllerData struct {
 	totalVisits  []int64
 	firstVisits  []int64
 	returnVisits []int64
+	selectedPeriod string
+	periodOptions  []periodOption
+}
+
+type periodOption struct {
+	Value string
+	Label string
 }
