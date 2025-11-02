@@ -8,4 +8,6 @@ type ControllerData struct {
 	dates        []string
 	uniqueVisits []int64
 	totalVisits  []int64
+	firstVisits  []int64
+	returnVisits []int64
 }

@@ -99,43 +99,90 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 // == PRIVATE METHODS ==========================================================
 
 // prepareData prepares the data for the home page
+
 func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMessage string) {
 	data.Request = r
 
-	datesInRange := datesInRange(carbon.Now().SubDays(31), carbon.Now())
+	start := carbon.Now().SubDays(31)
+	end := carbon.Now()
 
-	dates := []string{}
-	uniqueVisits := []int64{}
-	totalVisits := []int64{}
+	dateRange := datesInRange(start, end)
+	createdAtGte := start.ToDateString() + " 00:00:00"
+	createdAtLte := end.ToDateString() + " 23:59:59"
 
-	for _, date := range datesInRange {
-		uniqueVisitorCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
-			CreatedAtGte: date + " 00:00:00",
-			CreatedAtLte: date + " 23:59:59",
-			Distinct:     statsstore.COLUMN_IP_ADDRESS,
-		})
+	visitors, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
+		CreatedAtGte: createdAtGte,
+		CreatedAtLte: createdAtLte,
+	})
 
-		if err != nil {
-			return data, err.Error()
+	if err != nil {
+		return data, err.Error()
+	}
+
+	dailyPageViews := map[string]int64{}
+	dailyUniqueIPs := map[string]map[string]struct{}{}
+	firstVisitByIP := map[string]string{}
+
+	for _, visitor := range visitors {
+		createdAt := visitor.CreatedAtCarbon()
+		if createdAt == nil {
+			continue
 		}
 
-		totalVisitorCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQueryOptions{
-			CreatedAtGte: date + " 00:00:00",
-			CreatedAtLte: date + " 23:59:59",
-		})
-
-		if err != nil {
-			return data, err.Error()
+		visitDate := createdAt.ToDateString()
+		identifier := visitor.IpAddress()
+		if identifier == "" {
+			identifier = "unknown-ip"
 		}
 
+		dailyPageViews[visitDate]++
+
+		if _, ok := dailyUniqueIPs[visitDate]; !ok {
+			dailyUniqueIPs[visitDate] = map[string]struct{}{}
+		}
+
+		dailyUniqueIPs[visitDate][identifier] = struct{}{}
+
+		if existingDate, ok := firstVisitByIP[identifier]; !ok || visitDate < existingDate {
+			firstVisitByIP[identifier] = visitDate
+		}
+	}
+
+	dates := make([]string, 0, len(dateRange))
+	uniqueVisits := make([]int64, 0, len(dateRange))
+	totalVisits := make([]int64, 0, len(dateRange))
+	firstVisits := make([]int64, 0, len(dateRange))
+	returnVisits := make([]int64, 0, len(dateRange))
+
+	for _, date := range dateRange {
 		dates = append(dates, date)
-		uniqueVisits = append(uniqueVisits, uniqueVisitorCount)
-		totalVisits = append(totalVisits, totalVisitorCount)
+
+		uniqueSet := dailyUniqueIPs[date]
+		uniqueCount := int64(len(uniqueSet))
+
+		var firstCount int64
+		for ip := range uniqueSet {
+			if firstVisitByIP[ip] == date {
+				firstCount++
+			}
+		}
+
+		returnCount := uniqueCount - firstCount
+		if returnCount < 0 {
+			returnCount = 0
+		}
+
+		uniqueVisits = append(uniqueVisits, uniqueCount)
+		totalVisits = append(totalVisits, dailyPageViews[date])
+		firstVisits = append(firstVisits, firstCount)
+		returnVisits = append(returnVisits, returnCount)
 	}
 
 	data.dates = dates
 	data.uniqueVisits = uniqueVisits
 	data.totalVisits = totalVisits
+	data.firstVisits = firstVisits
+	data.returnVisits = returnVisits
 
 	return data, ""
 }
