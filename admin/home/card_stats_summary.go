@@ -32,6 +32,7 @@ func cardStatsSummary(data ControllerData) hb.TagInterface {
 						ID("stats-period-select").
 						Class("form-select form-select-sm").
 						Attr("name", "period").
+						Attr("onchange", "this.form.submit()").
 						Children(periodOptionsToOptions(data.periodOptions, data.selectedPeriod))).
 					Child(hb.Button().
 						Class("btn btn-sm btn-outline-primary").
