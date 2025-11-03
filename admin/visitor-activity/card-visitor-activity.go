@@ -8,15 +8,16 @@ import (
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
+	"github.com/dracory/statsstore/geostore"
 	"github.com/samber/lo"
 )
 
 // CardVisitorActivity builds the visitor activity card with detail modal
-func CardVisitorActivity(data ControllerData) hb.TagInterface {
+func CardVisitorActivity(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	card := hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(cardHeader("Visitor Activity")).
-		Child(cardBody(data))
+		Child(cardBody(data, ui))
 
 	return hb.Div().
 		Child(card).
@@ -114,17 +115,40 @@ func cardHeader(title string) hb.TagInterface {
 		Child(actions)
 }
 
-func cardBody(data ControllerData) hb.TagInterface {
+func cardBody(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	return hb.Div().
 		Class("card-body").
 		Child(filterToolbar(data)).
 		Child(hb.Div().
 			Class("list-group list-group-flush border rounded-3 overflow-hidden").
 			Children(lo.Map(data.Visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
-				return visitorRow(data, visitor, index)
+				return visitorRow(data, ui, visitor, index)
 			}))).
 		Child(exportDataTable(data)).
 		Child(footerControls(data))
+}
+
+func infoLine(label string, value hb.TagInterface) hb.TagInterface {
+	labelTag := hb.Span().
+		Class("text-muted text-uppercase fw-semibold small flex-shrink-0").
+		Text(label)
+
+	valueTag := hb.Div().
+		Class("text-body fw-semibold text-break").
+		Child(value)
+
+	return hb.Div().
+		Class("d-flex gap-2 align-items-baseline lh-sm").
+		Child(labelTag).
+		Child(valueTag)
+}
+
+func infoText(text string) hb.TagInterface {
+	return hb.Span().Class("text-body").Text(text)
+}
+
+func infoMuted(text string) hb.TagInterface {
+	return hb.Span().Class("text-muted fst-italic").Text(text)
 }
 
 func filterToolbar(data ControllerData) hb.TagInterface {
@@ -206,48 +230,70 @@ func rangeLabel(value string) string {
 	}
 }
 
-func visitorRow(data ControllerData, visitor statsstore.VisitorInterface, index int) hb.TagInterface {
+func visitorRow(data ControllerData, ui shared.ControllerOptions, visitor statsstore.VisitorInterface, index int) hb.TagInterface {
 	header := hb.Div().
-		Class("d-flex flex-wrap align-items-center justify-content-between gap-3")
+		Class("d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3")
+
+	locationCol := hb.Div().
+		Class("d-flex flex-column gap-1").
+		Child(hb.Span().Class("fw-semibold").Text(resolvedVisitorLocation(ui, visitor))).
+		Child(hb.Span().Class("small text-muted").Text(visitor.IpAddress()))
 
 	leftHeader := hb.Div().
-		Class("d-flex align-items-center gap-2").
-		Child(countryBadge(visitor)).
-		Child(hb.Div().
-			Class("d-flex flex-column").
-			Child(hb.Span().Class("fw-semibold").Text(formatLocation(visitor))).
-			Child(hb.Span().Class("small text-muted").Text(visitor.IpAddress())))
+		Class("d-flex align-items-start gap-2").
+		Child(countryBadge(ui, visitor)).
+		Child(locationCol)
 
 	rightHeader := hb.Div().
-		Class("d-flex align-items-center gap-2").
-		Child(sessionBadge(visitor)).
+		Class("d-flex flex-wrap gap-2 align-items-center").
+		Child(sessionBadge(data.Visitors, visitor)).
 		Child(systemSummary(visitor))
+
+	body := hb.Div().
+		Class("row gx-3 gy-1 align-items-start mt-2 small lh-sm").
+		Child(hb.Div().
+			Class("col-lg-5 d-flex flex-column gap-1").
+			Child(infoLine("Visit", infoText(formatVisitorTimestamp(visitor.CreatedAt())))).
+			Child(infoLine("Duration", infoText(formatVisitDuration(visitor, data.Visitors, index))))).
+		Child(hb.Div().
+			Class("col-lg-4 d-flex flex-column gap-1").
+			Child(activityReferrerRow(visitor))).
+		Child(hb.Div().
+			Class("col-lg-3 d-flex flex-column gap-1").
+			Child(activityPathRow(visitor)))
 
 	header = header.Child(leftHeader).Child(rightHeader)
 
-	body := hb.Div().
-		Class("row g-3 align-items-start mt-2")
-
-	leftCol := hb.Div().
-		Class("col-lg-6 d-flex flex-column gap-2").
-		Child(hb.Div().
-			Class("small text-muted").
-			HTML(fmt.Sprintf("Visit Time: %s", formatVisitorTimestamp(visitor.CreatedAt())))).
-		Child(hb.Div().
-			Class("small text-muted").
-			HTML(fmt.Sprintf("Duration: %s", formatVisitDuration(visitor, data.Visitors, index))))
-
-	rightCol := hb.Div().
-		Class("col-lg-6 d-flex flex-column gap-2").
-		Child(referrerBlock(visitor)).
-		Child(pathBlock(visitor))
-
-	body = body.Child(leftCol).Child(rightCol)
-
 	return hb.Div().
-		Class("list-group-item py-3").
+		Class("list-group-item p-2").
 		Child(header).
 		Child(body)
+}
+
+func activityReferrerRow(visitor statsstore.VisitorInterface) hb.TagInterface {
+	referrer := visitor.UserReferrer()
+	if referrer == "" {
+		return infoLine("Referrer", infoMuted("(No referring link)"))
+	}
+
+	link := hb.A().
+		Href(referrer).
+		Class("text-success text-decoration-none").
+		Attr("target", "_blank").
+		Text(referrer)
+	return infoLine("Referrer", link)
+}
+
+func activityPathRow(visitor statsstore.VisitorInterface) hb.TagInterface {
+	return infoLine("Visited", hb.Raw(getVisitPageLink(visitor.Path())))
+}
+
+func resolvedVisitorLocation(visitor statsstore.VisitorInterface) string {
+	country := visitor.Country()
+	if country == "" {
+		return "Unknown Location"
+	}
+	return strings.ToUpper(country)
 }
 
 func systemSummary(visitor statsstore.VisitorInterface) hb.TagInterface {
