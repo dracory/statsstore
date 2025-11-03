@@ -20,6 +20,29 @@ func CardVisitorPaths(data ControllerData, ui shared.ControllerOptions) hb.TagIn
 		Child(cardBody(data, ui))
 }
 
+func infoLine(label string, value hb.TagInterface) hb.TagInterface {
+	labelTag := hb.Span().
+		Class("text-muted text-uppercase fw-semibold small flex-shrink-0").
+		Text(label)
+
+	valueTag := hb.Div().
+		Class("text-body fw-semibold text-break").
+		Child(value)
+
+	return hb.Div().
+		Class("d-flex gap-2 align-items-baseline lh-sm").
+		Child(labelTag).
+		Child(valueTag)
+}
+
+func infoText(text string) hb.TagInterface {
+	return hb.Span().Class("text-body").Text(text)
+}
+
+func infoMuted(text string) hb.TagInterface {
+	return hb.Span().Class("text-muted fst-italic").Text(text)
+}
+
 func cardHeader() hb.TagInterface {
 	actions := hb.Div().
 		Class("d-flex align-items-center gap-2").
@@ -162,44 +185,38 @@ func pathRow(data ControllerData, ui shared.ControllerOptions, visitor statsstor
 		Child(sessionMetadataColumn(data, visitor))
 
 	body := hb.Div().
-		Class("row g-3 align-items-start mt-2").
+		Class("row gx-3 gy-1 align-items-start mt-2 small lh-sm").
 		Child(hb.Div().
-			Class("col-lg-4 d-flex flex-column gap-2").
+			Class("col-lg-4 d-flex flex-column gap-1").
 			Child(timestampBlock(visitor)).
 			Child(ipBlock(visitor))).
 		Child(hb.Div().
-			Class("col-lg-4 d-flex flex-column gap-2").
-			Child(referrerBlock(visitor)).
-			Child(pathMetaBlock(ui, visitor))).
+			Class("col-lg-4 d-flex flex-column gap-1").
+			Child(referrerBlock(visitor))).
 		Child(hb.Div().
-			Class("col-lg-4 d-flex flex-column gap-2").
+			Class("col-lg-4 d-flex flex-column gap-1").
 			Child(userAgentBlock(visitor)))
 
 	return hb.Div().
-		Class("list-group-item p-3").
+		Class("list-group-item p-2").
 		Child(header).
 		Child(body)
 }
 
 func pathHeaderLeft(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
-	host := websiteHost(ui)
-
 	return hb.Div().
 		Class("d-flex align-items-start gap-3").
-		Child(countryBadge(visitor)).
+		Child(countryBadge(ui, visitor)).
 		Child(hb.Div().
 			Class("d-flex flex-column gap-1").
-			Child(hb.Div().
-				Class("d-flex flex-wrap align-items-center gap-2").
-				Child(hb.Span().Class("fw-semibold").Text(formatLocation(visitor))).
-				Child(hb.Span().Class("badge text-bg-light").Text(host))).
+			Child(hb.Span().Class("fw-semibold").Text(formatLocation(ui, visitor))).
 			Child(pathLink(ui, visitor.Path())))
 }
 
 func sessionMetadataColumn(data ControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-wrap justify-content-lg-end gap-2 align-items-center").
-		Child(sessionBadge(visitor)).
+		Child(sessionBadge(data, visitor)).
 		Child(deviceBadge(visitor)).
 		Child(browserBadge(visitor)).
 		Child(drillDownButton(data, visitor))
@@ -208,9 +225,9 @@ func sessionMetadataColumn(data ControllerData, visitor statsstore.VisitorInterf
 func timestampBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 	created := formatTimestamp(visitor.CreatedAt())
 	return hb.Div().
-		Class("d-flex flex-column small text-muted gap-1").
-		Child(hb.Span().Text(fmt.Sprintf("Entry: %s", created))).
-		Child(hb.Span().Text("Exit: -"))
+		Class("d-flex flex-column gap-1").
+		Child(infoLine("Entry", infoText(created))).
+		Child(infoLine("Exit", infoText("-")))
 }
 
 func ipBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -219,42 +236,25 @@ func ipBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 		ip = "Unknown"
 	}
 	return hb.Div().
-		Class("small text-muted").
-		Text(fmt.Sprintf("IP Address: %s", ip))
+		Class("d-flex flex-column gap-1").
+		Child(infoLine("IP", infoText(ip)))
 }
 
 func referrerBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 	referrer := visitor.UserReferrer()
+	var value hb.TagInterface
 	if referrer == "" {
-		return hb.Div().
-			Class("d-flex flex-column gap-1").
-			Child(hb.Span().Class("fw-semibold small").Text("Referrer")).
-			Child(hb.Span().Class("text-muted small").Text("(No referring link)"))
-	}
-
-	link := hb.A().
-		Href(referrer).
-		Class("text-success text-decoration-none").
-		Attr("target", "_blank").
-		Text(referrer)
-
-	return hb.Div().
-		Class("d-flex flex-column gap-1").
-		Child(hb.Span().Class("fw-semibold small").Text("Referrer")).
-		Child(link)
-}
-
-func pathMetaBlock(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
-	absolute := fullPathURL(ui, visitor.Path())
-
-	return hb.Div().
-		Class("d-flex flex-column gap-1").
-		Child(hb.Span().Class("fw-semibold small").Text("Visited URL")).
-		Child(hb.A().
-			Href(absolute).
-			Class("text-success text-decoration-none d-inline-flex align-items-center gap-1").
+		value = infoMuted("(No referring link)")
+	} else {
+		value = hb.A().
+			Href(referrer).
+			Class("text-success text-decoration-none").
 			Attr("target", "_blank").
-			HTML(fmt.Sprintf("%s <i class=\"bi bi-box-arrow-up-right\"></i>", visitor.Path())))
+			Text(referrer)
+	}
+	return hb.Div().
+		Class("d-flex flex-column gap-1").
+		Child(infoLine("Referrer", value))
 }
 
 func userAgentBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -263,8 +263,8 @@ func userAgentBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 		ua = "Unknown"
 	}
 	return hb.Div().
-		Class("small text-muted").
-		Text(fmt.Sprintf("User Agent: %s", ua))
+		Class("d-flex flex-column gap-1").
+		Child(infoLine("User Agent", hb.Span().Class("text-body text-break").Text(ua)))
 }
 
 func drillDownButton(data ControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -385,21 +385,41 @@ func upgradeBanner() hb.TagInterface {
 		HTML("<strong>Upgrade Insight:</strong> Connect deeper analytics to unlock funnel visualisations and path grouping.")
 }
 
-func sessionBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
+func sessionBadge(data ControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.Span().
 		Class("badge text-bg-secondary").
-		Text(sessionLabel(visitor))
+		Text(sessionLabel(data.Paths, visitor))
 }
 
-func sessionLabel(visitor statsstore.VisitorInterface) string {
-	fingerprint := visitor.Fingerprint()
-	if len(fingerprint) > 8 {
-		fingerprint = fingerprint[:8]
+func sessionLabel(visitors []statsstore.VisitorInterface, visitor statsstore.VisitorInterface) string {
+	count := sessionCount(visitors, visitor)
+	return fmt.Sprintf("Sessions: %d", count)
+}
+
+func sessionCount(visitors []statsstore.VisitorInterface, visitor statsstore.VisitorInterface) int {
+	targetFingerprint := strings.TrimSpace(visitor.Fingerprint())
+	targetID := strings.TrimSpace(visitor.ID())
+
+	count := 0
+
+	for _, item := range visitors {
+		if targetFingerprint != "" {
+			if strings.TrimSpace(item.Fingerprint()) == targetFingerprint {
+				count++
+			}
+			continue
+		}
+
+		if targetID != "" && strings.TrimSpace(item.ID()) == targetID {
+			count++
+		}
 	}
-	if fingerprint == "" {
-		fingerprint = "Session"
+
+	if count == 0 {
+		count = 1
 	}
-	return fmt.Sprintf("Session %s", strings.ToUpper(fingerprint))
+
+	return count
 }
 
 func deviceBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -435,16 +455,20 @@ func browserBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Text(browser)
 }
 
-func countryBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
-	code := strings.ToUpper(visitor.Country())
+func countryBadge(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
+	code := strings.ToUpper(strings.TrimSpace(visitor.Country()))
 	flag := countryFlagEmoji(code)
-	if code == "" {
-		code = "--"
+	name := resolvedCountryName(ui, visitor.Country())
+
+	badge := hb.Span().
+		Class("badge bg-light text-dark border").
+		Text(flag)
+
+	if name != "" {
+		badge = badge.Attr("title", name)
 	}
 
-	return hb.Span().
-		Class("badge bg-light text-dark border").
-		Text(fmt.Sprintf("%s %s", flag, code))
+	return badge
 }
 
 func countryFlagEmoji(code string) string {
@@ -460,20 +484,49 @@ func countryFlagEmoji(code string) string {
 	return string(r1-65+0x1F1E6) + string(r2-65+0x1F1E6)
 }
 
-func formatLocation(visitor statsstore.VisitorInterface) string {
-	country := visitor.Country()
-	if country == "" {
+func formatLocation(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) string {
+	name := resolvedCountryName(ui, visitor.Country())
+	if name == "" || name == "Unknown" {
 		return "Unknown Location"
 	}
-	return strings.ToUpper(country)
+	return name
+}
+
+func resolvedCountryName(ui shared.ControllerOptions, code string) string {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" {
+		return "Unknown"
+	}
+	iso := strings.ToUpper(trimmed)
+
+	if iso == "UN" || iso == "ZZ" {
+		return "Unknown"
+	}
+
+	if ui.CountryNameByIso2 != nil {
+		if name, err := ui.CountryNameByIso2(iso); err == nil && name != "" {
+			return name
+		}
+	}
+
+	return iso
 }
 
 func formatTimestamp(value string) string {
 	if value == "" {
 		return "Unknown"
 	}
-	if t, err := time.Parse(time.RFC3339, value); err == nil {
-		return t.Format("2006-01-02 15:04:05")
+	layouts := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05",
+	}
+
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, value); err == nil {
+			return t.Format("Mon, 02 Jan 2006, 15:04")
+		}
 	}
 	return value
 }

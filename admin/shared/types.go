@@ -15,6 +15,8 @@ type LayoutInterface interface {
 	SetStyleURLs(styles []string)
 	SetStyles(styles []string)
 	SetBody(string)
+	// SetCountryNameByIso2 provides country lookup helpers used by the admin UI.
+	SetCountryNameByIso2(func(iso2Code string) (string, error))
 	Render(w http.ResponseWriter, r *http.Request) string
 }
 
@@ -26,9 +28,10 @@ type Breadcrumb struct {
 
 // ControllerOptions contains the options for creating a new admin controller
 type ControllerOptions struct {
-	Logger     *slog.Logger
-	Store      statsstore.StoreInterface
-	Layout     LayoutInterface
-	HomeURL    string
-	WebsiteUrl string
+	Logger            *slog.Logger
+	Store             statsstore.StoreInterface
+	Layout            LayoutInterface
+	HomeURL           string
+	WebsiteUrl        string
+	CountryNameByIso2 func(iso2Code string) (string, error)
 }

@@ -15,12 +15,13 @@ import (
 )
 
 type admin struct {
-	store      statsstore.StoreInterface
-	logger     *slog.Logger
-	layout     shared.LayoutInterface
-	homeURL    string
-	websiteUrl string
-	endpoint   string
+	store             statsstore.StoreInterface
+	logger            *slog.Logger
+	layout            shared.LayoutInterface
+	homeURL           string
+	websiteUrl        string
+	endpoint          string
+	countryNameByIso2 func(iso2Code string) (string, error)
 }
 
 var _ http.Handler = (*admin)(nil)
@@ -49,24 +50,25 @@ func (a *admin) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 func (a *admin) findHandlerFromPath(path string) http.Handler {
-	optios := shared.ControllerOptions{
-		Store:      a.store,
-		Logger:     a.logger,
-		Layout:     a.layout,
-		HomeURL:    a.homeURL,
-		WebsiteUrl: a.websiteUrl,
+	options := shared.ControllerOptions{
+		Store:             a.store,
+		Logger:            a.logger,
+		Layout:            a.layout,
+		HomeURL:           a.homeURL,
+		WebsiteUrl:        a.websiteUrl,
+		CountryNameByIso2: a.countryNameByIso2,
 	}
 
 	routes := map[string]http.Handler{
-		shared.PathHome:             home.New(optios),
-		shared.PathVisitorActivity:  visitoractivity.New(optios),
-		shared.PathVisitorPaths:     visitorpaths.New(optios),
-		shared.PathPageViewActivity: pageviewactivity.New(optios),
+		shared.PathHome:             home.New(options),
+		shared.PathVisitorActivity:  visitoractivity.New(options),
+		shared.PathVisitorPaths:     visitorpaths.New(options),
+		shared.PathPageViewActivity: pageviewactivity.New(options),
 	}
 
 	if val, ok := routes[path]; ok {
 		return val
 	}
 
-	return home.New(optios)
+	return home.New(options)
 }

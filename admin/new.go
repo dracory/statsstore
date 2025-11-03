@@ -10,14 +10,15 @@ import (
 )
 
 type Options struct {
-	ResponseWriter http.ResponseWriter
-	Request        *http.Request
-	Logger         *slog.Logger
-	Store          statsstore.StoreInterface
-	Layout         shared.LayoutInterface
-	HomeURL        string
-	WebsiteUrl     string
-	Endpoint       string
+	ResponseWriter    http.ResponseWriter
+	Request           *http.Request
+	Logger            *slog.Logger
+	Store             statsstore.StoreInterface
+	Layout            shared.LayoutInterface
+	HomeURL           string
+	WebsiteUrl        string
+	Endpoint          string
+	CountryNameByIso2 func(iso2Code string) (string, error)
 }
 
 func New(options Options) (http.Handler, error) {
@@ -47,12 +48,13 @@ func New(options Options) (http.Handler, error) {
 	}
 
 	adminInstance := &admin{
-		store:      options.Store,
-		logger:     logger,
-		layout:     options.Layout,
-		homeURL:    options.HomeURL,
-		websiteUrl: options.WebsiteUrl,
-		endpoint:   options.Endpoint,
+		store:             options.Store,
+		logger:            logger,
+		layout:            options.Layout,
+		homeURL:           options.HomeURL,
+		websiteUrl:        options.WebsiteUrl,
+		endpoint:          options.Endpoint,
+		countryNameByIso2: options.CountryNameByIso2,
 	}
 
 	return adminInstance, nil

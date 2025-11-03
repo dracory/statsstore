@@ -28,15 +28,16 @@ func tableVisitorPaths(data ControllerData, ui shared.ControllerOptions) hb.TagI
 		Children(lo.Map(data.Paths, func(visitor statsstore.VisitorInterface, _ int) hb.TagInterface {
 			absolute := fullPathURL(ui, visitor.Path())
 			browser := strings.TrimSpace(visitor.UserBrowser() + " " + visitor.UserBrowserVersion())
+			countryName := resolvedCountryName(ui, visitor.Country())
 
 			return hb.TR().Children([]hb.TagInterface{
 				hb.TD().Text(formatTimestamp(visitor.CreatedAt())),
 				hb.TD().Text(visitor.Path()),
 				hb.TD().Text(absolute),
-				hb.TD().Text(strings.ToUpper(visitor.Country())),
+				hb.TD().Text(countryName),
 				hb.TD().Text(visitor.IpAddress()),
 				hb.TD().Text(visitor.UserReferrer()),
-				hb.TD().Text(sessionLabel(visitor)),
+				hb.TD().Text(sessionLabel(data.Paths, visitor)),
 				hb.TD().Text(visitor.UserDevice()),
 				hb.TD().Text(browser),
 			})

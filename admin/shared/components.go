@@ -39,7 +39,10 @@ func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
 		},
 	}
 
-	currentPath := strings.TrimSuffix(r.URL.Path, "/")
+	currentPath := strings.TrimSuffix(r.URL.Query().Get("path"), "/")
+	if currentPath == "" {
+		currentPath = strings.TrimSuffix(r.URL.Path, "/")
+	}
 	if currentPath == "" {
 		currentPath = PathHome
 	}
