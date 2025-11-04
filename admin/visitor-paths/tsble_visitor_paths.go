@@ -10,7 +10,7 @@ import (
 )
 
 // tableVisitorPaths builds the hidden export table used for CSV downloads.
-func tableVisitorPaths(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
+func tableVisitorPaths(data visitorPathsControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	head := hb.Thead().
 		Child(hb.TR().Children([]hb.TagInterface{
 			hb.TH().Text("Visit Time"),

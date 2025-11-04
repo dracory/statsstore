@@ -8,7 +8,6 @@ import (
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
-	"github.com/dracory/statsstore/geostore"
 	"github.com/samber/lo"
 )
 
@@ -230,6 +229,7 @@ func rangeLabel(value string) string {
 	}
 }
 
+
 func visitorRow(data ControllerData, ui shared.ControllerOptions, visitor statsstore.VisitorInterface, index int) hb.TagInterface {
 	header := hb.Div().
 		Class("d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3")
@@ -246,7 +246,7 @@ func visitorRow(data ControllerData, ui shared.ControllerOptions, visitor statss
 
 	rightHeader := hb.Div().
 		Class("d-flex flex-wrap gap-2 align-items-center").
-		Child(sessionBadge(data.Visitors, visitor)).
+		Child(sessionBadge(visitor)).
 		Child(systemSummary(visitor))
 
 	body := hb.Div().
@@ -285,15 +285,17 @@ func activityReferrerRow(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 func activityPathRow(visitor statsstore.VisitorInterface) hb.TagInterface {
-	return infoLine("Visited", hb.Raw(getVisitPageLink(visitor.Path())))
-}
-
-func resolvedVisitorLocation(visitor statsstore.VisitorInterface) string {
-	country := visitor.Country()
-	if country == "" {
-		return "Unknown Location"
+	path := visitor.Path()
+	if path == "" {
+		path = "/"
 	}
-	return strings.ToUpper(country)
+
+	link := hb.A().
+		Href(path).
+		Class("text-primary text-decoration-none").
+		Attr("target", "_blank").
+		Text(path)
+	return infoLine("Path", link)
 }
 
 func systemSummary(visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -301,6 +303,7 @@ func systemSummary(visitor statsstore.VisitorInterface) hb.TagInterface {
 	if systemText == "" {
 		systemText = "Unknown Browser"
 	}
+
 	osText := strings.TrimSpace(fmt.Sprintf("%s %s", visitor.UserOs(), visitor.UserOsVersion()))
 	if osText == "" {
 		osText = "Unknown OS"
@@ -311,6 +314,30 @@ func systemSummary(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Child(deviceIcon(visitor)).
 		Child(osIcon(visitor)).
 		Child(hb.Span().Class("small").Text(systemText + " on " + osText))
+}
+
+func countryBadge(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
+	countryCode := visitor.Country()
+	if countryCode == "" {
+		return hb.Span().
+			Class("badge rounded-circle bg-secondary").
+			Style("width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;").
+			Text("🌐")
+	}
+
+	flag := countryFlagEmoji(countryCode)
+	return hb.Span().
+		Class("badge rounded-circle bg-light border").
+		Style("width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;").
+		Text(flag)
+}
+
+func resolvedVisitorLocation(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) string {
+	country := visitor.Country()
+	if country == "" {
+		return "Unknown Location"
+	}
+	return strings.ToUpper(country)
 }
 
 func locationBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -430,26 +457,6 @@ func exportDataTable(data ControllerData) hb.TagInterface {
 		ID("visitor-activity-table").
 		Child(head).
 		Child(body)
-}
-
-func countryBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
-	code := strings.ToUpper(visitor.Country())
-	flag := countryFlagEmoji(code)
-	if code == "" {
-		code = "--"
-	}
-
-	return hb.Span().
-		Class("badge bg-light text-dark border").
-		Text(fmt.Sprintf("%s %s", flag, code))
-}
-
-func formatLocation(visitor statsstore.VisitorInterface) string {
-	country := visitor.Country()
-	if country == "" {
-		return "Unknown Location"
-	}
-	return strings.ToUpper(country)
 }
 
 func countryFlagEmoji(code string) string {

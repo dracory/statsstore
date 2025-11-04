@@ -136,5 +136,5 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Child(shared.AdminHeaderUI(data.Request, c.UI.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
-		Child(CardVisitorActivity(data, c.UI.ControllerOptions))
+		Child(CardVisitorActivity(data, c.UI))
 }

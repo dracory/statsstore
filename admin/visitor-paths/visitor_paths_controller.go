@@ -1,7 +1,12 @@
 package visitorpaths
 
 import (
+	"bytes"
+	"encoding/csv"
+	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore/admin/shared"
@@ -11,7 +16,7 @@ import (
 
 // New creates a new visitor paths controller
 func New(ui shared.ControllerOptions) http.Handler {
-	return &Controller{
+	return &visitorPathsController{
 		ui: ui,
 	}
 }
@@ -19,18 +24,26 @@ func New(ui shared.ControllerOptions) http.Handler {
 // == CONTROLLER ===============================================================
 
 // Controller handles the visitor paths page
-type Controller struct {
+type visitorPathsController struct {
 	ui shared.ControllerOptions
 }
 
 // ServeHTTP implements the http.Handler interface
-func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (c *visitorPathsController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(c.Handler(w, r)))
 }
 
 // ToTag renders the controller to an HTML tag
-func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
+func (c *visitorPathsController) Handler(w http.ResponseWriter, r *http.Request) string {
 	data, errorMessage := buildControllerData(r, c.ui.Store)
+
+	if action := r.URL.Query().Get("action"); action == "export" {
+		if errorMessage != "" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return errorMessage
+		}
+		return c.exportCSV(w, data)
+	}
 
 	c.ui.Layout.SetTitle("Visitor Paths | Visitor Analytics")
 
@@ -72,34 +85,6 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 			loadSwal();
 		}
 		`,
-		// Add export functionality
-		`
-		function exportTableToCSV(tableId, filename) {
-			const table = document.getElementById(tableId);
-			if (!table) return;
-			
-			let csv = [];
-			const rows = table.querySelectorAll('tr');
-			
-			for (let i = 0; i < rows.length; i++) {
-				const row = [], cols = rows[i].querySelectorAll('td, th');
-				
-				for (let j = 0; j < cols.length; j++) {
-					row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
-				}
-				
-				csv.push(row.join(','));
-			}
-			
-			const csvContent = csv.join('\n');
-			const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-			const link = document.createElement('a');
-			
-			link.href = URL.createObjectURL(blob);
-			link.setAttribute('download', filename);
-			link.click();
-		}
-		`,
 	}
 
 	c.ui.Layout.SetBody(c.page(data).ToHTML())
@@ -108,10 +93,65 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 	return c.ui.Layout.Render(w, r)
 }
 
+func (c *visitorPathsController) exportCSV(w http.ResponseWriter, data visitorPathsControllerData) string {
+	buffer := &bytes.Buffer{}
+	writer := csv.NewWriter(buffer)
+
+	headers := []string{
+		"Visit Time",
+		"Path",
+		"Absolute URL",
+		"Country",
+		"IP Address",
+		"Referrer",
+		"Session",
+		"Device",
+		"Browser",
+	}
+
+	if err := writer.Write(headers); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return "Failed to generate export"
+	}
+
+	for _, visitor := range data.Paths {
+		browser := strings.TrimSpace(visitor.UserBrowser() + " " + visitor.UserBrowserVersion())
+		absoluteURL := fullPathURL(c.ui, visitor.Path())
+		row := []string{
+			formatTimestamp(visitor.CreatedAt()),
+			visitor.Path(),
+			absoluteURL,
+			resolvedCountryName(c.ui, visitor.Country()),
+			visitor.IpAddress(),
+			visitor.UserReferrer(),
+			sessionLabel(data.Paths, visitor),
+			visitor.UserDevice(),
+			browser,
+		}
+
+		if err := writer.Write(row); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return "Failed to generate export"
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return "Failed to generate export"
+	}
+
+	filename := fmt.Sprintf("visitor-paths-%s.csv", time.Now().UTC().Format("2006-01-02"))
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
+	return buffer.String()
+}
+
 // == PRIVATE METHODS ==========================================================
 
 // page builds the main page layout
-func (c *Controller) page(data ControllerData) hb.TagInterface {
+func (c *visitorPathsController) page(data visitorPathsControllerData) hb.TagInterface {
 	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
 		{
 			Name: "Home",

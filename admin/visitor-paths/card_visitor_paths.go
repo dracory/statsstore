@@ -13,10 +13,10 @@ import (
 )
 
 // CardVisitorPaths builds the visitor paths experience card.
-func CardVisitorPaths(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
+func CardVisitorPaths(data visitorPathsControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	return hb.Div().
 		Class("card shadow-sm mb-4").
-		Child(cardHeader()).
+		Child(cardHeader(data)).
 		Child(cardBody(data, ui))
 }
 
@@ -43,10 +43,10 @@ func infoMuted(text string) hb.TagInterface {
 	return hb.Span().Class("text-muted fst-italic").Text(text)
 }
 
-func cardHeader() hb.TagInterface {
+func cardHeader(data visitorPathsControllerData) hb.TagInterface {
 	actions := hb.Div().
 		Class("d-flex align-items-center gap-2").
-		Child(exportDropdown()).
+		Child(exportDropdown(data)).
 		Child(optionsButton())
 
 	return hb.Div().
@@ -57,7 +57,7 @@ func cardHeader() hb.TagInterface {
 		Child(actions)
 }
 
-func cardBody(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
+func cardBody(data visitorPathsControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	var list hb.TagInterface
 
 	if len(data.Paths) == 0 {
@@ -79,18 +79,17 @@ func cardBody(data ControllerData, ui shared.ControllerOptions) hb.TagInterface 
 		Child(filterToolbar(data)).
 		Child(list).
 		Child(upgradeBanner()).
-		Child(tableVisitorPaths(data, ui)).
 		Child(footerControls(data, ui))
 }
 
-func filterToolbar(data ControllerData) hb.TagInterface {
+func filterToolbar(data visitorPathsControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3").
 		Child(addFilterDropdown(data)).
 		Child(activeFilterBadges(data.Filters))
 }
 
-func addFilterDropdown(data ControllerData) hb.TagInterface {
+func addFilterDropdown(data visitorPathsControllerData) hb.TagInterface {
 	items := []struct {
 		label  string
 		params map[string]string
@@ -178,7 +177,7 @@ func activeFilterBadges(filters FilterOptions) hb.TagInterface {
 	return hb.Div().Class("d-flex flex-wrap gap-2").Children(badges)
 }
 
-func pathRow(data ControllerData, ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
+func pathRow(data visitorPathsControllerData, ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
 	header := hb.Div().
 		Class("d-flex flex-column flex-lg-row align-items-lg-start justify-content-between gap-3").
 		Child(pathHeaderLeft(ui, visitor)).
@@ -213,7 +212,7 @@ func pathHeaderLeft(ui shared.ControllerOptions, visitor statsstore.VisitorInter
 			Child(pathLink(ui, visitor.Path())))
 }
 
-func sessionMetadataColumn(data ControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
+func sessionMetadataColumn(data visitorPathsControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-wrap justify-content-lg-end gap-2 align-items-center").
 		Child(sessionBadge(data, visitor)).
@@ -267,7 +266,7 @@ func userAgentBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Child(infoLine("User Agent", hb.Span().Class("text-body text-break").Text(ua)))
 }
 
-func drillDownButton(data ControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
+func drillDownButton(data visitorPathsControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	params := map[string]string{
 		"path": visitor.Path(),
 		"page": "1",
@@ -281,7 +280,7 @@ func drillDownButton(data ControllerData, visitor statsstore.VisitorInterface) h
 		HTML(`<i class="bi bi-search"></i> View Session`)
 }
 
-func footerControls(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
+func footerControls(data visitorPathsControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-3").
 		Child(paginationSummary(data)).
@@ -290,7 +289,7 @@ func footerControls(data ControllerData, ui shared.ControllerOptions) hb.TagInte
 		Child(pagination(data.Request, data.Page, data.TotalPages))
 }
 
-func paginationSummary(data ControllerData) hb.TagInterface {
+func paginationSummary(data visitorPathsControllerData) hb.TagInterface {
 	if data.TotalCount == 0 {
 		return hb.Span().Class("text-muted small").Text("No visitor paths to display")
 	}
@@ -306,7 +305,7 @@ func paginationSummary(data ControllerData) hb.TagInterface {
 		Text(fmt.Sprintf("Showing %d-%d of %d paths", start, end, data.TotalCount))
 }
 
-func quickRangeButtons(data ControllerData) hb.TagInterface {
+func quickRangeButtons(data visitorPathsControllerData) hb.TagInterface {
 	btn := func(label, rng string) hb.TagInterface {
 		params := map[string]string{"page": "1", "from": "", "to": ""}
 		if rng != "" {
@@ -327,7 +326,7 @@ func quickRangeButtons(data ControllerData) hb.TagInterface {
 		Child(btn("Last 7 Days", "7d"))
 }
 
-func perPageSelector(data ControllerData) hb.TagInterface {
+func perPageSelector(data visitorPathsControllerData) hb.TagInterface {
 	options := []int{10, 25, 50, 100}
 	group := hb.Div().Class("d-flex align-items-center gap-2")
 	group = group.Child(hb.Span().Class("small text-muted").Text("Rows per page:"))
@@ -348,7 +347,7 @@ func perPageSelector(data ControllerData) hb.TagInterface {
 	return group.Child(buttons)
 }
 
-func exportDropdown() hb.TagInterface {
+func exportDropdown(data visitorPathsControllerData) hb.TagInterface {
 	button := hb.Button().
 		Class("btn btn-sm btn-outline-secondary dropdown-toggle").
 		Attr("type", "button").
@@ -356,10 +355,14 @@ func exportDropdown() hb.TagInterface {
 		Attr("aria-expanded", "false").
 		Text("Export")
 
+	params := queryParamsWith(data, map[string]string{"action": "export"})
+	link := shared.UrlVisitorPaths(data.Request, params)
+
 	item := hb.A().
 		Class("dropdown-item").
-		Href("#").
-		Attr("onclick", "exportTableToCSV('visitor-paths-table', 'visitor_paths.csv')").
+		Href(link).
+		Attr("target", "_blank").
+		Attr("rel", "noopener").
 		Text("Export to CSV")
 
 	menu := hb.UL().
@@ -385,7 +388,7 @@ func upgradeBanner() hb.TagInterface {
 		HTML("<strong>Upgrade Insight:</strong> Connect deeper analytics to unlock funnel visualisations and path grouping.")
 }
 
-func sessionBadge(data ControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
+func sessionBadge(data visitorPathsControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.Span().
 		Class("badge text-bg-secondary").
 		Text(sessionLabel(data.Paths, visitor))
@@ -588,17 +591,7 @@ func fullPathURL(ui shared.ControllerOptions, path string) string {
 	return u.String()
 }
 
-func websiteHost(ui shared.ControllerOptions) string {
-	if ui.WebsiteUrl == "" {
-		return "host"
-	}
-	if parsed, err := url.Parse(ui.WebsiteUrl); err == nil && parsed.Host != "" {
-		return parsed.Host
-	}
-	return ui.WebsiteUrl
-}
-
-func queryParamsWith(data ControllerData, overrides map[string]string) map[string]string {
+func queryParamsWith(data visitorPathsControllerData, overrides map[string]string) map[string]string {
 	values := url.Values{}
 	for key, vals := range data.Request.URL.Query() {
 		for _, v := range vals {
