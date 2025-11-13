@@ -104,6 +104,10 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	data.Request = r
 
 	periodOptions := []periodOption{
+		{Value: "today", Label: "Today"},
+		{Value: "yesterday", Label: "Yesterday"},
+		{Value: "last-7-days", Label: "Last 7 Days"},
+		{Value: "previous-7-days", Label: "Previous 7 Days"},
 		{Value: "this-week", Label: "This Week"},
 		{Value: "last-week", Label: "Last Week"},
 		{Value: "this-month", Label: "This Month"},
@@ -120,6 +124,18 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	end := now.Copy()
 
 	switch selectedPeriod {
+	case "today":
+		start = now.Copy().StartOfDay()
+		end = now.Copy().EndOfDay()
+	case "yesterday":
+		start = now.Copy().SubDays(1).StartOfDay()
+		end = start.Copy().EndOfDay()
+	case "last-7-days":
+		start = now.Copy().SubDays(6).StartOfDay()
+		end = now.Copy().EndOfDay()
+	case "previous-7-days":
+		end = now.Copy().SubDays(7).EndOfDay()
+		start = end.Copy().SubDays(6).StartOfDay()
 	case "last-week":
 		start = now.SubWeeks(1).StartOfWeek()
 		end = start.Copy().EndOfWeek()
@@ -242,5 +258,6 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Child(hb.HR()).
 		Child(title).
 		Child(navigationPanel(data)).
-		Child(cardStatsSummary(data))
+		Child(cardStatsSummary(data)).
+		Child(trafficSourcesCards(data))
 }
