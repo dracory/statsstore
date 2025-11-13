@@ -3,7 +3,6 @@ package statsstore
 import (
 	"context"
 	"database/sql"
-	"os"
 	"strings"
 	"testing"
 
@@ -11,16 +10,8 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func initDB(filepath string) (*sql.DB, error) {
-	if filepath != ":memory:" && fileExists(filepath) {
-		err := os.Remove(filepath) // remove database
-
-		if err != nil && !strings.Contains(err.Error(), "no such file or directory") {
-			return nil, err
-		}
-	}
-
-	dsn := filepath + "?parseTime=true"
+func initDB() (*sql.DB, error) {
+	dsn := ":memory:?parseTime=true"
 	db, err := sql.Open("sqlite", dsn)
 
 	if err != nil {
@@ -30,8 +21,8 @@ func initDB(filepath string) (*sql.DB, error) {
 	return db, nil
 }
 
-func initStore(filepath string) (StoreInterface, error) {
-	db, err := initDB(filepath)
+func initStore() (StoreInterface, error) {
+	db, err := initDB()
 
 	if err != nil {
 		return nil, err
@@ -45,7 +36,7 @@ func initStore(filepath string) (StoreInterface, error) {
 }
 
 func TestStorevisitorCreate(t *testing.T) {
-	store, err := initStore(":memory:")
+	store, err := initStore()
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -65,7 +56,7 @@ func TestStorevisitorCreate(t *testing.T) {
 }
 
 func TestStorevisitorFindByID(t *testing.T) {
-	store, err := initStore(":memory:")
+	store, err := initStore()
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -100,7 +91,7 @@ func TestStorevisitorFindByID(t *testing.T) {
 }
 
 func TestStorevisitorSoftDelete(t *testing.T) {
-	store, err := initStore(":memory:")
+	store, err := initStore()
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
