@@ -5,8 +5,8 @@ import (
 )
 
 // sqlVisitorTableCreate returns a SQL string for creating the visitor table
-func (st *Store) sqlVisitorTableCreate() string {
-	sql := sb.NewBuilder(sb.DatabaseDriverName(st.db)).
+func (st *Store) sqlVisitorTableCreate() (string, error) {
+	sql, err := sb.NewBuilder(sb.DatabaseDriverName(st.db)).
 		Table(st.visitorTableName).
 		Column(sb.Column{
 			Name:       COLUMN_ID,
@@ -97,6 +97,9 @@ func (st *Store) sqlVisitorTableCreate() string {
 			Type: sb.COLUMN_TYPE_DATETIME,
 		}).
 		CreateIfNotExists()
+	if err != nil {
+		return "", err
+	}
 
-	return sql
+	return sql, nil
 }

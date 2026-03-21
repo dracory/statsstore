@@ -34,7 +34,10 @@ var _ StoreInterface = (*Store)(nil) // verify it extends the interface
 
 // AutoMigrate auto migrate
 func (store *Store) AutoMigrate() error {
-	sqlStr := store.sqlVisitorTableCreate()
+	sqlStr, err := store.sqlVisitorTableCreate()
+	if err != nil {
+		return err
+	}
 
 	if sqlStr == "" {
 		return errors.New("visitor table create sql is empty")
@@ -44,7 +47,7 @@ func (store *Store) AutoMigrate() error {
 		return errors.New("visitorstore: database is nil")
 	}
 
-	_, err := store.db.Exec(sqlStr)
+	_, err = store.db.Exec(sqlStr)
 
 	if err != nil {
 		return err
