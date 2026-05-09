@@ -6,7 +6,7 @@ type VisitorInterface interface {
 	// From dataobject
 	Data() map[string]string
 	DataChanged() map[string]string
-	MarkAsNotDirty()
+	MarkAsNotDirty(...string)
 
 	Path() string
 	SetPath(path string) VisitorInterface
