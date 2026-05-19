@@ -32,8 +32,13 @@ var _ StoreInterface = (*Store)(nil) // verify it extends the interface
 
 // PUBLIC METHODS ============================================================
 
-// AutoMigrate auto migrate
-func (store *Store) AutoMigrate() error {
+// MigrateUp creates the stats store tables
+func (store *Store) MigrateUp(ctx context.Context, tx ...*sql.Tx) error {
+	var txToUse *sql.Tx
+	if len(tx) > 0 {
+		txToUse = tx[0]
+	}
+
 	sqlStr, err := store.sqlVisitorTableCreate()
 	if err != nil {
 		return err
@@ -47,10 +52,45 @@ func (store *Store) AutoMigrate() error {
 		return errors.New("visitorstore: database is nil")
 	}
 
-	_, err = store.db.Exec(sqlStr)
+	var errExec error
+	if txToUse != nil {
+		_, errExec = txToUse.ExecContext(ctx, sqlStr)
+	} else {
+		_, errExec = store.db.ExecContext(ctx, sqlStr)
+	}
 
+	if errExec != nil {
+		return errExec
+	}
+
+	return nil
+}
+
+// MigrateDown drops the stats store tables
+func (store *Store) MigrateDown(ctx context.Context, tx ...*sql.Tx) error {
+	var txToUse *sql.Tx
+	if len(tx) > 0 {
+		txToUse = tx[0]
+	}
+
+	sqlStr, err := store.sqlVisitorTableDrop()
 	if err != nil {
 		return err
+	}
+
+	if store.db == nil {
+		return errors.New("visitorstore: database is nil")
+	}
+
+	var errExec error
+	if txToUse != nil {
+		_, errExec = txToUse.ExecContext(ctx, sqlStr)
+	} else {
+		_, errExec = store.db.ExecContext(ctx, sqlStr)
+	}
+
+	if errExec != nil {
+		return errExec
 	}
 
 	return nil
@@ -104,10 +144,6 @@ func (store *Store) VisitorCount(ctx context.Context, options VisitorQueryOption
 		sqlStr = strings.Replace(sqlStr, `AS "t1"`, "AS `t1`", 1)
 	}
 
-	if store.debugEnabled {
-		log.Println(sqlStr)
-	}
-
 	mapped, err := database.SelectToMapString(store.toQuerableContext(ctx), sqlStr, params...)
 
 	if err != nil {
@@ -144,10 +180,6 @@ func (store *Store) VisitorCreate(ctx context.Context, visitor VisitorInterface)
 
 	if errSql != nil {
 		return errSql
-	}
-
-	if store.debugEnabled {
-		log.Println(sqlStr)
 	}
 
 	if store.db == nil {
@@ -229,10 +261,6 @@ func (store *Store) VisitorList(ctx context.Context, options VisitorQueryOptions
 
 	if errSql != nil {
 		return []VisitorInterface{}, nil
-	}
-
-	if store.debugEnabled {
-		log.Println(sqlStr)
 	}
 
 	modelMaps, err := database.SelectToMapString(store.toQuerableContext(ctx), sqlStr)

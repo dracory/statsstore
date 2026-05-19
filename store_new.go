@@ -1,6 +1,7 @@
 package statsstore
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
@@ -39,7 +40,7 @@ func NewStore(opts NewStoreOptions) (*Store, error) {
 	}
 
 	if store.automigrateEnabled {
-		err := store.AutoMigrate()
+		err := store.MigrateUp(context.Background())
 
 		if err != nil {
 			return nil, err

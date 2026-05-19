@@ -7,7 +7,12 @@ import (
 )
 
 type StoreInterface interface {
-	AutoMigrate() error
+	// MigrateDown drops the stats store tables
+	MigrateDown(ctx context.Context, tx ...*sql.Tx) error
+
+	// MigrateUp creates the stats store tables
+	MigrateUp(ctx context.Context, tx ...*sql.Tx) error
+
 	DB() *sql.DB
 	EnableDebug(debug bool)
 	VisitorCount(ctx context.Context, options VisitorQueryOptions) (int64, error)

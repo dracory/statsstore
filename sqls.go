@@ -103,3 +103,14 @@ func (st *Store) sqlVisitorTableCreate() (string, error) {
 
 	return sql, nil
 }
+
+// sqlVisitorTableDrop returns a SQL string for dropping the visitor table
+func (st *Store) sqlVisitorTableDrop() (string, error) {
+	sql, err := sb.NewBuilder(sb.DatabaseDriverName(st.db)).
+		Table(st.visitorTableName).
+		Drop()
+	if err != nil {
+		return "", err
+	}
+	return sql, nil
+}
