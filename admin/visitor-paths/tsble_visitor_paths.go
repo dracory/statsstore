@@ -26,19 +26,19 @@ func tableVisitorPaths(data visitorPathsControllerData, ui shared.ControllerOpti
 
 	body := hb.Tbody().
 		Children(lo.Map(data.Paths, func(visitor statsstore.VisitorInterface, _ int) hb.TagInterface {
-			absolute := fullPathURL(ui, visitor.Path())
-			browser := strings.TrimSpace(visitor.UserBrowser() + " " + visitor.UserBrowserVersion())
-			countryName := resolvedCountryName(ui, visitor.Country())
+			absolute := fullPathURL(ui, visitor.GetPath())
+			browser := strings.TrimSpace(visitor.GetUserBrowser() + " " + visitor.GetUserBrowserVersion())
+			countryName := resolvedCountryName(ui, visitor.GetCountry())
 
 			return hb.TR().Children([]hb.TagInterface{
-				hb.TD().Text(formatTimestamp(visitor.CreatedAt())),
-				hb.TD().Text(visitor.Path()),
+				hb.TD().Text(formatTimestamp(visitor.GetCreatedAt())),
+				hb.TD().Text(visitor.GetPath()),
 				hb.TD().Text(absolute),
 				hb.TD().Text(countryName),
-				hb.TD().Text(visitor.IpAddress()),
-				hb.TD().Text(visitor.UserReferrer()),
+				hb.TD().Text(visitor.GetIpAddress()),
+				hb.TD().Text(visitor.GetUserReferrer()),
 				hb.TD().Text(sessionLabel(data.Paths, visitor)),
-				hb.TD().Text(visitor.UserDevice()),
+				hb.TD().Text(visitor.GetUserDevice()),
 				hb.TD().Text(browser),
 			})
 		}))

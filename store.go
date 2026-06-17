@@ -4,109 +4,120 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
-	"strconv"
+	"os"
 	"strings"
+	"time"
 
-	"github.com/doug-martin/goqu/v9"
-	"github.com/dracory/database"
+	"github.com/dracory/neat"
+	contractsorm "github.com/dracory/neat/contracts/database/orm"
+	contractsschema "github.com/dracory/neat/contracts/database/schema"
 	"github.com/dracory/req"
 	"github.com/dromara/carbon/v2"
-	"github.com/samber/lo"
 )
 
-// == TYPE ====================================================================
+// == INTERFACE ================================================================
 
-type Store struct {
+var _ StoreInterface = (*storeImplementation)(nil)
+
+// storeImplementation implements StoreInterface for visitor operations.
+type storeImplementation struct {
 	visitorTableName   string
-	db                 *sql.DB
-	dbDriverName       string
+	db                 *neat.Database
 	automigrateEnabled bool
 	debugEnabled       bool
+	logger             *slog.Logger
 }
 
-// == INTERFACE ===============================================================
+// == MIGRATE ==================================================================
 
-var _ StoreInterface = (*Store)(nil) // verify it extends the interface
-
-// PUBLIC METHODS ============================================================
-
-// MigrateUp creates the stats store tables
-func (store *Store) MigrateUp(ctx context.Context, tx ...*sql.Tx) error {
-	var txToUse *sql.Tx
-	if len(tx) > 0 {
-		txToUse = tx[0]
+// MigrateUp creates the visitor table if it does not already exist.
+func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) error {
+	if st.db.Schema().HasTable(st.visitorTableName) {
+		if st.debugEnabled {
+			st.logger.Info("MigrateUp: table already exists", "table", st.visitorTableName)
+		}
+		return nil
 	}
 
-	sqlStr, err := store.sqlVisitorTableCreate()
+	err := st.db.Schema().Create(st.visitorTableName, func(table contractsschema.Blueprint) {
+		table.String(COLUMN_ID, 40)
+		table.Primary(COLUMN_ID)
+		table.String(COLUMN_PATH, 510)
+		table.String(COLUMN_FINGERPRINT, 40)
+		table.String(COLUMN_IP_ADDRESS, 40)
+		table.String(COLUMN_COUNTRY, 2)
+		table.String(COLUMN_USER_ACCEPT_LANGUAGE, 100)
+		table.String(COLUMN_USER_ACCEPT_ENCODING, 40)
+		table.String(COLUMN_USER_AGENT, 510)
+		table.String(COLUMN_USER_OS, 12)
+		table.String(COLUMN_USER_OS_VERSION, 12)
+		table.String(COLUMN_USER_DEVICE, 40)
+		table.String(COLUMN_USER_DEVICE_TYPE, 12)
+		table.String(COLUMN_USER_BROWSER, 40)
+		table.String(COLUMN_USER_BROWSER_VERSION, 24)
+		table.String(COLUMN_USER_REFERRER, 510)
+		table.DateTime(COLUMN_CREATED_AT)
+		table.DateTime(COLUMN_UPDATED_AT)
+		table.DateTime(COLUMN_SOFT_DELETED_AT)
+	})
+
 	if err != nil {
+		if st.debugEnabled {
+			st.logger.Error("MigrateUp failed", "error", err)
+		}
 		return err
-	}
-
-	if sqlStr == "" {
-		return errors.New("visitor table create sql is empty")
-	}
-
-	if store.db == nil {
-		return errors.New("visitorstore: database is nil")
-	}
-
-	var errExec error
-	if txToUse != nil {
-		_, errExec = txToUse.ExecContext(ctx, sqlStr)
-	} else {
-		_, errExec = store.db.ExecContext(ctx, sqlStr)
-	}
-
-	if errExec != nil {
-		return errExec
 	}
 
 	return nil
 }
 
-// MigrateDown drops the stats store tables
-func (store *Store) MigrateDown(ctx context.Context, tx ...*sql.Tx) error {
-	var txToUse *sql.Tx
-	if len(tx) > 0 {
-		txToUse = tx[0]
+// MigrateDown drops the visitor table.
+func (st *storeImplementation) MigrateDown(ctx context.Context, tx ...*sql.Tx) error {
+	if !st.db.Schema().HasTable(st.visitorTableName) {
+		if st.debugEnabled {
+			st.logger.Info("MigrateDown: table does not exist", "table", st.visitorTableName)
+		}
+		return nil
 	}
 
-	sqlStr, err := store.sqlVisitorTableDrop()
+	err := st.db.Schema().Drop(st.visitorTableName)
 	if err != nil {
+		if st.debugEnabled {
+			st.logger.Error("MigrateDown failed", "error", err)
+		}
 		return err
 	}
-
-	if store.db == nil {
-		return errors.New("visitorstore: database is nil")
-	}
-
-	var errExec error
-	if txToUse != nil {
-		_, errExec = txToUse.ExecContext(ctx, sqlStr)
-	} else {
-		_, errExec = store.db.ExecContext(ctx, sqlStr)
-	}
-
-	if errExec != nil {
-		return errExec
-	}
-
 	return nil
 }
 
-// DB returns the database
-func (store *Store) DB() *sql.DB {
-	return store.db
-}
+// == DEBUG ====================================================================
 
-// EnableDebug - enables the debug option
-func (st *Store) EnableDebug(debug bool) {
+// EnableDebug enables or disables debug mode.
+func (st *storeImplementation) EnableDebug(debug bool) {
 	st.debugEnabled = debug
+	if debug {
+		st.db.EnableDebug()
+		st.logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	} else {
+		st.db.DisableDebug()
+		st.logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+	}
 }
 
-func (store *Store) VisitorRegister(ctx context.Context, r *http.Request) error {
+// == DB =======================================================================
+
+// GetDB returns the underlying *sql.DB.
+func (st *storeImplementation) GetDB() *sql.DB {
+	db, _ := st.db.DB()
+	return db
+}
+
+// == VISITOR OPERATIONS =======================================================
+
+// VisitorRegister creates a visitor from an HTTP request.
+func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
 	ip := req.GetIP(r)
 	userAgent := r.UserAgent()
@@ -116,129 +127,89 @@ func (store *Store) VisitorRegister(ctx context.Context, r *http.Request) error 
 		SetIpAddress(ip).
 		SetUserAgent(userAgent)
 
-	return store.VisitorCreate(ctx, visitor)
+	return st.VisitorCreate(ctx, visitor)
 }
 
-func (store *Store) VisitorCount(ctx context.Context, options VisitorQueryOptions) (int64, error) {
-	options.CountOnly = true
-	q := store.visitorQuery(options)
-
-	if options.Distinct != "" {
-		innerq := q.Select(options.Distinct).Distinct()
-
-		q = goqu.Select(goqu.COUNT(goqu.Star()).As("count")).From(innerq)
-	} else {
-		q = q.Select(goqu.COUNT(goqu.Star()).As("count"))
+// VisitorCount counts visitors based on a query.
+func (st *storeImplementation) VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error) {
+	if query.HasDistinct() && query.Distinct() != "" {
+		q := st.buildQuery(query)
+		var results []map[string]any
+		err := q.Table(st.visitorTableName).Select("DISTINCT " + query.Distinct()).Get(&results)
+		if err != nil {
+			return 0, err
+		}
+		return int64(len(results)), nil
 	}
 
-	q = q.Prepared(true).
-		Limit(1)
-
-	sqlStr, params, errSql := q.ToSQL()
-
-	if errSql != nil {
-		return -1, nil
-	}
-
-	if options.Distinct != "" {
-		sqlStr = strings.Replace(sqlStr, `AS "t1"`, "AS `t1`", 1)
-	}
-
-	mapped, err := database.SelectToMapString(store.toQuerableContext(ctx), sqlStr, params...)
-
-	if err != nil {
-		return -1, err
-	}
-
-	if len(mapped) < 1 {
-		return -1, nil
-	}
-
-	countStr := mapped[0]["count"]
-
-	i, err := strconv.ParseInt(countStr, 10, 64)
-
-	if err != nil {
-		return -1, err
-
-	}
-
-	return i, nil
+	q := st.buildQuery(query)
+	var count int64
+	err := q.Table(st.visitorTableName).Count(&count)
+	return count, err
 }
 
-func (store *Store) VisitorCreate(ctx context.Context, visitor VisitorInterface) error {
-	visitor.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
-	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
-
-	data := visitor.Data()
-
-	sqlStr, params, errSql := goqu.Dialect(store.dbDriverName).
-		Insert(store.visitorTableName).
-		Prepared(true).
-		Rows(data).
-		ToSQL()
-
-	if errSql != nil {
-		return errSql
-	}
-
-	if store.db == nil {
-		return errors.New("visitorstore: database is nil")
-	}
-
-	_, err := database.Execute(store.toQuerableContext(ctx), sqlStr, params...)
-
-	if err != nil {
-		return err
-	}
-
-	visitor.MarkAsNotDirty()
-
-	return nil
-}
-
-func (store *Store) VisitorDelete(ctx context.Context, visitor VisitorInterface) error {
+// VisitorCreate creates a new visitor.
+func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor VisitorInterface) error {
 	if visitor == nil {
 		return errors.New("visitor is nil")
 	}
 
-	return store.VisitorDeleteByID(ctx, visitor.ID())
+	visitor.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+
+	row := map[string]any{
+		COLUMN_ID:                   visitor.GetID(),
+		COLUMN_PATH:                 visitor.GetPath(),
+		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
+		COLUMN_IP_ADDRESS:           visitor.GetIpAddress(),
+		COLUMN_COUNTRY:              visitor.GetCountry(),
+		COLUMN_USER_ACCEPT_LANGUAGE: visitor.GetUserAcceptLanguage(),
+		COLUMN_USER_ACCEPT_ENCODING: visitor.GetUserAcceptEncoding(),
+		COLUMN_USER_AGENT:           visitor.GetUserAgent(),
+		COLUMN_USER_OS:              visitor.GetUserOs(),
+		COLUMN_USER_OS_VERSION:      visitor.GetUserOsVersion(),
+		COLUMN_USER_DEVICE:          visitor.GetUserDevice(),
+		COLUMN_USER_DEVICE_TYPE:     visitor.GetUserDeviceType(),
+		COLUMN_USER_BROWSER:         visitor.GetUserBrowser(),
+		COLUMN_USER_BROWSER_VERSION: visitor.GetUserBrowserVersion(),
+		COLUMN_USER_REFERRER:        visitor.GetUserReferrer(),
+		COLUMN_CREATED_AT:           visitor.GetCreatedAtCarbon().StdTime(),
+		COLUMN_UPDATED_AT:           visitor.GetUpdatedAtCarbon().StdTime(),
+		COLUMN_SOFT_DELETED_AT:      visitor.GetSoftDeletedAtCarbon().StdTime(),
+	}
+
+	return st.db.Query().Table(st.visitorTableName).Create(row)
 }
 
-func (store *Store) VisitorDeleteByID(ctx context.Context, id string) error {
+// VisitorDelete permanently deletes a visitor.
+func (st *storeImplementation) VisitorDelete(ctx context.Context, visitor VisitorInterface) error {
+	if visitor == nil {
+		return errors.New("visitor is nil")
+	}
+	return st.VisitorDeleteByID(ctx, visitor.GetID())
+}
+
+// VisitorDeleteByID permanently deletes a visitor by ID.
+func (st *storeImplementation) VisitorDeleteByID(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("visitor id is empty")
 	}
 
-	sqlStr, params, errSql := goqu.Dialect(store.dbDriverName).
-		Delete(store.visitorTableName).
-		Prepared(true).
-		Where(goqu.C("id").Eq(id)).
-		ToSQL()
-
-	if errSql != nil {
-		return errSql
-	}
-
-	if store.debugEnabled {
-		log.Println(sqlStr)
-	}
-
-	_, err := database.Execute(store.toQuerableContext(ctx), sqlStr, params...)
+	_, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_ID+" = ?", id).
+		Delete()
 
 	return err
 }
 
-func (store *Store) VisitorFindByID(ctx context.Context, id string) (VisitorInterface, error) {
+// VisitorFindByID finds a visitor by ID.
+func (st *storeImplementation) VisitorFindByID(ctx context.Context, id string) (VisitorInterface, error) {
 	if id == "" {
 		return nil, errors.New("visitor id is empty")
 	}
 
-	list, err := store.VisitorList(ctx, VisitorQueryOptions{
-		ID:    id,
-		Limit: 1,
-	})
-
+	list, err := st.VisitorList(ctx, VisitorQuery().SetID(id).SetLimit(1))
 	if err != nil {
 		return nil, err
 	}
@@ -250,100 +221,198 @@ func (store *Store) VisitorFindByID(ctx context.Context, id string) (VisitorInte
 	return nil, nil
 }
 
-func (store *Store) VisitorList(ctx context.Context, options VisitorQueryOptions) ([]VisitorInterface, error) {
-	if store.db == nil {
-		return []VisitorInterface{}, errors.New("visitorstore: database is nil")
+// VisitorList lists visitors based on a query.
+func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQueryInterface) ([]VisitorInterface, error) {
+	q := st.buildQuery(query)
+
+	type visitorRow struct {
+		ID                 string    `db:"id"`
+		Path               string    `db:"path"`
+		Fingerprint        string    `db:"fingerprint"`
+		IPAddress          string    `db:"ip_address"`
+		Country            string    `db:"country"`
+		UserAcceptLanguage string    `db:"user_accept_language"`
+		UserAcceptEncoding string    `db:"user_accept_encoding"`
+		UserAgent          string    `db:"user_agent"`
+		UserOs             string    `db:"user_os"`
+		UserOsVersion      string    `db:"user_os_version"`
+		UserDevice         string    `db:"user_device"`
+		UserDeviceType     string    `db:"user_device_type"`
+		UserBrowser        string    `db:"user_browser"`
+		UserBrowserVersion string    `db:"user_browser_version"`
+		UserReferrer       string    `db:"user_referrer"`
+		CreatedAt          time.Time `db:"created_at"`
+		UpdatedAt          time.Time `db:"updated_at"`
+		SoftDeletedAt      time.Time `db:"soft_deleted_at"`
 	}
 
-	q := store.visitorQuery(options)
-
-	sqlStr, _, errSql := q.Select().ToSQL()
-
-	if errSql != nil {
-		return []VisitorInterface{}, nil
-	}
-
-	modelMaps, err := database.SelectToMapString(store.toQuerableContext(ctx), sqlStr)
-
-	if err != nil {
+	var rows []visitorRow
+	if err := q.Table(st.visitorTableName).Get(&rows); err != nil {
 		return []VisitorInterface{}, err
 	}
 
-	list := []VisitorInterface{}
-
-	lo.ForEach(modelMaps, func(modelMap map[string]string, index int) {
-		model := NewVisitorFromExistingData(modelMap)
-		list = append(list, model)
-	})
+	list := make([]VisitorInterface, 0, len(rows))
+	for _, r := range rows {
+		v := &visitorImplementation{}
+		v.SetID(r.ID)
+		v.SetPath(r.Path)
+		v.SetFingerprint(r.Fingerprint)
+		v.SetIpAddress(r.IPAddress)
+		v.SetCountry(r.Country)
+		v.SetUserAcceptLanguage(r.UserAcceptLanguage)
+		v.SetUserAcceptEncoding(r.UserAcceptEncoding)
+		v.SetUserAgent(r.UserAgent)
+		v.SetUserOs(r.UserOs)
+		v.SetUserOsVersion(r.UserOsVersion)
+		v.SetUserDevice(r.UserDevice)
+		v.SetUserDeviceType(r.UserDeviceType)
+		v.SetUserBrowser(r.UserBrowser)
+		v.SetUserBrowserVersion(r.UserBrowserVersion)
+		v.SetUserReferrer(r.UserReferrer)
+		v.CreatedAtField.CreatedAt = r.CreatedAt
+		v.UpdatedAtField.UpdatedAt = r.UpdatedAt
+		v.SoftDeletesMaxDate.SoftDeletedAt = r.SoftDeletedAt
+		list = append(list, v)
+	}
 
 	return list, nil
 }
 
-func (store *Store) VisitorSoftDelete(ctx context.Context, visitor VisitorInterface) error {
+// VisitorSoftDelete soft deletes a visitor.
+func (st *storeImplementation) VisitorSoftDelete(ctx context.Context, visitor VisitorInterface) error {
 	if visitor == nil {
 		return errors.New("visitor is nil")
 	}
 
-	visitor.SetDeletedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+	visitor.SetSoftDeletedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
-	return store.VisitorUpdate(ctx, visitor)
-}
-
-func (store *Store) VisitorSoftDeleteByID(ctx context.Context, id string) error {
-	visitor, err := store.VisitorFindByID(ctx, id)
-
-	if err != nil {
-		return err
+	row := map[string]any{
+		COLUMN_SOFT_DELETED_AT: visitor.GetSoftDeletedAtCarbon().StdTime(),
+		COLUMN_UPDATED_AT:      carbon.Now(carbon.UTC).StdTime(),
 	}
 
-	return store.VisitorSoftDelete(ctx, visitor)
-}
-
-func (store *Store) VisitorUpdate(ctx context.Context, visitor VisitorInterface) error {
-	if store.db == nil {
-		return errors.New("visitorstore: database is nil")
-	}
-
-	if visitor == nil {
-		return errors.New("visitor is nil")
-	}
-
-	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString())
-
-	dataChanged := visitor.DataChanged()
-
-	delete(dataChanged, COLUMN_ID) // ID is not updatable
-
-	if len(dataChanged) < 1 {
-		return nil
-	}
-
-	sqlStr, params, errSql := goqu.Dialect(store.dbDriverName).
-		Update(store.visitorTableName).
-		Prepared(true).
-		Set(dataChanged).
-		Where(goqu.C(COLUMN_ID).Eq(visitor.ID())).
-		ToSQL()
-
-	if errSql != nil {
-		return errSql
-	}
-
-	if store.debugEnabled {
-		log.Println(sqlStr)
-	}
-
-	_, err := database.Execute(store.toQuerableContext(ctx), sqlStr, params...)
-
-	visitor.MarkAsNotDirty()
+	_, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_ID+" = ?", visitor.GetID()).
+		Update(row)
 
 	return err
 }
 
-func (store *Store) toQuerableContext(ctx context.Context) database.QueryableContext {
-	if database.IsQueryableContext(ctx) {
-		return ctx.(database.QueryableContext)
+// VisitorSoftDeleteByID soft deletes a visitor by ID.
+func (st *storeImplementation) VisitorSoftDeleteByID(ctx context.Context, id string) error {
+	visitor, err := st.VisitorFindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if visitor == nil {
+		return nil
+	}
+	return st.VisitorSoftDelete(ctx, visitor)
+}
+
+// VisitorUpdate updates a visitor.
+func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor VisitorInterface) error {
+	if visitor == nil {
+		return errors.New("visitor is nil")
 	}
 
-	return database.Context(ctx, store.db)
+	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+
+	row := map[string]any{
+		COLUMN_PATH:                 visitor.GetPath(),
+		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
+		COLUMN_IP_ADDRESS:           visitor.GetIpAddress(),
+		COLUMN_COUNTRY:              visitor.GetCountry(),
+		COLUMN_USER_ACCEPT_LANGUAGE: visitor.GetUserAcceptLanguage(),
+		COLUMN_USER_ACCEPT_ENCODING: visitor.GetUserAcceptEncoding(),
+		COLUMN_USER_AGENT:           visitor.GetUserAgent(),
+		COLUMN_USER_OS:              visitor.GetUserOs(),
+		COLUMN_USER_OS_VERSION:      visitor.GetUserOsVersion(),
+		COLUMN_USER_DEVICE:          visitor.GetUserDevice(),
+		COLUMN_USER_DEVICE_TYPE:     visitor.GetUserDeviceType(),
+		COLUMN_USER_BROWSER:         visitor.GetUserBrowser(),
+		COLUMN_USER_BROWSER_VERSION: visitor.GetUserBrowserVersion(),
+		COLUMN_USER_REFERRER:        visitor.GetUserReferrer(),
+		COLUMN_UPDATED_AT:           visitor.GetUpdatedAtCarbon().StdTime(),
+		COLUMN_SOFT_DELETED_AT:      visitor.GetSoftDeletedAtCarbon().StdTime(),
+	}
+
+	_, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_ID+" = ?", visitor.GetID()).
+		Update(row)
+
+	return err
+}
+
+// == QUERY BUILDER ============================================================
+
+func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contractsorm.Query {
+	q := st.db.Query()
+
+	if query.HasID() && query.ID() != "" {
+		q = q.Where(COLUMN_ID+" = ?", query.ID())
+	}
+
+	if query.HasIDIn() && len(query.IDIn()) > 0 {
+		args := make([]any, len(query.IDIn()))
+		for i, id := range query.IDIn() {
+			args[i] = id
+		}
+		q = q.WhereIn(COLUMN_ID, args)
+	}
+
+	if query.HasCountry() && query.Country() != "" {
+		if strings.EqualFold(query.Country(), "empty") {
+			q = q.Where(COLUMN_COUNTRY+" = ?", "")
+		} else {
+			q = q.Where(COLUMN_COUNTRY+" = ?", query.Country())
+		}
+	}
+
+	if query.HasPathExact() && query.PathExact() != "" {
+		q = q.Where(COLUMN_PATH+" = ?", query.PathExact())
+	} else if query.HasPathContains() && query.PathContains() != "" {
+		q = q.Where(COLUMN_PATH+" LIKE ?", "%"+query.PathContains()+"%")
+	}
+
+	if query.HasDeviceType() && query.DeviceType() != "" {
+		if strings.EqualFold(query.DeviceType(), "empty") {
+			q = q.Where(COLUMN_USER_DEVICE_TYPE+" = ?", "")
+		} else {
+			q = q.Where(COLUMN_USER_DEVICE_TYPE+" = ?", query.DeviceType())
+		}
+	}
+
+	if query.HasCreatedAtGte() && query.CreatedAtGte() != "" {
+		q = q.Where(COLUMN_CREATED_AT+" >= ?", query.CreatedAtGte())
+	}
+	if query.HasCreatedAtLte() && query.CreatedAtLte() != "" {
+		q = q.Where(COLUMN_CREATED_AT+" <= ?", query.CreatedAtLte())
+	}
+
+	if query.HasLimit() && query.Limit() > 0 {
+		q = q.Limit(query.Limit())
+	}
+
+	if query.HasOffset() && query.Offset() > 0 {
+		q = q.Offset(query.Offset())
+	}
+
+	if query.HasOrderBy() && query.OrderBy() != "" {
+		sortOrder := "desc"
+		if query.HasSortOrder() && query.SortOrder() != "" {
+			sortOrder = query.SortOrder()
+		}
+		q = q.OrderBy(query.OrderBy(), sortOrder)
+	}
+
+	if query.HasSoftDeletedIncluded() && query.SoftDeletedIncluded() {
+		q = q.WithSoftDeleted()
+	} else {
+		q = q.Where(COLUMN_SOFT_DELETED_AT+" = ?", carbon.Parse(MAX_DATETIME, carbon.UTC).StdTime())
+	}
+
+	return q
 }

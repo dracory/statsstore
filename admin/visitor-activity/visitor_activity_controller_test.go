@@ -149,8 +149,8 @@ func TestVisitorActivityControllerHandlerError(t *testing.T) {
 		t.Fatalf("expected no scripts to be set on error, got %d", len(layout.scripts))
 	}
 
-	if !strings.Contains(strings.ToLower(layout.body), "no such table") {
-		t.Fatalf("expected missing table error, got: %s", layout.body)
+	if !strings.Contains(strings.ToLower(layout.body), "database operation failed") {
+		t.Fatalf("expected database operation failed error, got: %s", layout.body)
 	}
 }
 

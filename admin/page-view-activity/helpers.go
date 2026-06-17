@@ -25,24 +25,23 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (
 
 	filters := parseFilters(query)
 
-	options := statsstore.VisitorQueryOptions{
-		Limit:     perPage,
-		Offset:    offset,
-		OrderBy:   statsstore.COLUMN_CREATED_AT,
-		SortOrder: "DESC",
-	}
+	options := statsstore.VisitorQuery().
+		SetLimit(perPage).
+		SetOffset(offset).
+		SetOrderBy(statsstore.COLUMN_CREATED_AT).
+		SetSortOrder("DESC")
 
 	if filters.Country != "" {
-		options.Country = filters.Country
+		options = options.SetCountry(filters.Country)
 	}
 	if filters.From != "" {
-		options.CreatedAtGte = filters.From
+		options = options.SetCreatedAtGte(filters.From)
 	}
 	if filters.To != "" {
-		options.CreatedAtLte = filters.To
+		options = options.SetCreatedAtLte(filters.To)
 	}
 	if filters.Device != "" {
-		options.DeviceType = filters.Device
+		options = options.SetDeviceType(filters.Device)
 	}
 	if filters.Browser != "" {
 		// Browser-specific filtering not yet supported at store level; left for future enhancement.
@@ -53,10 +52,19 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (
 		return data, err.Error()
 	}
 
-	countOptions := options
-	countOptions.Limit = 0
-	countOptions.Offset = 0
-	countOptions.CountOnly = true
+	countOptions := statsstore.VisitorQuery()
+	if filters.Country != "" {
+		countOptions = countOptions.SetCountry(filters.Country)
+	}
+	if filters.From != "" {
+		countOptions = countOptions.SetCreatedAtGte(filters.From)
+	}
+	if filters.To != "" {
+		countOptions = countOptions.SetCreatedAtLte(filters.To)
+	}
+	if filters.Device != "" {
+		countOptions = countOptions.SetDeviceType(filters.Device)
+	}
 
 	totalCount, err := store.VisitorCount(r.Context(), countOptions)
 	if err != nil {

@@ -209,7 +209,7 @@ func pathHeaderLeft(ui shared.ControllerOptions, visitor statsstore.VisitorInter
 		Child(hb.Div().
 			Class("d-flex flex-column gap-1").
 			Child(hb.Span().Class("fw-semibold").Text(formatLocation(ui, visitor))).
-			Child(pathLink(ui, visitor.Path())))
+			Child(pathLink(ui, visitor.GetPath())))
 }
 
 func sessionMetadataColumn(data visitorPathsControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
@@ -222,7 +222,7 @@ func sessionMetadataColumn(data visitorPathsControllerData, visitor statsstore.V
 }
 
 func timestampBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
-	created := formatTimestamp(visitor.CreatedAt())
+	created := formatTimestamp(visitor.GetCreatedAt())
 	return hb.Div().
 		Class("d-flex flex-column gap-1").
 		Child(infoLine("Entry", infoText(created))).
@@ -230,7 +230,7 @@ func timestampBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 func ipBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
-	ip := visitor.IpAddress()
+	ip := visitor.GetIpAddress()
 	if ip == "" {
 		ip = "Unknown"
 	}
@@ -240,7 +240,7 @@ func ipBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 func referrerBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
-	referrer := visitor.UserReferrer()
+	referrer := visitor.GetUserReferrer()
 	var value hb.TagInterface
 	if referrer == "" {
 		value = infoMuted("(No referring link)")
@@ -257,7 +257,7 @@ func referrerBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 func userAgentBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
-	ua := visitor.UserAgent()
+	ua := visitor.GetUserAgent()
 	if ua == "" {
 		ua = "Unknown"
 	}
@@ -268,7 +268,7 @@ func userAgentBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 
 func drillDownButton(data visitorPathsControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	params := map[string]string{
-		"path": visitor.Path(),
+		"path": visitor.GetPath(),
 		"page": "1",
 	}
 	drillLink := shared.UrlVisitorActivity(data.Request, params)
@@ -400,20 +400,20 @@ func sessionLabel(visitors []statsstore.VisitorInterface, visitor statsstore.Vis
 }
 
 func sessionCount(visitors []statsstore.VisitorInterface, visitor statsstore.VisitorInterface) int {
-	targetFingerprint := strings.TrimSpace(visitor.Fingerprint())
-	targetID := strings.TrimSpace(visitor.ID())
+	targetFingerprint := strings.TrimSpace(visitor.GetFingerprint())
+	targetID := strings.TrimSpace(visitor.GetID())
 
 	count := 0
 
 	for _, item := range visitors {
 		if targetFingerprint != "" {
-			if strings.TrimSpace(item.Fingerprint()) == targetFingerprint {
+			if strings.TrimSpace(item.GetFingerprint()) == targetFingerprint {
 				count++
 			}
 			continue
 		}
 
-		if targetID != "" && strings.TrimSpace(item.ID()) == targetID {
+		if targetID != "" && strings.TrimSpace(item.GetID()) == targetID {
 			count++
 		}
 	}
@@ -426,8 +426,8 @@ func sessionCount(visitors []statsstore.VisitorInterface, visitor statsstore.Vis
 }
 
 func deviceBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
-	deviceType := strings.ToLower(visitor.UserDeviceType())
-	label := visitor.UserDeviceType()
+	deviceType := strings.ToLower(visitor.GetUserDeviceType())
+	label := visitor.GetUserDeviceType()
 	if label == "" {
 		label = "Unknown"
 	}
@@ -448,7 +448,7 @@ func deviceBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 func browserBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
-	browser := strings.TrimSpace(visitor.UserBrowser() + " " + visitor.UserBrowserVersion())
+	browser := strings.TrimSpace(visitor.GetUserBrowser() + " " + visitor.GetUserBrowserVersion())
 	if browser == "" {
 		browser = "Unknown Browser"
 	}
@@ -459,9 +459,9 @@ func browserBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 func countryBadge(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
-	code := strings.ToUpper(strings.TrimSpace(visitor.Country()))
+	code := strings.ToUpper(strings.TrimSpace(visitor.GetCountry()))
 	flag := countryFlagEmoji(code)
-	name := resolvedCountryName(ui, visitor.Country())
+	name := resolvedCountryName(ui, visitor.GetCountry())
 
 	badge := hb.Span().
 		Class("badge bg-light text-dark border").
@@ -488,7 +488,7 @@ func countryFlagEmoji(code string) string {
 }
 
 func formatLocation(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) string {
-	name := resolvedCountryName(ui, visitor.Country())
+	name := resolvedCountryName(ui, visitor.GetCountry())
 	if name == "" || name == "Unknown" {
 		return "Unknown Location"
 	}

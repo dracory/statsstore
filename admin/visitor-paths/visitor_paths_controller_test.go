@@ -132,7 +132,7 @@ func TestVisitorPathsControllerExportCSVStoreError(t *testing.T) {
 		t.Fatalf("expected status 500, got %d", status)
 	}
 
-	if body := strings.TrimSpace(rr.Body.String()); !strings.Contains(strings.ToLower(body), "no such table") {
+	if body := strings.TrimSpace(rr.Body.String()); !strings.Contains(strings.ToLower(body), "database operation failed") {
 		t.Fatalf("unexpected body: %s", body)
 	}
 }

@@ -36,23 +36,22 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 
 	offset := (pageInt - 1) * perPage
 
-	options := statsstore.VisitorQueryOptions{
-		Limit:     perPage,
-		Offset:    offset,
-		OrderBy:   statsstore.COLUMN_CREATED_AT,
-		SortOrder: "DESC",
-	}
+	options := statsstore.VisitorQuery().
+		SetLimit(perPage).
+		SetOffset(offset).
+		SetOrderBy(statsstore.COLUMN_CREATED_AT).
+		SetSortOrder("DESC")
 
 	if filters.Country != "" {
-		options.Country = filters.Country
+		options = options.SetCountry(filters.Country)
 	}
 
 	if filters.From != "" {
-		options.CreatedAtGte = filters.From
+		options = options.SetCreatedAtGte(filters.From)
 	}
 
 	if filters.To != "" {
-		options.CreatedAtLte = filters.To
+		options = options.SetCreatedAtLte(filters.To)
 	}
 
 	visitors, err := store.VisitorList(r.Context(), options)
@@ -60,10 +59,16 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 		return data, err.Error()
 	}
 
-	countOptions := options
-	countOptions.Limit = 0
-	countOptions.Offset = 0
-	countOptions.CountOnly = true
+	countOptions := statsstore.VisitorQuery()
+	if filters.Country != "" {
+		countOptions = countOptions.SetCountry(filters.Country)
+	}
+	if filters.From != "" {
+		countOptions = countOptions.SetCreatedAtGte(filters.From)
+	}
+	if filters.To != "" {
+		countOptions = countOptions.SetCreatedAtLte(filters.To)
+	}
 
 	visitorCount, err := store.VisitorCount(r.Context(), countOptions)
 	if err != nil {
@@ -135,8 +140,8 @@ func formatVisitorTimestamp(timestamp string) string {
 func formatVisitDuration(visitor statsstore.VisitorInterface, visitors []statsstore.VisitorInterface, index int) string {
 	if index < len(visitors)-1 {
 		nextVisit := visitors[index+1]
-		t1, err1 := time.Parse(time.RFC3339, visitor.CreatedAt())
-		t2, err2 := time.Parse(time.RFC3339, nextVisit.CreatedAt())
+		t1, err1 := time.Parse(time.RFC3339, visitor.GetCreatedAt())
+		t2, err2 := time.Parse(time.RFC3339, nextVisit.GetCreatedAt())
 		if err1 == nil && err2 == nil {
 			durationSec := t1.Sub(t2).Seconds()
 			if durationSec > 0 {
@@ -148,7 +153,7 @@ func formatVisitDuration(visitor statsstore.VisitorInterface, visitors []statsst
 }
 
 func deviceIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
-	deviceType := strings.ToLower(visitor.UserDeviceType())
+	deviceType := strings.ToLower(visitor.GetUserDeviceType())
 
 	iconClass := "bi bi-question-circle"
 	color := "text-secondary"
@@ -168,12 +173,12 @@ func deviceIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 		color = "text-warning"
 	}
 
-	return hb.I().Class(iconClass+" "+color).Attr("title", visitor.UserDevice())
+	return hb.I().Class(iconClass+" "+color).Attr("title", visitor.GetUserDevice())
 }
 
 // osIcon returns an icon representing the operating system
 func osIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
-	os := strings.ToLower(visitor.UserOs())
+	os := strings.ToLower(visitor.GetUserOs())
 
 	iconClass := "bi bi-circle"
 	color := "text-secondary"
@@ -195,7 +200,7 @@ func osIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 
 	return hb.I().
 		Class(iconClass + " " + color).
-		Title(visitor.UserOs() + " " + visitor.UserOsVersion())
+		Title(visitor.GetUserOs() + " " + visitor.GetUserOsVersion())
 }
 
 // getVisitPageLink returns HTML for visit page with link

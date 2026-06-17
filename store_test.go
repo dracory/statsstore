@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dracory/sb"
 	_ "modernc.org/sqlite"
 )
 
@@ -35,7 +34,7 @@ func initStore() (StoreInterface, error) {
 	})
 }
 
-func TestStorevisitorCreate(t *testing.T) {
+func TestStoreVisitorCreate(t *testing.T) {
 	store, err := initStore()
 
 	if err != nil {
@@ -55,7 +54,7 @@ func TestStorevisitorCreate(t *testing.T) {
 	}
 }
 
-func TestStorevisitorFindByID(t *testing.T) {
+func TestStoreVisitorFindByID(t *testing.T) {
 	store, err := initStore()
 
 	if err != nil {
@@ -75,7 +74,7 @@ func TestStorevisitorFindByID(t *testing.T) {
 		t.Error("unexpected error:", err)
 	}
 
-	visitorFound, errFind := store.VisitorFindByID(ctx, visitor.ID())
+	visitorFound, errFind := store.VisitorFindByID(ctx, visitor.GetID())
 
 	if errFind != nil {
 		t.Fatal("unexpected error:", errFind)
@@ -85,12 +84,12 @@ func TestStorevisitorFindByID(t *testing.T) {
 		t.Fatal("visitor MUST NOT be nil")
 	}
 
-	if visitorFound.ID() != visitor.ID() {
+	if visitorFound.GetID() != visitor.GetID() {
 		t.Fatal("IDs do not match")
 	}
 }
 
-func TestStorevisitorSoftDelete(t *testing.T) {
+func TestStoreVisitorSoftDelete(t *testing.T) {
 	store, err := initStore()
 
 	if err != nil {
@@ -111,42 +110,40 @@ func TestStorevisitorSoftDelete(t *testing.T) {
 		t.Fatal("unexpected error:", err)
 	}
 
-	err = store.VisitorSoftDeleteByID(ctx, visitor.ID())
+	err = store.VisitorSoftDeleteByID(ctx, visitor.GetID())
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
-	if visitor.DeletedAt() != sb.MAX_DATETIME {
+	if visitor.GetSoftDeletedAt() != MAX_DATETIME {
 		t.Fatal("visitor MUST NOT be soft deleted")
 	}
 
-	visitorFound, errFind := store.VisitorFindByID(ctx, visitor.ID())
+	visitorFound, errFind := store.VisitorFindByID(ctx, visitor.GetID())
 
 	if errFind != nil {
 		t.Fatal("unexpected error:", errFind)
 	}
 
 	if visitorFound != nil {
-		t.Fatal("visitor MUST be nil")
+		t.Fatal("visitor MUST be nil after soft delete")
 	}
 
-	visitorFindWithDeleted, err := store.VisitorList(ctx, VisitorQueryOptions{
-		ID:          visitor.ID(),
-		Limit:       1,
-		WithDeleted: true,
-	})
+	visitorFindWithDeleted, err := store.VisitorList(ctx, VisitorQuery().
+		SetID(visitor.GetID()).
+		SetLimit(1).
+		SetSoftDeletedIncluded(true))
 
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
 	if len(visitorFindWithDeleted) == 0 {
-		t.Fatal("Exam MUST be soft deleted")
+		t.Fatal("visitor MUST be found with soft deleted included")
 	}
 
-	if strings.Contains(visitorFindWithDeleted[0].DeletedAt(), sb.NULL_DATETIME) {
-		t.Fatal("visitor MUST be soft deleted", visitor.DeletedAt())
+	if strings.Contains(visitorFindWithDeleted[0].GetSoftDeletedAt(), MAX_DATETIME) {
+		t.Fatal("visitor MUST be soft deleted", visitor.GetSoftDeletedAt())
 	}
-
 }

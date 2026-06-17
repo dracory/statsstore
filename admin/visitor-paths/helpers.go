@@ -21,30 +21,29 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (visi
 
 	filters := parseFilters(query)
 
-	options := statsstore.VisitorQueryOptions{
-		Limit:     perPage,
-		Offset:    offset,
-		OrderBy:   statsstore.COLUMN_CREATED_AT,
-		SortOrder: "DESC",
-	}
+	options := statsstore.VisitorQuery().
+		SetLimit(perPage).
+		SetOffset(offset).
+		SetOrderBy(statsstore.COLUMN_CREATED_AT).
+		SetSortOrder("DESC")
 
 	if filters.Country != "" {
-		options.Country = filters.Country
+		options = options.SetCountry(filters.Country)
 	}
 	if filters.From != "" {
-		options.CreatedAtGte = filters.From
+		options = options.SetCreatedAtGte(filters.From)
 	}
 	if filters.To != "" {
-		options.CreatedAtLte = filters.To
+		options = options.SetCreatedAtLte(filters.To)
 	}
 	if filters.PathContains != "" {
-		options.PathContains = filters.PathContains
+		options = options.SetPathContains(filters.PathContains)
 	}
 	if filters.PathExact != "" {
-		options.PathExact = filters.PathExact
+		options = options.SetPathExact(filters.PathExact)
 	}
 	if filters.Device != "" {
-		options.DeviceType = filters.Device
+		options = options.SetDeviceType(filters.Device)
 	}
 
 	paths, err := store.VisitorList(r.Context(), options)
@@ -52,9 +51,25 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (visi
 		return data, err.Error()
 	}
 
-	countOptions := options
-	countOptions.Limit = 0
-	countOptions.Offset = 0
+	countOptions := statsstore.VisitorQuery()
+	if filters.Country != "" {
+		countOptions = countOptions.SetCountry(filters.Country)
+	}
+	if filters.From != "" {
+		countOptions = countOptions.SetCreatedAtGte(filters.From)
+	}
+	if filters.To != "" {
+		countOptions = countOptions.SetCreatedAtLte(filters.To)
+	}
+	if filters.PathContains != "" {
+		countOptions = countOptions.SetPathContains(filters.PathContains)
+	}
+	if filters.PathExact != "" {
+		countOptions = countOptions.SetPathExact(filters.PathExact)
+	}
+	if filters.Device != "" {
+		countOptions = countOptions.SetDeviceType(filters.Device)
+	}
 
 	totalCount, err := store.VisitorCount(r.Context(), countOptions)
 	if err != nil {

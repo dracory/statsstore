@@ -154,10 +154,9 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	createdAtGte := start.ToDateString() + " 00:00:00"
 	createdAtLte := end.ToDateString() + " 23:59:59"
 
-	visitors, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQueryOptions{
-		CreatedAtGte: createdAtGte,
-		CreatedAtLte: createdAtLte,
-	})
+	visitors, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
+		SetCreatedAtGte(createdAtGte).
+		SetCreatedAtLte(createdAtLte))
 
 	if err != nil {
 		return data, err.Error()
@@ -168,13 +167,13 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	firstVisitByIP := map[string]string{}
 
 	for _, visitor := range visitors {
-		createdAt := visitor.CreatedAtCarbon()
+		createdAt := visitor.GetCreatedAtCarbon()
 		if createdAt == nil {
 			continue
 		}
 
 		visitDate := createdAt.ToDateString()
-		identifier := visitor.IpAddress()
+		identifier := visitor.GetIpAddress()
 		if identifier == "" {
 			identifier = "unknown-ip"
 		}

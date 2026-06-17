@@ -125,8 +125,8 @@ func TestHomeControllerHandleError(t *testing.T) {
 		t.Fatalf("expected no scripts when error occurs, got %d", len(layout.scripts))
 	}
 
-	if !strings.Contains(strings.ToLower(layout.body), "no such table") {
-		t.Fatalf("expected missing table error in body, got: %s", layout.body)
+	if !strings.Contains(strings.ToLower(layout.body), "database operation failed") {
+		t.Fatalf("expected database operation failed error in body, got: %s", layout.body)
 	}
 }
 

@@ -4,45 +4,46 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
+	"os"
 
-	"github.com/dracory/sb"
+	"github.com/dracory/neat"
 )
 
-// NewStoreOptions define the options for creating a new block store
+// NewStoreOptions defines the options for creating a new stats store.
 type NewStoreOptions struct {
 	VisitorTableName   string
 	DB                 *sql.DB
-	DbDriverName       string
 	AutomigrateEnabled bool
 	DebugEnabled       bool
 }
 
-// NewStore creates a new block store
-func NewStore(opts NewStoreOptions) (*Store, error) {
+// NewStore creates a new stats store.
+func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 	if opts.VisitorTableName == "" {
 		return nil, errors.New("stats store: VisitorTableName is required")
 	}
 
 	if opts.DB == nil {
-		return nil, errors.New("shop store: DB is required")
+		return nil, errors.New("stats store: DB is required")
 	}
 
-	if opts.DbDriverName == "" {
-		opts.DbDriverName = sb.DatabaseDriverName(opts.DB)
+	neatDB, err := neat.NewFromSQLDB(opts.DB)
+	if err != nil {
+		return nil, err
 	}
 
-	store := &Store{
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	store := &storeImplementation{
 		visitorTableName:   opts.VisitorTableName,
+		db:                 neatDB,
 		automigrateEnabled: opts.AutomigrateEnabled,
-		db:                 opts.DB,
-		dbDriverName:       opts.DbDriverName,
 		debugEnabled:       opts.DebugEnabled,
+		logger:             logger,
 	}
 
 	if store.automigrateEnabled {
-		err := store.MigrateUp(context.Background())
-
-		if err != nil {
+		if err := store.MigrateUp(context.Background()); err != nil {
 			return nil, err
 		}
 	}
