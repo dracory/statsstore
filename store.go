@@ -349,7 +349,8 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 // == QUERY BUILDER ============================================================
 
 func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contractsorm.Query {
-	q := st.db.Query()
+	// Use Model() to enable neat's automatic soft delete handling via SoftDeletesMaxDate
+	q := st.db.Query().Model(&visitorImplementation{})
 
 	if query.HasID() && query.ID() != "" {
 		q = q.Where(COLUMN_ID+" = ?", query.ID())
@@ -408,10 +409,9 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 		q = q.OrderBy(query.OrderBy(), sortOrder)
 	}
 
+	// Handle soft delete filtering via neat's automatic handling (SoftDeletesMaxDate)
 	if query.HasSoftDeletedIncluded() && query.SoftDeletedIncluded() {
 		q = q.WithSoftDeleted()
-	} else {
-		q = q.Where(COLUMN_SOFT_DELETED_AT+" = ?", carbon.Parse(MAX_DATETIME, carbon.UTC).StdTime())
 	}
 
 	return q
