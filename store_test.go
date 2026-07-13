@@ -3,6 +3,8 @@ package statsstore
 import (
 	"context"
 	"database/sql"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -179,5 +181,45 @@ func TestStoreVisitorListCreatedAtRange(t *testing.T) {
 
 	if len(result) != 2 {
 		t.Fatalf("expected 2 visitors in range, got %d", len(result))
+	}
+}
+
+func TestStoreVisitorRegisterExcludedPath(t *testing.T) {
+	db, err := initDB()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	store, err := NewStore(NewStoreOptions{
+		DB:                   db,
+		VisitorTableName:     "visitor_table",
+		AutomigrateEnabled:   true,
+		ExcludedPathPrefixes: []string{"/admin/"},
+	})
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	ctx := context.Background()
+
+	// Request to /admin/home should be skipped
+	req1 := httptest.NewRequest(http.MethodGet, "/admin/home", nil)
+	if err := store.VisitorRegister(ctx, req1); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Request to /about should be tracked
+	req2 := httptest.NewRequest(http.MethodGet, "/about", nil)
+	if err := store.VisitorRegister(ctx, req2); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	count, err := store.VisitorCount(ctx, VisitorQuery())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	if count != 1 {
+		t.Fatalf("expected 1 visitor (admin path excluded), got %d", count)
 	}
 }

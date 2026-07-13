@@ -286,9 +286,10 @@ func main() {
 
 	// Create the store with auto-migration
 	store, err := statsstore.NewStore(statsstore.NewStoreOptions{
-		DB:                 db,
-		VisitorTableName:   "visitors",
-		AutomigrateEnabled: true,
+		DB:                   db,
+		VisitorTableName:     "visitors",
+		AutomigrateEnabled:   true,
+		ExcludedPathPrefixes: []string{"/admin/"},
 	})
 	if err != nil {
 		log.Fatalf("failed to create store: %v", err)

@@ -17,6 +17,12 @@ type StoreInterface interface {
 	EnableDebug(debug bool)
 	GetDB() *sql.DB
 
+	SetBotFilterEnabled(enabled bool)
+	IsBotFilterEnabled() bool
+
+	SetExcludedPathPrefixes(prefixes []string)
+	GetExcludedPathPrefixes() []string
+
 	VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error)
 	VisitorCreate(ctx context.Context, user VisitorInterface) error
 	VisitorDelete(ctx context.Context, user VisitorInterface) error

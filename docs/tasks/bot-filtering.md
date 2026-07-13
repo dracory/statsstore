@@ -3,7 +3,7 @@
 ## Source
 Plausible + Rybbit feature research
 
-## Status: Not Started
+## Status: Completed
 
 ## Objective
 Filter out bot/crawler traffic and referrer spam to prevent data pollution.

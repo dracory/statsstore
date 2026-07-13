@@ -23,11 +23,13 @@ var _ StoreInterface = (*storeImplementation)(nil)
 
 // storeImplementation implements StoreInterface for visitor operations.
 type storeImplementation struct {
-	visitorTableName   string
-	db                 *neat.Database
-	automigrateEnabled bool
-	debugEnabled       bool
-	logger             *slog.Logger
+	visitorTableName     string
+	db                   *neat.Database
+	automigrateEnabled   bool
+	debugEnabled         bool
+	botFilterEnabled     bool
+	excludedPathPrefixes []string
+	logger               *slog.Logger
 }
 
 // == MIGRATE ==================================================================
@@ -114,18 +116,79 @@ func (st *storeImplementation) GetDB() *sql.DB {
 	return db
 }
 
+// == BOT FILTERING ===========================================================
+
+// SetBotFilterEnabled enables or disables bot/referrer spam/data center filtering.
+func (st *storeImplementation) SetBotFilterEnabled(enabled bool) {
+	st.botFilterEnabled = enabled
+}
+
+// IsBotFilterEnabled returns whether bot filtering is currently enabled.
+func (st *storeImplementation) IsBotFilterEnabled() bool {
+	return st.botFilterEnabled
+}
+
+// SetExcludedPathPrefixes sets path prefixes that should be excluded from visitor tracking.
+// Requests whose URL path starts with any of these prefixes will be silently skipped
+// by VisitorRegister. This is useful for excluding admin panel traffic (e.g. "/admin/").
+func (st *storeImplementation) SetExcludedPathPrefixes(prefixes []string) {
+	st.excludedPathPrefixes = prefixes
+}
+
+// GetExcludedPathPrefixes returns the currently configured excluded path prefixes.
+func (st *storeImplementation) GetExcludedPathPrefixes() []string {
+	return st.excludedPathPrefixes
+}
+
 // == VISITOR OPERATIONS =======================================================
 
 // VisitorRegister creates a visitor from an HTTP request.
+// If bot filtering is enabled, requests from known bots/crawlers, referrer spam
+// domains, or data center IP ranges are silently skipped (returns nil).
 func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
+
+	for _, prefix := range st.excludedPathPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			if st.debugEnabled {
+				st.logger.Info("path-filter: skipping excluded path", "path", path, "prefix", prefix)
+			}
+			return nil
+		}
+	}
+
 	ip := req.GetIP(r)
 	userAgent := r.UserAgent()
+	referrer := r.Header.Get("Referer")
+
+	if st.botFilterEnabled {
+		if IsBot(userAgent) {
+			if st.debugEnabled {
+				st.logger.Info("bot-filter: skipping bot visit", "user_agent", userAgent)
+			}
+			return nil
+		}
+
+		if IsReferrerSpam(referrer) {
+			if st.debugEnabled {
+				st.logger.Info("bot-filter: skipping referrer spam visit", "referrer", referrer)
+			}
+			return nil
+		}
+
+		if IsDataCenterIP(ip) {
+			if st.debugEnabled {
+				st.logger.Info("bot-filter: skipping data center IP visit", "ip", ip)
+			}
+			return nil
+		}
+	}
 
 	visitor := NewVisitor().
 		SetPath(path).
 		SetIpAddress(ip).
-		SetUserAgent(userAgent)
+		SetUserAgent(userAgent).
+		SetUserReferrer(referrer)
 
 	return st.VisitorCreate(ctx, visitor)
 }

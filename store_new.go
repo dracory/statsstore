@@ -12,10 +12,12 @@ import (
 
 // NewStoreOptions defines the options for creating a new stats store.
 type NewStoreOptions struct {
-	VisitorTableName   string
-	DB                 *sql.DB
-	AutomigrateEnabled bool
-	DebugEnabled       bool
+	VisitorTableName     string
+	DB                   *sql.DB
+	AutomigrateEnabled   bool
+	DebugEnabled         bool
+	BotFilterEnabled     bool
+	ExcludedPathPrefixes []string
 }
 
 // NewStore creates a new stats store.
@@ -35,11 +37,13 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	store := &storeImplementation{
-		visitorTableName:   opts.VisitorTableName,
-		db:                 neatDB,
-		automigrateEnabled: opts.AutomigrateEnabled,
-		debugEnabled:       opts.DebugEnabled,
-		logger:             logger,
+		visitorTableName:     opts.VisitorTableName,
+		db:                   neatDB,
+		automigrateEnabled:   opts.AutomigrateEnabled,
+		debugEnabled:         opts.DebugEnabled,
+		botFilterEnabled:     opts.BotFilterEnabled,
+		excludedPathPrefixes: opts.ExcludedPathPrefixes,
+		logger:               logger,
 	}
 
 	if store.automigrateEnabled {
