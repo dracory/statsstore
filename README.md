@@ -28,3 +28,17 @@ store, err := NewStore(NewStoreOptions{
 })
 
 ```
+
+## Screenshots
+
+### Dashboard
+
+![Dashboard](examples/admin-demo/screenshots/screenshot-dashboard.png)
+
+### Visitor Activity
+
+![Visitor Activity](examples/admin-demo/screenshots/screenshot-visitor-activity.png)
+
+### Visitor Paths
+
+![Visitor Paths](examples/admin-demo/screenshots/screenshot-visitor-paths.png)
