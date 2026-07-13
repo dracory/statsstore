@@ -128,38 +128,6 @@ func chartStatsSummary(data ControllerData) hb.TagInterface {
 				chart.update();
 			});
 		}
-
-		// Export functions
-		function exportTableToCSV(tableId, filename) {
-			const table = document.getElementById(tableId);
-			if (!table) return;
-			
-			let csv = [];
-			const rows = table.querySelectorAll('tr');
-			
-			for (let i = 0; i < rows.length; i++) {
-				const row = [], cols = rows[i].querySelectorAll('td, th');
-				
-				for (let j = 0; j < cols.length; j++) {
-					row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
-				}
-				
-				csv.push(row.join(','));
-			}
-			
-			const csvContent = csv.join('\\n');
-			const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-			const link = document.createElement('a');
-			
-			link.href = URL.createObjectURL(blob);
-			link.setAttribute('download', filename);
-			link.click();
-		}
-
-		function exportTableToPDF(tableId, filename) {
-			// This is a placeholder - in a real implementation you would use a library like jsPDF
-			alert('PDF export would be implemented with jsPDF or similar library');
-		}
 	`)
 
 	return hb.Div().

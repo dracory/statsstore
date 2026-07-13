@@ -2,6 +2,7 @@ package visitoractivity
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore/admin/shared"
@@ -25,6 +26,14 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Handler renders the controller output using the shared layout
 func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 	data, errorMessage := buildControllerData(r, c.UI.Store)
+
+	if action := r.URL.Query().Get("action"); action == "export" {
+		if errorMessage != "" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return errorMessage
+		}
+		return c.exportCSV(w, data)
+	}
 
 	c.UI.Layout.SetTitle("Visitor Activity | Visitor Analytics")
 
@@ -66,40 +75,41 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 			loadSwal();
 		}
 		`,
-		// Add export functionality
-		`
-		function exportTableToCSV(tableId, filename) {
-			const table = document.getElementById(tableId);
-			if (!table) return;
-			
-			let csv = [];
-			const rows = table.querySelectorAll('tr');
-			
-			for (let i = 0; i < rows.length; i++) {
-				const row = [], cols = rows[i].querySelectorAll('td, th');
-				
-				for (let j = 0; j < cols.length; j++) {
-					row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
-				}
-				
-				csv.push(row.join(','));
-			}
-			
-			const csvContent = csv.join('\n');
-			const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-			const link = document.createElement('a');
-			
-			link.href = URL.createObjectURL(blob);
-			link.setAttribute('download', filename);
-			link.click();
-		}
-		`,
 	}
 
 	c.UI.Layout.SetBody(c.page(data).ToHTML())
 	c.UI.Layout.SetScripts(scripts)
 
 	return c.UI.Layout.Render(w, r)
+}
+
+func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) string {
+	headers := []string{
+		"Visit Time",
+		"Path",
+		"Country",
+		"IP Address",
+		"Referrer",
+		"Browser",
+		"OS",
+		"User Agent",
+	}
+
+	rows := make([][]string, 0, len(data.Visitors))
+	for _, visitor := range data.Visitors {
+		rows = append(rows, []string{
+			formatVisitorTimestamp(visitor.GetCreatedAt()),
+			visitor.GetPath(),
+			strings.ToUpper(visitor.GetCountry()),
+			visitor.GetIpAddress(),
+			visitor.GetUserReferrer(),
+			strings.TrimSpace(visitor.GetUserBrowser() + " " + visitor.GetUserBrowserVersion()),
+			strings.TrimSpace(visitor.GetUserOs() + " " + visitor.GetUserOsVersion()),
+			visitor.GetUserAgent(),
+		})
+	}
+
+	return shared.ExportCSV(w, shared.ExportFilename("visitor-activity"), headers, rows)
 }
 
 // ToTag renders the controller to an HTML tag

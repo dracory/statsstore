@@ -26,6 +26,51 @@ The statsstore admin panel delivers ready-made dashboards and tables for monitor
 - Shared components (cards, pagination, modals) can be reused or extended for consistent UI.
 - Scripts are currently injected as inline strings; replace or extend via layout hooks if bundling assets differently.
 
+## CSV Export
+
+All admin controllers that offer CSV export use a shared server-side helper located in `admin/shared/export.go`. This replaces the former duplicated client-side JavaScript `exportTableToCSV` functions with a single, testable Go implementation.
+
+### Usage
+
+Controllers detect an `?action=export` query parameter and delegate to the shared helper:
+
+```go
+func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
+	data, errorMessage := c.prepareData(r)
+
+	if action := r.URL.Query().Get("action"); action == "export" {
+		if errorMessage != "" {
+			w.WriteHeader(http.StatusInternalServerError)
+			return errorMessage
+		}
+		return c.exportCSV(w, data)
+	}
+
+	// ... normal page rendering
+}
+```
+
+The `exportCSV` method builds headers and rows, then calls:
+
+```go
+shared.ExportCSV(w, shared.ExportFilename("visitor-paths"), headers, rows)
+```
+
+### Functions
+
+- **`shared.ExportFilename(prefix string) string`** — Generates a CSV filename with the current UTC date (e.g., `visitor-paths-2024-01-15.csv`).
+- **`shared.ExportCSV(w http.ResponseWriter, filename string, headers []string, rows [][]string) string`** — Writes CSV content with a UTF-8 BOM for Excel/Google Sheets compatibility, sets `Content-Type` and `Content-Disposition` headers, and returns the CSV string.
+
+### Controllers Using Shared Export
+
+- `home` — Exports daily stats summary (date, page views, unique visits, first-time visits, returning visits).
+- `visitor-activity` — Exports individual visit records (visit time, path, country, IP, referrer, browser, OS, user agent).
+- `visitor-paths` — Exports visitor path records (visit time, path, absolute URL, country, IP, referrer, session, device, browser).
+
+### Testing
+
+Shared export tests are in `admin/shared/export_test.go`, covering filename generation, BOM presence, header/row correctness, and Content-Disposition headers.
+
 ## Dependencies
 - HTML generation uses `github.com/dracory/hb`.
 - Charts and interactions rely on external CDNs (Chart.js, HTMX, SweetAlert2) loaded on demand.

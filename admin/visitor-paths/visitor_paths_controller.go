@@ -1,12 +1,8 @@
 package visitorpaths
 
 import (
-	"bytes"
-	"encoding/csv"
-	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore/admin/shared"
@@ -94,9 +90,6 @@ func (c *visitorPathsController) Handler(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *visitorPathsController) exportCSV(w http.ResponseWriter, data visitorPathsControllerData) string {
-	buffer := &bytes.Buffer{}
-	writer := csv.NewWriter(buffer)
-
 	headers := []string{
 		"Visit Time",
 		"Path",
@@ -109,15 +102,11 @@ func (c *visitorPathsController) exportCSV(w http.ResponseWriter, data visitorPa
 		"Browser",
 	}
 
-	if err := writer.Write(headers); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return "Failed to generate export"
-	}
-
+	rows := make([][]string, 0, len(data.Paths))
 	for _, visitor := range data.Paths {
 		browser := strings.TrimSpace(visitor.GetUserBrowser() + " " + visitor.GetUserBrowserVersion())
 		absoluteURL := fullPathURL(c.ui, visitor.GetPath())
-		row := []string{
+		rows = append(rows, []string{
 			formatTimestamp(visitor.GetCreatedAt()),
 			visitor.GetPath(),
 			absoluteURL,
@@ -127,25 +116,10 @@ func (c *visitorPathsController) exportCSV(w http.ResponseWriter, data visitorPa
 			sessionLabel(data.Paths, visitor),
 			visitor.GetUserDevice(),
 			browser,
-		}
-
-		if err := writer.Write(row); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return "Failed to generate export"
-		}
+		})
 	}
 
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return "Failed to generate export"
-	}
-
-	filename := fmt.Sprintf("visitor-paths-%s.csv", time.Now().UTC().Format("2006-01-02"))
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
-
-	return buffer.String()
+	return shared.ExportCSV(w, shared.ExportFilename("visitor-paths"), headers, rows)
 }
 
 // == PRIVATE METHODS ==========================================================

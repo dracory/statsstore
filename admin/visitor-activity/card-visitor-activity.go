@@ -15,7 +15,7 @@ import (
 func CardVisitorActivity(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
 	card := hb.Div().
 		Class("card shadow-sm mb-4").
-		Child(cardHeader("Visitor Activity")).
+		Child(cardHeader("Visitor Activity", data)).
 		Child(cardBody(data, ui))
 
 	return hb.Div().
@@ -100,10 +100,10 @@ func queryParamsWith(data ControllerData, overrides map[string]string) map[strin
 	return result
 }
 
-func cardHeader(title string) hb.TagInterface {
+func cardHeader(title string, data ControllerData) hb.TagInterface {
 	actions := hb.Div().
 		Class("d-flex align-items-center gap-2").
-		Child(exportDropdown()).
+		Child(exportDropdown(data)).
 		Child(optionsButton())
 
 	return hb.Div().
@@ -123,7 +123,6 @@ func cardBody(data ControllerData, ui shared.ControllerOptions) hb.TagInterface 
 			Children(lo.Map(data.Visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
 				return visitorRow(data, ui, visitor, index)
 			}))).
-		Child(exportDataTable(data)).
 		Child(footerControls(data))
 }
 
@@ -397,7 +396,10 @@ func sessionBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Text(fmt.Sprintf("Session %s", strings.ToUpper(fingerprint)))
 }
 
-func exportDropdown() hb.TagInterface {
+func exportDropdown(data ControllerData) hb.TagInterface {
+	params := queryParamsWith(data, map[string]string{"action": "export"})
+	link := shared.UrlVisitorActivity(data.Request, params)
+
 	return hb.Div().
 		Class("dropdown").
 		Child(hb.Button().
@@ -411,8 +413,9 @@ func exportDropdown() hb.TagInterface {
 			Child(hb.LI().
 				Child(hb.A().
 					Class("dropdown-item").
-					Href("#").
-					Attr("onclick", "exportTableToCSV('visitor-activity-table', 'visitor_activity.csv')").
+					Href(link).
+					Attr("target", "_blank").
+					Attr("rel", "noopener").
 					Text("Export to CSV"))))
 }
 
@@ -421,40 +424,6 @@ func optionsButton() hb.TagInterface {
 		Class("btn btn-sm btn-outline-secondary").
 		Attr("type", "button").
 		HTML(`<i class="bi bi-gear"></i>`)
-}
-
-func exportDataTable(data ControllerData) hb.TagInterface {
-	head := hb.Thead().
-		Child(hb.TR().Children([]hb.TagInterface{
-			hb.TH().Text("Visit Time"),
-			hb.TH().Text("Path"),
-			hb.TH().Text("Country"),
-			hb.TH().Text("IP Address"),
-			hb.TH().Text("Referrer"),
-			hb.TH().Text("Browser"),
-			hb.TH().Text("OS"),
-			hb.TH().Text("User Agent"),
-		}))
-
-	body := hb.Tbody().
-		Children(lo.Map(data.Visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
-			return hb.TR().Children([]hb.TagInterface{
-				hb.TD().Text(formatVisitorTimestamp(visitor.GetCreatedAt())),
-				hb.TD().Text(visitor.GetPath()),
-				hb.TD().Text(strings.ToUpper(visitor.GetCountry())),
-				hb.TD().Text(visitor.GetIpAddress()),
-				hb.TD().Text(visitor.GetUserReferrer()),
-				hb.TD().Text(strings.TrimSpace(visitor.GetUserBrowser() + " " + visitor.GetUserBrowserVersion())),
-				hb.TD().Text(strings.TrimSpace(visitor.GetUserOs() + " " + visitor.GetUserOsVersion())),
-				hb.TD().Text(visitor.GetUserAgent()),
-			})
-		}))
-
-	return hb.Table().
-		Class("table table-sm d-none").
-		ID("visitor-activity-table").
-		Child(head).
-		Child(body)
 }
 
 func countryFlagEmoji(code string) string {

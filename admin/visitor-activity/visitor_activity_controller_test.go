@@ -112,8 +112,8 @@ func TestVisitorActivityControllerHandlerSuccess(t *testing.T) {
 		t.Fatalf("unexpected title: %s", layout.title)
 	}
 
-	if len(layout.scripts) != 3 {
-		t.Fatalf("expected 3 scripts, got %d", len(layout.scripts))
+	if len(layout.scripts) != 2 {
+		t.Fatalf("expected 2 scripts, got %d", len(layout.scripts))
 	}
 
 	if !strings.Contains(layout.body, "Visitor Activity") {

@@ -15,6 +15,11 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// stripBOM removes the UTF-8 BOM prefix if present so csv.NewReader can parse cleanly.
+func stripBOM(s string) string {
+	return strings.TrimPrefix(s, "\xEF\xBB\xBF")
+}
+
 func TestVisitorPathsControllerExportCSV(t *testing.T) {
 	store := newTestStore(t, true)
 
@@ -67,7 +72,7 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 		t.Fatalf("unexpected content disposition: %s", disposition)
 	}
 
-	records, err := csv.NewReader(strings.NewReader(rr.Body.String())).ReadAll()
+	records, err := csv.NewReader(strings.NewReader(stripBOM(rr.Body.String()))).ReadAll()
 	if err != nil {
 		t.Fatalf("failed to parse csv: %v", err)
 	}

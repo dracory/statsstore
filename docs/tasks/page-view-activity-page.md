@@ -3,6 +3,25 @@
 ## Objective
 Introduce a dedicated "Page View Activity" screen that mirrors the StatCounter-style reference while leveraging current visitor data captured by `statsstore`.
 
+## Status: Partially Implemented (~20%)
+
+### Done
+- Controller scaffold (`admin/page-view-activity/controller.go`) with routing registered in `admin.go`
+- Breadcrumbs + `shared.AdminHeaderUI` nav entry wired
+- `UrlPageViewActivity` URL helper in `shared/utils.go`
+- `ControllerData` and `FilterOptions` types in `types.go` (includes `Browser` field)
+- `buildControllerData` in `helpers.go` — queries store with country/date/device filters, computes pagination metadata
+- `parseFilters` — handles range presets (24h, today, 7d, 30d), custom from/to, country, device, browser
+- `clampPerPage` and `parseIntWithDefault` helpers
+
+### Not Done
+- **Filter toolbar UI** — no dropdown, badges, or quick range buttons rendered; `page()` shows placeholder alert div
+- **Table/list composition** — no row rendering, no timestamp/system/location/host-referrer cells
+- **Footer controls** — no pagination summary, per-page selector, or pagination controls
+- **CSV export** — no export dropdown, no server-side CSV handler
+- **Scripts** — `SetScripts` never called (no HTMX/SweetAlert2/tooltip init)
+- **Tests** — no `*_test.go` in `admin/page-view-activity/`
+
 ## Key Features
 - **Table columns**
   - Date and time (separate columns) derived from visitor `created_at`.
@@ -19,9 +38,9 @@ Introduce a dedicated "Page View Activity" screen that mirrors the StatCounter-s
 - **Pagination footer** with page indicator and results-per-page selector.
 
 ## Data & Store Requirements
-- Confirm `VisitorList` exposes IP, path, referrer, user agent, country, and device metadata.
-- Add helper to derive host name from IP/address (using existing or new utility).
-- Implement translation layer for browser/OS to icons.
+- `VisitorList` exposes IP, path, referrer, user agent, country, and device metadata — **confirmed available** via `visitor_interface.go`.
+- Browser filter: `FilterOptions.Browser` is parsed but not applied (`helpers.go:47`). `VisitorQueryInterface` has no `SetBrowser` method. Either add store-level support or remove from UI.
+- Host name / reverse DNS: `VisitorInterface` has no host name field. **Descoped** — display IP address directly via `GetIpAddress()`.
 
 ## UI Implementation Notes
 - Build page as new controller under `admin/page-view-activity` with shared layout wiring.
@@ -30,6 +49,12 @@ Introduce a dedicated "Page View Activity" screen that mirrors the StatCounter-s
   - Filter bar (shared with other pages over time).
   - Host/referrer cell with multi-line formatting.
 - Ensure table supports hover tooltips for long URLs and host information.
+
+## Design Decisions to Resolve
+- **Table vs list-group layout**: Plan describes a traditional `<table>` with separate Date/Time columns. Both existing pages (visitor-activity, visitor-paths) use a card/list-group layout with `infoLine` rows. Confirm whether a true `<table>` is wanted or the list-group pattern should be reused for consistency.
+- **CSV export approach**: Visitor-paths uses server-side CSV (`encoding/csv` in controller). Visitor-activity uses client-side JS (`exportTableToCSV`). Page-view-activity should use the server-side approach (cleaner, matches visitor-paths).
+- **Shared filter toolbar**: Both visitor-activity and visitor-paths have near-identical `filterToolbar`, `addFilterDropdown`, `activeFilterBadges`, `quickRangeButtons`, `queryParamsWith`, `rangeLabel`. Consider extracting to `admin/shared` before adding a third copy.
+- **Browser filter**: Implement at store level (`VisitorQueryInterface.SetBrowser`) or remove from filter UI to avoid dead code.
 
 ## Acceptance Criteria
 - Page renders with responsive table matching reference hierarchy.
@@ -46,55 +71,46 @@ Introduce a dedicated "Page View Activity" screen that mirrors the StatCounter-s
 - **Visitor Paths card (`admin/visitor-paths/card_visitor_paths.go`)**
   - Modernized list layout with three-column detail body that can inform row composition.
   - Footer controls combining summary text, quick ranges, per-page selector, and pagination call.
+  - Server-side CSV export (`exportCSV` method using `encoding/csv`).
 - **Shared utilities (`admin/shared`)**
   - Breadcrumb + header wiring (`shared.AdminHeaderUI`).
-  - URL builders (`shared.UrlVisitorActivity`, `shared.UrlVisitorPaths`) as patterns for future `UrlPageViewActivity` helper.
+  - URL builder `shared.UrlPageViewActivity` — already exists.
   - Pagination component (`shared.PaginationUI`).
 - **Statsstore accessors (`visitor.go`, `visitor_interface.go`)**
   - Provide IP, path, referrer, browser/OS/device metadata required for table columns.
 
-## Implementation Plan
-1. **Controller & Routing Scaffold**
-   - Create `admin/page-view-activity` controller with `ControllerData` model mirroring the Visitor Activity pattern.
-   - Register route in the admin router and wire breadcrumbs + `shared.AdminHeaderUI` title setup.
-   - Ensure controller accepts shared dependencies (`ControllerOptions`) for layout, store, and URLs.
-
-2. **Query & Store Enhancements**
-   - Extend `statsstore.VisitorQueryOptions` with browser/device filters if missing; reuse existing date and country filters.
-   - Add helper to derive host name / reverse lookup string (prefer existing utility in `admin/shared`; otherwise add new helper module).
-   - Confirm `VisitorList` exposes required fields; surface missing ones via accessor additions if needed.
-
-3. **Filter Toolbar**
-   - Build reusable filter toolbar component (consider placing in `admin/shared`) with:
-     - Primary “Add Filter” dropdown for range, country, device type, browser.
-     - Quick range buttons (All, 24 Hours, Today, Custom -> links to date picker modal).
+## Remaining Implementation Plan
+1. **Filter Toolbar**
+   - Build filter toolbar component (consider placing in `admin/shared`) with:
+     - Primary "Add Filter" dropdown for range, country, device type.
+     - Quick range buttons (All, 24 Hours, Today, Last 7 Days) using `UrlPageViewActivity`.
      - Active filter badges with removal links that update query parameters.
    - Ensure all filters sync with URL parameters for pagination/export consistency.
+   - Port `queryParamsWith` and `rangeLabel` helpers (or extract to shared).
 
-4. **Table Composition**
-   - Implement HB components for table header + body, reusing visitor activity helpers for system/device badges.
+2. **Table/List Composition**
+   - Implement HB components for row rendering, reusing visitor activity helpers for system/device badges.
    - Break row rendering into subcomponents:
      - Timestamp cells (date and time split).
      - System cell (browser + OS icons using shared helper).
      - Location / language cell with flag + locale text.
      - Host / page / referrer block with multi-line layout and tooltips for long URLs.
    - Add hover tooltips using Bootstrap `data-bs-toggle="tooltip"` where appropriate.
+   - Decide: `<table>` element or list-group pattern (see Design Decisions).
 
-5. **Footer Controls & Export**
-   - Reuse pagination component (or enhance existing `pagination` helper) with current page indicator.
+3. **Footer Controls & Export**
+   - Add pagination summary ("Showing X-Y of Z visitors").
    - Add per-page selector (10/25/50/100) mirroring Visitor Paths implementation.
-   - Embed hidden export table (`visitor-page-view-export`) and hook `exportTableToCSV` helper from visitor paths.
+   - Add pagination controls using `shared.PaginationUI` with `UrlPageViewActivity` URL func.
+   - Implement server-side CSV export (`exportCSV` method with `encoding/csv`, matching visitor-paths pattern).
+   - Add export dropdown in card header.
 
-6. **Scripts & Assets**
-   - Ensure HTMX/SweetAlert loaders are only added once; reuse global helper if introduced for Visitor Paths.
+4. **Scripts & Assets**
+   - Wire `SetScripts` with HTMX/SweetAlert2 loaders (copy pattern from visitor-paths controller).
    - Add tooltip initialization script (Bootstrap) scoped to this page.
 
-7. **Testing & QA**
+5. **Testing & QA**
    - Write controller unit tests covering filter combinations, empty states, and pagination metadata.
    - Add snapshot/HTML assertions for table structure (focus on column presence and badge rendering).
    - Verify CSV export columns align with on-screen table.
-
-## Follow-ups & Questions
-- Should the filter toolbar be extracted into a shared component for reuse across activity screens? (Recommended.)
-- Confirm availability of browser/OS icon mapping helper; if absent, specify asset requirements before implementation.
-- Determine whether reverse DNS lookup is synchronous or deferred; may require async job or cached lookup helper.
+   - Match pattern from `visitor_paths_controller_test.go`.

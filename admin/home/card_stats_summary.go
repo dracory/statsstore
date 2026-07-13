@@ -51,15 +51,10 @@ func cardStatsSummary(data ControllerData) hb.TagInterface {
 							Child(hb.LI().
 								Child(hb.A().
 									Class("dropdown-item").
-									Href("#").
-									Attr("onclick", "exportTableToCSV('stats-table', 'visitor_stats.csv')").
-									Text("Export to CSV"))).
-							Child(hb.LI().
-								Child(hb.A().
-									Class("dropdown-item").
-									Href("#").
-									Attr("onclick", "exportTableToPDF('stats-table', 'visitor_stats.pdf')").
-									Text("Export to PDF")))))))).
+									Href(shared.UrlHome(data.Request, map[string]string{"action": "export"})).
+									Attr("target", "_blank").
+									Attr("rel", "noopener").
+									Text("Export to CSV")))))))).
 		Child(hb.Div().
 			Class("card-body").
 			Child(statsOverview(data)).
