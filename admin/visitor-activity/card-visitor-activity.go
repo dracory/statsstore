@@ -377,11 +377,11 @@ func referrerBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Child(link)
 }
 
-func pathBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
+func pathBlock(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-column gap-1").
 		Child(hb.Span().Class("fw-semibold small").Text("Visited URL")).
-		Child(hb.Raw(getVisitPageLink(visitor.GetPath())))
+		Child(hb.Raw(getVisitPageLink(ui.WebsiteUrl, visitor.GetPath())))
 }
 
 func sessionBadge(visitor statsstore.VisitorInterface) hb.TagInterface {

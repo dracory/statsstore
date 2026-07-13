@@ -6,70 +6,32 @@ import (
 	"github.com/dracory/hb"
 )
 
-type trafficSourceEntry struct {
-	Label    string
-	Sessions string
-}
-
 func trafficSourcesCards(data ControllerData) hb.TagInterface {
-	referrerEntries := []trafficSourceEntry{
-		{Label: "google.com", Sessions: "671"},
-		{Label: "github.com", Sessions: "370"},
-		{Label: "com.reddit.frontpage", Sessions: "159"},
-		{Label: "producthunt.com", Sessions: "98"},
-		{Label: "duckduckgo.com", Sessions: "55"},
-		{Label: "alternativeto.net", Sessions: "28"},
-		{Label: "trustmrr.com", Sessions: "28"},
-		{Label: "bing.com", Sessions: "25"},
-		{Label: "openalternative.co", Sessions: "20"},
-		{Label: "selfh.st", Sessions: "19"},
+	tsd := computeTrafficSources(data)
+
+	referrerEntries := tsd.Referrers
+	if len(referrerEntries) == 0 {
+		referrerEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
 	}
 
-	pageEntries := []trafficSourceEntry{
-		{Label: "/", Sessions: "4K"},
-		{Label: "/docs", Sessions: "727"},
-		{Label: "/pricing", Sessions: "719"},
-		{Label: "/docs/self-hosting", Sessions: "603"},
-		{Label: "/docs/self-host-vs-cloud", Sessions: "272"},
-		{Label: "/docs/script", Sessions: "256"},
-		{Label: "/docs/roadmap", Sessions: "243"},
-		{Label: "/docs/self-hosting-guides/self-hosting-manual", Sessions: "240"},
-		{Label: "/features", Sessions: "222"},
-		{Label: "/docs/track-events", Sessions: "218"},
+	pageEntries := tsd.Pages
+	if len(pageEntries) == 0 {
+		pageEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
 	}
 
-	eventEntries := []trafficSourceEntry{
-		{Label: "demo", Sessions: "478"},
-		{Label: "signup", Sessions: "231"},
-		{Label: "hello world", Sessions: "2"},
-		{Label: "custom event", Sessions: "2"},
-		{Label: "signup button clicked", Sessions: "1"},
+	eventEntries := tsd.Events
+	if len(eventEntries) == 0 {
+		eventEntries = []trafficSourceEntry{{Label: "(No events)", Sessions: "0"}}
 	}
 
-	browserEntries := []trafficSourceEntry{
-		{Label: "Chrome", Sessions: "2.8K"},
-		{Label: "Mobile Safari", Sessions: "802"},
-		{Label: "Mobile Chrome", Sessions: "650"},
-		{Label: "Firefox", Sessions: "648"},
-		{Label: "Edge", Sessions: "246"},
-		{Label: "Safari", Sessions: "217"},
-		{Label: "Mobile Firefox", Sessions: "63"},
-		{Label: "Opera", Sessions: "43"},
-		{Label: "Chrome Headless", Sessions: "30"},
-		{Label: "Android Browser", Sessions: "28"},
+	browserEntries := tsd.Browsers
+	if len(browserEntries) == 0 {
+		browserEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
 	}
 
-	countryEntries := []trafficSourceEntry{
-		{Label: "United States", Sessions: "1.8K"},
-		{Label: "Germany", Sessions: "399"},
-		{Label: "India", Sessions: "299"},
-		{Label: "Canada", Sessions: "243"},
-		{Label: "United Kingdom", Sessions: "234"},
-		{Label: "Italy", Sessions: "230"},
-		{Label: "France", Sessions: "180"},
-		{Label: "Australia", Sessions: "126"},
-		{Label: "Netherlands", Sessions: "121"},
-		{Label: "Brazil", Sessions: "97"},
+	countryEntries := tsd.Countries
+	if len(countryEntries) == 0 {
+		countryEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
 	}
 
 	trafficRow := hb.Div().
@@ -85,7 +47,7 @@ func trafficSourcesCards(data ControllerData) hb.TagInterface {
 	engagementRow := hb.Div().
 		Class("row row-cols-1 row-cols-lg-2 g-4").
 		Child(trafficSourceColumn("Custom Events", "Count", eventEntries, []string{"Custom Events", "Outbound Links"})).
-		Child(weeklyTrendsColumn())
+		Child(weeklyTrendsColumn(data))
 
 	return hb.Div().
 		Class("d-flex flex-column gap-4").
@@ -164,13 +126,16 @@ func trafficSourceCard(title, valueLabel string, entries []trafficSourceEntry, t
 					}))))
 }
 
-func weeklyTrendsColumn() hb.TagInterface {
+func weeklyTrendsColumn(data ControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("col").
-		Child(weeklyTrendsCard())
+		Child(weeklyTrendsCard(data))
 }
 
-func weeklyTrendsCard() hb.TagInterface {
+func weeklyTrendsCard(data ControllerData) hb.TagInterface {
+	tsd := computeTrafficSources(data)
+	hm := tsd.Heatmap
+
 	metrics := []string{"Unique Visitors", "Pageviews", "Sessions", "Bounce Rate", "Pages per Session", "Session Duration"}
 	selectedMetric := metrics[0]
 
@@ -187,22 +152,9 @@ func weeklyTrendsCard() hb.TagInterface {
 		dropdownItems = append(dropdownItems, item)
 	}
 
-	weeklyDays := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
-	weeklySlots := []string{"1 AM", "3 AM", "5 AM", "7 AM", "9 AM", "11 AM", "1 PM", "3 PM", "5 PM", "7 PM", "9 PM", "11 PM"}
-	weeklyIntensities := [][]int{
-		{5, 4, 3, 5, 3, 1, 1},
-		{4, 3, 2, 4, 2, 1, 1},
-		{3, 2, 2, 3, 2, 1, 0},
-		{2, 2, 3, 4, 3, 1, 0},
-		{2, 3, 4, 5, 4, 2, 1},
-		{3, 4, 5, 5, 4, 2, 1},
-		{4, 5, 5, 5, 4, 2, 1},
-		{3, 4, 5, 4, 3, 2, 1},
-		{2, 3, 4, 3, 2, 1, 1},
-		{1, 2, 3, 2, 2, 1, 1},
-		{1, 1, 2, 2, 1, 1, 1},
-		{0, 1, 1, 1, 1, 0, 0},
-	}
+	weeklyDays := hm.Days
+	weeklySlots := hm.Slots
+	weeklyIntensities := hm.Intensities
 
 	headRowCells := []hb.TagInterface{hb.TH().Class("text-muted small fw-normal").Text("")}
 	for _, day := range weeklyDays {

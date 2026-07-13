@@ -204,23 +204,15 @@ func osIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 }
 
 // getVisitPageLink returns HTML for visit page with link
-func getVisitPageLink(path string) string {
+func getVisitPageLink(siteURL, path string) string {
 	if path == "" {
 		path = "/"
 	}
 
-	if strings.Contains(path, "snippet/55") {
-		return `<a href="https://www.kuikie.com/snippet/55/cpp-how-to-check-if-a-qstring-is-base64-encoded" target="_blank" 
-			style="color: #28a745; text-decoration: none; display: flex; align-items: center;">
-			https://www.kuikie.com/snippet/55/cpp-how-to-check-if-a-qstring-is-base64-encoded
-			<i class="bi bi-box-arrow-up-right" style="margin-left: 5px;"></i>
-		</a>`
-	}
-
-	siteURL := "https://www.example.com" // Replace with actual site URL
-	return `<a href="` + siteURL + path + `" target="_blank" 
+	href := siteURL + path
+	return `<a href="` + href + `" target="_blank" 
 		style="color: #28a745; text-decoration: none; display: flex; align-items: center;">
-		` + path + `
+		` + href + `
 		<i class="bi bi-box-arrow-up-right" style="margin-left: 5px;"></i>
 	</a>`
 }

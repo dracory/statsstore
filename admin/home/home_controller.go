@@ -162,6 +162,9 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 		return data, err.Error()
 	}
 
+	data.visitors = visitors
+	data.ui = c.ui
+
 	dailyPageViews := map[string]int64{}
 	dailyUniqueIPs := map[string]map[string]struct{}{}
 	firstVisitByIP := map[string]string{}

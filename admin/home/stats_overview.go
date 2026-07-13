@@ -25,6 +25,8 @@ func statsOverview(data ControllerData) hb.TagInterface {
 	avgFirstVisits := float64(totalFirstVisits) / float64(days)
 	avgReturningVisits := float64(totalReturningVisits) / float64(days)
 
+	ext := computeStatsOverview(data)
+
 	return hb.Div().
 		Class("row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-6 g-4 text-center").
 		Child(hb.Div().
@@ -47,17 +49,17 @@ func statsOverview(data ControllerData) hb.TagInterface {
 			Child(shared.StatCardUI("Avg. Daily Returning Visits", fmt.Sprintf("%.2f", avgReturningVisits), "bi bi-person-check", "dark"))).
 		Child(hb.Div().
 			Class("col").
-			Child(shared.StatCardUI("Sessions", "—", "bi bi-activity", "primary"))).
+			Child(shared.StatCardUI("Sessions", ext.Sessions, "bi bi-activity", "primary"))).
 		Child(hb.Div().
 			Class("col").
-			Child(shared.StatCardUI("Pageviews", "—", "bi bi-collection", "success"))).
+			Child(shared.StatCardUI("Pageviews", ext.Pageviews, "bi bi-collection", "success"))).
 		Child(hb.Div().
 			Class("col").
-			Child(shared.StatCardUI("Pages per Session", "—", "bi bi-diagram-3", "info"))).
+			Child(shared.StatCardUI("Pages per Session", ext.PagesPerSession, "bi bi-diagram-3", "info"))).
 		Child(hb.Div().
 			Class("col").
-			Child(shared.StatCardUI("Bounce Rate", "—", "bi bi-arrow-repeat", "warning"))).
+			Child(shared.StatCardUI("Bounce Rate", ext.BounceRate, "bi bi-arrow-repeat", "warning"))).
 		Child(hb.Div().
 			Class("col").
-			Child(shared.StatCardUI("Session Duration", "—", "bi bi-clock-history", "secondary")))
+			Child(shared.StatCardUI("Session Duration", ext.SessionDuration, "bi bi-clock-history", "secondary")))
 }
