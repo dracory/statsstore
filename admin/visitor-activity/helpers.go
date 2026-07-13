@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 )
 
 // Data helpers
@@ -18,23 +18,13 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 	data := ControllerData{Request: r}
 
 	query := r.URL.Query()
-	page := query.Get("page")
-	pageInt, err := strconv.Atoi(page)
-	if err != nil || pageInt < 1 {
-		pageInt = 1
-	}
+	page := shared.ParseIntWithDefault(query.Get("page"), 1)
 
-	perPageParam := query.Get("per_page")
-	perPage := 10
-	if perPageParam != "" {
-		if val, errConv := strconv.Atoi(perPageParam); errConv == nil && val > 0 && val <= 100 {
-			perPage = val
-		}
-	}
+	perPage := shared.ClampPerPage(shared.ParseIntWithDefault(query.Get("per_page"), 10))
 
 	filters := parseFilters(query)
 
-	offset := (pageInt - 1) * perPage
+	offset := (page - 1) * perPage
 
 	options := statsstore.VisitorQuery().
 		SetLimit(perPage).
@@ -54,6 +44,10 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 		options = options.SetCreatedAtLte(filters.To)
 	}
 
+	if filters.Device != "" {
+		options = options.SetDeviceType(filters.Device)
+	}
+
 	visitors, err := store.VisitorList(r.Context(), options)
 	if err != nil {
 		return data, err.Error()
@@ -68,6 +62,9 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 	}
 	if filters.To != "" {
 		countOptions = countOptions.SetCreatedAtLte(filters.To)
+	}
+	if filters.Device != "" {
+		countOptions = countOptions.SetDeviceType(filters.Device)
 	}
 
 	visitorCount, err := store.VisitorCount(r.Context(), countOptions)
@@ -84,7 +81,7 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (Cont
 	}
 
 	data.Visitors = visitors
-	data.Page = pageInt
+	data.Page = page
 	data.TotalPages = totalPages
 	data.PageSize = perPage
 	data.TotalCount = visitorCount
@@ -201,18 +198,4 @@ func osIcon(visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.I().
 		Class(iconClass + " " + color).
 		Title(visitor.GetUserOs() + " " + visitor.GetUserOsVersion())
-}
-
-// getVisitPageLink returns HTML for visit page with link
-func getVisitPageLink(siteURL, path string) string {
-	if path == "" {
-		path = "/"
-	}
-
-	href := siteURL + path
-	return `<a href="` + href + `" target="_blank" 
-		style="color: #28a745; text-decoration: none; display: flex; align-items: center;">
-		` + href + `
-		<i class="bi bi-box-arrow-up-right" style="margin-left: 5px;"></i>
-	</a>`
 }

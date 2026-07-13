@@ -112,8 +112,8 @@ func TestVisitorActivityControllerHandlerSuccess(t *testing.T) {
 		t.Fatalf("unexpected title: %s", layout.title)
 	}
 
-	if len(layout.scripts) != 2 {
-		t.Fatalf("expected 2 scripts, got %d", len(layout.scripts))
+	if len(layout.scripts) != 3 {
+		t.Fatalf("expected 3 scripts, got %d", len(layout.scripts))
 	}
 
 	if !strings.Contains(layout.body, "Visitor Activity") {
@@ -151,6 +151,75 @@ func TestVisitorActivityControllerHandlerError(t *testing.T) {
 
 	if !strings.Contains(strings.ToLower(layout.body), "database operation failed") {
 		t.Fatalf("expected database operation failed error, got: %s", layout.body)
+	}
+}
+
+func TestVisitorActivityControllerEmptyState(t *testing.T) {
+	store := newTestStore(t, true)
+
+	layout := &fakeLayout{renderReturn: "rendered"}
+
+	controller := New(shared.ControllerOptions{
+		Store:      store,
+		Layout:     layout,
+		HomeURL:    "https://admin.local",
+		WebsiteUrl: "https://example.com",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-activity", nil)
+	rr := httptest.NewRecorder()
+
+	controller.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d", rr.Code)
+	}
+
+	if !strings.Contains(layout.body, "No visitors recorded yet") {
+		t.Fatalf("expected empty state message in body, got: %s", layout.body)
+	}
+}
+
+func TestVisitorActivityControllerWithFilters(t *testing.T) {
+	store := newTestStore(t, true)
+
+	visitor := statsstore.NewVisitor().
+		SetID("visitor-1").
+		SetPath("/hello").
+		SetCountry("US").
+		SetCreatedAt("2023-01-02T15:04:05Z").
+		SetIpAddress("127.0.0.1").
+		SetUserDevice("Desktop").
+		SetFingerprint("fingerprint-same")
+
+	if err := store.VisitorCreate(context.Background(), visitor); err != nil {
+		t.Fatalf("failed to seed visitor: %v", err)
+	}
+
+	layout := &fakeLayout{renderReturn: "rendered"}
+
+	controller := New(shared.ControllerOptions{
+		Store:      store,
+		Layout:     layout,
+		HomeURL:    "https://admin.local",
+		WebsiteUrl: "https://example.com",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-activity?country=US&device=desktop", nil)
+	rr := httptest.NewRecorder()
+
+	controller.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d", rr.Code)
+	}
+
+	if !strings.Contains(layout.body, "Country: US") {
+		t.Fatalf("expected country filter badge in body, got: %s", layout.body)
+	}
+
+	if !strings.Contains(layout.body, "Device: Desktop") {
+		t.Fatalf("expected device filter badge in body, got: %s", layout.body)
 	}
 }
 

@@ -3,11 +3,11 @@ package visitorpaths
 import (
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 )
 
 // buildControllerData builds the controller data
@@ -15,8 +15,8 @@ func buildControllerData(r *http.Request, store statsstore.StoreInterface) (visi
 	data := visitorPathsControllerData{Request: r}
 
 	query := r.URL.Query()
-	page := parseIntWithDefault(query.Get("page"), 1)
-	perPage := clampPerPage(parseIntWithDefault(query.Get("per_page"), 10))
+	page := shared.ParseIntWithDefault(query.Get("page"), 1)
+	perPage := shared.ClampPerPage(shared.ParseIntWithDefault(query.Get("per_page"), 10))
 	offset := (page - 1) * perPage
 
 	filters := parseFilters(query)
@@ -125,25 +125,4 @@ func parseFilters(values url.Values) FilterOptions {
 	}
 
 	return filters
-}
-
-func parseIntWithDefault(value string, defaultValue int) int {
-	if value == "" {
-		return defaultValue
-	}
-	if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
-		return parsed
-	}
-	return defaultValue
-}
-
-func clampPerPage(perPage int) int {
-	switch {
-	case perPage < 1:
-		return 10
-	case perPage > 100:
-		return 100
-	default:
-		return perPage
-	}
 }

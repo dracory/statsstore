@@ -1,4 +1,4 @@
-package visitorpaths
+package pageviewactivity
 
 import (
 	"context"
@@ -20,7 +20,7 @@ func stripBOM(s string) string {
 	return strings.TrimPrefix(s, "\xEF\xBB\xBF")
 }
 
-func TestVisitorPathsControllerExportCSV(t *testing.T) {
+func TestPageViewActivityControllerExportCSV(t *testing.T) {
 	store := newTestStore(t, true)
 
 	visitorOne := statsstore.NewVisitor().
@@ -33,6 +33,9 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 		SetUserDevice("Desktop").
 		SetUserBrowser("Firefox").
 		SetUserBrowserVersion("118").
+		SetUserOs("Windows").
+		SetUserOsVersion("11").
+		SetUserAcceptLanguage("en-US").
 		SetFingerprint("fingerprint-same")
 	seededVisitor(t, store, visitorOne)
 
@@ -44,8 +47,11 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 		SetIpAddress("192.168.0.2").
 		SetUserReferrer("https://referrer.two").
 		SetUserDevice("Mobile").
-		SetUserBrowser("Firefox").
-		SetUserBrowserVersion("118").
+		SetUserBrowser("Chrome").
+		SetUserBrowserVersion("120").
+		SetUserOs("Android").
+		SetUserOsVersion("14").
+		SetUserAcceptLanguage("en-US").
 		SetFingerprint("fingerprint-same")
 	seededVisitor(t, store, visitorTwo)
 
@@ -54,7 +60,7 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 		WebsiteUrl: "https://example.com",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-paths?action=export", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/page-view-activity?action=export", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -68,7 +74,7 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 	}
 
 	disposition := rr.Header().Get("Content-Disposition")
-	if !strings.HasPrefix(disposition, "attachment; filename=\"visitor-paths-") || !strings.HasSuffix(disposition, ".csv\"") {
+	if !strings.HasPrefix(disposition, "attachment; filename=\"page-view-activity-") || !strings.HasSuffix(disposition, ".csv\"") {
 		t.Fatalf("unexpected content disposition: %s", disposition)
 	}
 
@@ -82,15 +88,17 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 	}
 
 	expectedHeader := []string{
-		"Visit Time",
+		"Date",
+		"Time",
 		"Path",
 		"Absolute URL",
 		"Country",
 		"IP Address",
 		"Referrer",
-		"Session",
 		"Device",
 		"Browser",
+		"OS",
+		"User Agent",
 	}
 
 	if !reflect.DeepEqual(records[0], expectedHeader) {
@@ -99,13 +107,19 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 
 	firstDataRow := records[1]
 	if firstDataRow[0] == "" {
-		t.Fatalf("expected visit time value")
+		t.Fatalf("expected date value")
 	}
-	if firstDataRow[2] != "https://example.com/hello" {
-		t.Fatalf("unexpected absolute url: %s", firstDataRow[2])
+	if firstDataRow[1] == "" {
+		t.Fatalf("expected time value")
 	}
-	if firstDataRow[6] != "Sessions: 2" {
-		t.Fatalf("unexpected session label: %s", firstDataRow[6])
+	if firstDataRow[2] != "/hello" {
+		t.Fatalf("unexpected path: %s", firstDataRow[2])
+	}
+	if firstDataRow[3] != "https://example.com/hello" {
+		t.Fatalf("unexpected absolute url: %s", firstDataRow[3])
+	}
+	if firstDataRow[5] != "127.0.0.1" {
+		t.Fatalf("unexpected ip: %s", firstDataRow[5])
 	}
 	if firstDataRow[7] != "Desktop" {
 		t.Fatalf("unexpected device: %s", firstDataRow[7])
@@ -113,22 +127,25 @@ func TestVisitorPathsControllerExportCSV(t *testing.T) {
 	if firstDataRow[8] != "Firefox 118" {
 		t.Fatalf("unexpected browser: %s", firstDataRow[8])
 	}
+	if firstDataRow[9] != "Windows 11" {
+		t.Fatalf("unexpected os: %s", firstDataRow[9])
+	}
 
 	secondDataRow := records[2]
-	if secondDataRow[6] != "Sessions: 2" {
-		t.Fatalf("unexpected session label for second row: %s", secondDataRow[6])
+	if secondDataRow[0] == "" {
+		t.Fatalf("expected date value for second row")
 	}
-	if secondDataRow[1] != "/world" {
-		t.Fatalf("unexpected path for second row: %s", secondDataRow[1])
+	if secondDataRow[2] != "/world" {
+		t.Fatalf("unexpected path for second row: %s", secondDataRow[2])
 	}
 }
 
-func TestVisitorPathsControllerExportCSVStoreError(t *testing.T) {
+func TestPageViewActivityControllerExportCSVStoreError(t *testing.T) {
 	handler := New(shared.ControllerOptions{
 		Store: newTestStore(t, false),
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-paths?action=export", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/page-view-activity?action=export", nil)
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
@@ -142,7 +159,7 @@ func TestVisitorPathsControllerExportCSVStoreError(t *testing.T) {
 	}
 }
 
-func TestVisitorPathsControllerHandlerSuccess(t *testing.T) {
+func TestPageViewActivityControllerHandlerSuccess(t *testing.T) {
 	store := newTestStore(t, true)
 
 	visitor := statsstore.NewVisitor().
@@ -170,7 +187,7 @@ func TestVisitorPathsControllerHandlerSuccess(t *testing.T) {
 		WebsiteUrl: "https://example.com",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-paths", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/page-view-activity", nil)
 	rr := httptest.NewRecorder()
 
 	controller.ServeHTTP(rr, req)
@@ -183,15 +200,15 @@ func TestVisitorPathsControllerHandlerSuccess(t *testing.T) {
 		t.Fatalf("unexpected response body: %s", body)
 	}
 
-	if layout.title != "Visitor Paths | Visitor Analytics" {
+	if layout.title != "Page View Activity | Visitor Analytics" {
 		t.Fatalf("unexpected title: %s", layout.title)
 	}
 
-	if len(layout.scripts) != 2 {
-		t.Fatalf("expected 2 scripts, got %d", len(layout.scripts))
+	if len(layout.scripts) != 3 {
+		t.Fatalf("expected 3 scripts, got %d", len(layout.scripts))
 	}
 
-	if !strings.Contains(layout.body, "Visitor Paths") {
+	if !strings.Contains(layout.body, "Page View Activity") {
 		t.Fatalf("expected body to contain page content, got: %s", layout.body)
 	}
 
@@ -200,7 +217,7 @@ func TestVisitorPathsControllerHandlerSuccess(t *testing.T) {
 	}
 }
 
-func TestVisitorPathsControllerHandlerError(t *testing.T) {
+func TestPageViewActivityControllerHandlerError(t *testing.T) {
 	store := newTestStore(t, false)
 	layout := &fakeLayout{renderReturn: "rendered"}
 
@@ -211,7 +228,7 @@ func TestVisitorPathsControllerHandlerError(t *testing.T) {
 		WebsiteUrl: "https://example.com",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-paths", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/page-view-activity", nil)
 	rr := httptest.NewRecorder()
 
 	controller.ServeHTTP(rr, req)
@@ -229,7 +246,7 @@ func TestVisitorPathsControllerHandlerError(t *testing.T) {
 	}
 }
 
-func TestVisitorPathsControllerEmptyState(t *testing.T) {
+func TestPageViewActivityControllerEmptyState(t *testing.T) {
 	store := newTestStore(t, true)
 
 	layout := &fakeLayout{renderReturn: "rendered"}
@@ -241,7 +258,7 @@ func TestVisitorPathsControllerEmptyState(t *testing.T) {
 		WebsiteUrl: "https://example.com",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-paths", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/page-view-activity", nil)
 	rr := httptest.NewRecorder()
 
 	controller.ServeHTTP(rr, req)
@@ -250,12 +267,12 @@ func TestVisitorPathsControllerEmptyState(t *testing.T) {
 		t.Fatalf("unexpected status: %d", rr.Code)
 	}
 
-	if !strings.Contains(layout.body, "No visitor paths recorded yet") {
+	if !strings.Contains(layout.body, "No page views recorded yet") {
 		t.Fatalf("expected empty state message in body, got: %s", layout.body)
 	}
 }
 
-func TestVisitorPathsControllerWithFilters(t *testing.T) {
+func TestPageViewActivityControllerWithFilters(t *testing.T) {
 	store := newTestStore(t, true)
 
 	visitor := statsstore.NewVisitor().
@@ -280,7 +297,7 @@ func TestVisitorPathsControllerWithFilters(t *testing.T) {
 		WebsiteUrl: "https://example.com",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/visitor-paths?country=US&device=desktop", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin/page-view-activity?country=US&device=desktop", nil)
 	rr := httptest.NewRecorder()
 
 	controller.ServeHTTP(rr, req)

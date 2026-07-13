@@ -75,6 +75,39 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 			loadSwal();
 		}
 		`,
+		// Visitor detail modal populator
+		`
+		document.addEventListener('DOMContentLoaded', function() {
+			var modal = document.getElementById('visitorDetailModal');
+			if (modal) {
+				modal.addEventListener('show.bs.modal', function(event) {
+					var button = event.relatedTarget;
+					if (!button) return;
+					var raw = button.getAttribute('data-visitor');
+					if (!raw) return;
+					var v = JSON.parse(raw);
+					var content = document.getElementById('visitorDetailModalContent');
+					if (!content) return;
+					var esc = function(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; };
+					var row = function(label, val) { return '<div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted fw-semibold">' + esc(label) + '</span><span class="text-body text-break text-end">' + esc(val) + '</span></div>'; };
+					var html = '<div class="p-3">' +
+						row('Visitor ID', v.id) +
+						row('Visit Time', v.createdAt) +
+						row('Path', v.path) +
+						row('Country', v.country) +
+						row('IP Address', v.ipAddress) +
+						row('Referrer', v.referrer) +
+						row('Device', v.device) +
+						row('Browser', (v.browser + ' ' + v.browserVer).trim()) +
+						row('OS', (v.os + ' ' + v.osVer).trim()) +
+						row('Fingerprint', v.fingerprint) +
+						row('User Agent', v.userAgent) +
+						'</div>';
+					content.innerHTML = html;
+				});
+			}
+		});
+		`,
 	}
 
 	c.UI.Layout.SetBody(c.page(data).ToHTML())

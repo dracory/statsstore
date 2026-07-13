@@ -1,8 +1,8 @@
 package visitoractivity
 
 import (
+	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/dracory/hb"
@@ -24,52 +24,20 @@ func CardVisitorActivity(data ControllerData, ui shared.ControllerOptions) hb.Ta
 }
 
 func footerControls(data ControllerData) hb.TagInterface {
+	urlFunc := func(params map[string]string) string {
+		return shared.UrlVisitorActivity(data.Request, params)
+	}
 	return hb.Div().
 		Class("d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mt-4").
-		Child(paginationSummary(data)).
-		Child(quickRangeButtons(data)).
+		Child(shared.PaginationSummary(data.Page, data.PageSize, data.TotalCount, "visitors")).
+		Child(shared.QuickRangeButtons(data.Request, urlFunc)).
+		Child(shared.PerPageSelector(data.Request, data.PageSize, urlFunc)).
 		Child(paginationControls(data))
-}
-
-func paginationSummary(data ControllerData) hb.TagInterface {
-	if data.TotalCount == 0 {
-		return hb.Span().Class("text-muted").Text("No visitors recorded yet")
-	}
-
-	start := (data.Page-1)*data.PageSize + 1
-	end := data.Page * data.PageSize
-	if int64(end) > data.TotalCount {
-		end = int(data.TotalCount)
-	}
-
-	return hb.Span().
-		Class("small text-muted").
-		Text(fmt.Sprintf("Showing %d-%d of %d visitors", start, end, data.TotalCount))
-}
-
-func quickRangeButtons(data ControllerData) hb.TagInterface {
-	btn := func(label, rng string) hb.TagInterface {
-		params := map[string]string{"page": "1", "from": "", "to": ""}
-		if rng != "" {
-			params["range"] = rng
-		}
-		return hb.A().
-			Class("btn btn-sm btn-outline-secondary").
-			Href(shared.UrlVisitorActivity(data.Request, queryParamsWith(data, params))).
-			Text(label)
-	}
-
-	return hb.Div().
-		Class("btn-group").
-		Attr("role", "group").
-		Child(btn("All", "")).
-		Child(btn("Last 24 Hours", "24h")).
-		Child(btn("Today", "today"))
 }
 
 func paginationControls(data ControllerData) hb.TagInterface {
 	urlFunc := func(page int) string {
-		params := queryParamsWith(data, map[string]string{"page": fmt.Sprintf("%d", page)})
+		params := shared.QueryParamsWith(data.Request, map[string]string{"page": fmt.Sprintf("%d", page)})
 		return shared.UrlVisitorActivity(data.Request, params)
 	}
 
@@ -77,34 +45,17 @@ func paginationControls(data ControllerData) hb.TagInterface {
 }
 
 func queryParamsWith(data ControllerData, overrides map[string]string) map[string]string {
-	values := url.Values{}
-	for key, val := range data.Request.URL.Query() {
-		for _, v := range val {
-			values.Add(key, v)
-		}
-	}
-
-	for key, val := range overrides {
-		if val == "" {
-			values.Del(key)
-			continue
-		}
-		values.Set(key, val)
-	}
-
-	result := map[string]string{}
-	for key := range values {
-		result[key] = values.Get(key)
-	}
-
-	return result
+	return shared.QueryParamsWith(data.Request, overrides)
 }
 
 func cardHeader(title string, data ControllerData) hb.TagInterface {
+	exportParams := shared.QueryParamsWith(data.Request, map[string]string{"action": "export"})
+	exportURL := shared.UrlVisitorActivity(data.Request, exportParams)
+
 	actions := hb.Div().
 		Class("d-flex align-items-center gap-2").
-		Child(exportDropdown(data)).
-		Child(optionsButton())
+		Child(shared.ExportDropdown(exportURL)).
+		Child(shared.OptionsButton())
 
 	return hb.Div().
 		Class("card-header d-flex flex-wrap justify-content-between align-items-center gap-2").
@@ -115,38 +66,36 @@ func cardHeader(title string, data ControllerData) hb.TagInterface {
 }
 
 func cardBody(data ControllerData, ui shared.ControllerOptions) hb.TagInterface {
-	return hb.Div().
-		Class("card-body").
-		Child(filterToolbar(data)).
-		Child(hb.Div().
+	list := hb.Div()
+	if len(data.Visitors) == 0 {
+		list = hb.Div().
+			Class("border rounded-3 p-5 text-center text-muted bg-light").
+			Text("No visitors recorded yet. Apply different filters or wait for new traffic.")
+	} else {
+		list = hb.Div().
 			Class("list-group list-group-flush border rounded-3 overflow-hidden").
 			Children(lo.Map(data.Visitors, func(visitor statsstore.VisitorInterface, index int) hb.TagInterface {
 				return visitorRow(data, ui, visitor, index)
-			}))).
+			}))
+	}
+
+	return hb.Div().
+		Class("card-body").
+		Child(filterToolbar(data)).
+		Child(list).
 		Child(footerControls(data))
 }
 
 func infoLine(label string, value hb.TagInterface) hb.TagInterface {
-	labelTag := hb.Span().
-		Class("text-muted text-uppercase fw-semibold small flex-shrink-0").
-		Text(label)
-
-	valueTag := hb.Div().
-		Class("text-body fw-semibold text-break").
-		Child(value)
-
-	return hb.Div().
-		Class("d-flex gap-2 align-items-baseline lh-sm").
-		Child(labelTag).
-		Child(valueTag)
+	return shared.InfoLine(label, value)
 }
 
 func infoText(text string) hb.TagInterface {
-	return hb.Span().Class("text-body").Text(text)
+	return shared.InfoText(text)
 }
 
 func infoMuted(text string) hb.TagInterface {
-	return hb.Span().Class("text-muted fst-italic").Text(text)
+	return shared.InfoMuted(text)
 }
 
 func filterToolbar(data ControllerData) hb.TagInterface {
@@ -161,10 +110,10 @@ func addFilterDropdown(data ControllerData) hb.TagInterface {
 		label  string
 		params map[string]string
 	}{
-		{"Last 24 Hours", queryParamsWith(data, map[string]string{"range": "24h", "from": "", "to": "", "page": "1"})},
-		{"Today", queryParamsWith(data, map[string]string{"range": "today", "from": "", "to": "", "page": "1"})},
-		{"Country: Unknown", queryParamsWith(data, map[string]string{"country": "empty", "page": "1"})},
-		{"Device: Desktop", queryParamsWith(data, map[string]string{"device": "desktop", "page": "1"})},
+		{"Last 24 Hours", shared.QueryParamsWith(data.Request, map[string]string{"range": "24h", "from": "", "to": "", "page": "1"})},
+		{"Today", shared.QueryParamsWith(data.Request, map[string]string{"range": "today", "from": "", "to": "", "page": "1"})},
+		{"Country: Unknown", shared.QueryParamsWith(data.Request, map[string]string{"country": "empty", "page": "1"})},
+		{"Device: Desktop", shared.QueryParamsWith(data.Request, map[string]string{"device": "desktop", "page": "1"})},
 	}
 
 	menu := hb.UL().Class("dropdown-menu")
@@ -191,7 +140,7 @@ func activeFilterBadges(filters FilterOptions) hb.TagInterface {
 	tags := []hb.TagInterface{}
 
 	if filters.Range != "" {
-		tags = append(tags, hb.Span().Class("badge rounded-pill text-bg-primary").Text(fmt.Sprintf("Range: %s", rangeLabel(filters.Range))))
+		tags = append(tags, hb.Span().Class("badge rounded-pill text-bg-primary").Text(fmt.Sprintf("Range: %s", shared.RangeLabel(filters.Range))))
 	}
 
 	if filters.Country != "" {
@@ -214,18 +163,7 @@ func activeFilterBadges(filters FilterOptions) hb.TagInterface {
 }
 
 func rangeLabel(value string) string {
-	switch strings.ToLower(value) {
-	case "24h", "last24hours", "last_24_hours":
-		return "Last 24 Hours"
-	case "today":
-		return "Today"
-	case "7d", "last7days":
-		return "Last 7 Days"
-	case "30d", "last30days":
-		return "Last 30 Days"
-	default:
-		return value
-	}
+	return shared.RangeLabel(value)
 }
 
 func visitorRow(data ControllerData, ui shared.ControllerOptions, visitor statsstore.VisitorInterface, index int) hb.TagInterface {
@@ -234,18 +172,19 @@ func visitorRow(data ControllerData, ui shared.ControllerOptions, visitor statss
 
 	locationCol := hb.Div().
 		Class("d-flex flex-column gap-1").
-		Child(hb.Span().Class("fw-semibold").Text(resolvedVisitorLocation(ui, visitor))).
+		Child(hb.Span().Class("fw-semibold").Text(shared.FormatLocation(ui, visitor))).
 		Child(hb.Span().Class("small text-muted").Text(visitor.GetIpAddress()))
 
 	leftHeader := hb.Div().
 		Class("d-flex align-items-start gap-2").
-		Child(countryBadge(ui, visitor)).
+		Child(shared.CountryBadge(ui, visitor)).
 		Child(locationCol)
 
 	rightHeader := hb.Div().
 		Class("d-flex flex-wrap gap-2 align-items-center").
 		Child(sessionBadge(visitor)).
-		Child(systemSummary(visitor))
+		Child(systemSummary(visitor)).
+		Child(detailButton(visitor))
 
 	body := hb.Div().
 		Class("row gx-3 gy-1 align-items-start mt-2 small lh-sm").
@@ -314,74 +253,6 @@ func systemSummary(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Child(hb.Span().Class("small").Text(systemText + " on " + osText))
 }
 
-func countryBadge(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
-	countryCode := visitor.GetCountry()
-	if countryCode == "" {
-		return hb.Span().
-			Class("badge rounded-circle bg-secondary").
-			Style("width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;").
-			Text("🌐")
-	}
-
-	return hb.Span().
-		Class("badge rounded-circle bg-light border d-flex align-items-center justify-content-center p-1").
-		Style("width: 32px; height: 32px; min-width: 32px;").
-		Child(hb.Span().Class("fi fi-" + strings.ToLower(countryCode)).Style("font-size: 1.1rem;"))
-}
-
-func resolvedVisitorLocation(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) string {
-	country := visitor.GetCountry()
-	if country == "" {
-		return "Unknown Location"
-	}
-	return strings.ToUpper(country)
-}
-
-func locationBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
-	country := visitor.GetCountry()
-	if country == "" {
-		country = "Unknown"
-	}
-	ip := visitor.GetIpAddress()
-	if ip == "" {
-		ip = "Unknown"
-	}
-
-	return hb.Div().
-		Class("d-flex flex-column gap-1").
-		Child(hb.Span().Class("fw-semibold").Text(country)).
-		Child(hb.Span().Class("small text-muted").Text(fmt.Sprintf("IP Address: %s", ip)))
-}
-
-func referrerBlock(visitor statsstore.VisitorInterface) hb.TagInterface {
-	referrer := visitor.GetUserReferrer()
-	linkText := referrer
-	if referrer == "" {
-		linkText = "(No referring link)"
-	}
-
-	link := hb.Span().Class("text-success").Text(linkText)
-	if referrer != "" {
-		link = hb.A().
-			Href(referrer).
-			Class("text-success text-decoration-none").
-			Attr("target", "_blank").
-			Text(linkText)
-	}
-
-	return hb.Div().
-		Class("d-flex flex-column gap-1").
-		Child(hb.Span().Class("fw-semibold small").Text("Referrer")).
-		Child(link)
-}
-
-func pathBlock(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
-	return hb.Div().
-		Class("d-flex flex-column gap-1").
-		Child(hb.Span().Class("fw-semibold small").Text("Visited URL")).
-		Child(hb.Raw(getVisitPageLink(ui.WebsiteUrl, visitor.GetPath())))
-}
-
 func sessionBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 	fingerprint := visitor.GetFingerprint()
 	if len(fingerprint) > 8 {
@@ -396,45 +267,28 @@ func sessionBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 		Text(fmt.Sprintf("Session %s", strings.ToUpper(fingerprint)))
 }
 
-func exportDropdown(data ControllerData) hb.TagInterface {
-	params := queryParamsWith(data, map[string]string{"action": "export"})
-	link := shared.UrlVisitorActivity(data.Request, params)
+func detailButton(visitor statsstore.VisitorInterface) hb.TagInterface {
+	data, _ := json.Marshal(map[string]string{
+		"id":          visitor.GetID(),
+		"createdAt":   visitor.GetCreatedAt(),
+		"path":        visitor.GetPath(),
+		"country":     visitor.GetCountry(),
+		"ipAddress":   visitor.GetIpAddress(),
+		"referrer":    visitor.GetUserReferrer(),
+		"device":      visitor.GetUserDevice(),
+		"browser":     visitor.GetUserBrowser(),
+		"browserVer":  visitor.GetUserBrowserVersion(),
+		"os":          visitor.GetUserOs(),
+		"osVer":       visitor.GetUserOsVersion(),
+		"userAgent":   visitor.GetUserAgent(),
+		"fingerprint": visitor.GetFingerprint(),
+	})
 
-	return hb.Div().
-		Class("dropdown").
-		Child(hb.Button().
-			Class("btn btn-sm btn-outline-secondary dropdown-toggle").
-			Attr("type", "button").
-			Attr("data-bs-toggle", "dropdown").
-			Attr("aria-expanded", "false").
-			Text("Export")).
-		Child(hb.UL().
-			Class("dropdown-menu").
-			Child(hb.LI().
-				Child(hb.A().
-					Class("dropdown-item").
-					Href(link).
-					Attr("target", "_blank").
-					Attr("rel", "noopener").
-					Text("Export to CSV"))))
-}
-
-func optionsButton() hb.TagInterface {
 	return hb.Button().
-		Class("btn btn-sm btn-outline-secondary").
+		Class("btn btn-sm btn-outline-primary").
 		Attr("type", "button").
-		HTML(`<i class="bi bi-gear"></i>`)
-}
-
-func countryFlagEmoji(code string) string {
-	if len(code) != 2 {
-		return "🌐"
-	}
-	code = strings.ToUpper(code)
-	r1 := rune(code[0])
-	r2 := rune(code[1])
-	if r1 < 'A' || r1 > 'Z' || r2 < 'A' || r2 > 'Z' {
-		return "🌐"
-	}
-	return string(r1-65+0x1F1E6) + string(r2-65+0x1F1E6)
+		Attr("data-bs-toggle", "modal").
+		Attr("data-bs-target", "#visitorDetailModal").
+		Attr("data-visitor", string(data)).
+		HTML(`<i class="bi bi-info-circle"></i> Details`)
 }

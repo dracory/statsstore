@@ -21,19 +21,9 @@ func visitorDetailModal() hb.TagInterface {
 		Child(modalTitle).
 		Child(closeButton)
 
-	loadingSpinner := hb.Div().
-		Class("spinner-border text-primary").
-		Attr("role", "status").
-		Child(hb.Span().Class("visually-hidden").Text("Loading..."))
-
-	initialBody := hb.Div().
-		Class("text-center p-4").
-		Child(loadingSpinner)
-
 	modalBody := hb.Div().
 		Class("modal-body").
-		ID("visitorDetailModalContent").
-		Child(initialBody)
+		ID("visitorDetailModalContent")
 
 	modalFooter := hb.Div().
 		Class("modal-footer").

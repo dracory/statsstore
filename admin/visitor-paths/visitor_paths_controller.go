@@ -105,12 +105,12 @@ func (c *visitorPathsController) exportCSV(w http.ResponseWriter, data visitorPa
 	rows := make([][]string, 0, len(data.Paths))
 	for _, visitor := range data.Paths {
 		browser := strings.TrimSpace(visitor.GetUserBrowser() + " " + visitor.GetUserBrowserVersion())
-		absoluteURL := fullPathURL(c.ui, visitor.GetPath())
+		absoluteURL := shared.FullPathURL(c.ui, visitor.GetPath())
 		rows = append(rows, []string{
-			formatTimestamp(visitor.GetCreatedAt()),
+			shared.FormatTimestamp(visitor.GetCreatedAt()),
 			visitor.GetPath(),
 			absoluteURL,
-			resolvedCountryName(c.ui, visitor.GetCountry()),
+			shared.ResolvedCountryName(c.ui, visitor.GetCountry()),
 			visitor.GetIpAddress(),
 			visitor.GetUserReferrer(),
 			sessionLabel(data.Paths, visitor),
