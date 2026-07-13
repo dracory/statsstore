@@ -12,7 +12,6 @@ Upgrade the Visitor Paths page to mirror the StatCounter reference by combining 
   - “Add Filter” dropdown (date range, country, path contains, device type).
   - Export button using shared helper.
 - **Footer controls**: pagination status, quick range buttons (All, 24 Hours, Today, custom range), date selection controls, and per-page selector.
-- **Upgrade banner region** centred within list for host-provided messaging.
 
 ## Deliverables
 - Restructure view layout to render list items matching reference hierarchy (two-column flex/table hybrid).

@@ -324,11 +324,10 @@ func countryBadge(ui shared.ControllerOptions, visitor statsstore.VisitorInterfa
 			Text("🌐")
 	}
 
-	flag := countryFlagEmoji(countryCode)
 	return hb.Span().
-		Class("badge rounded-circle bg-light border").
-		Style("width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;").
-		Text(flag)
+		Class("badge rounded-circle bg-light border d-flex align-items-center justify-content-center p-1").
+		Style("width: 32px; height: 32px; min-width: 32px;").
+		Child(hb.Span().Class("fi fi-" + strings.ToLower(countryCode)).Style("font-size: 1.1rem;"))
 }
 
 func resolvedVisitorLocation(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) string {

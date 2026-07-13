@@ -17,7 +17,6 @@ Introduce a dedicated "Page View Activity" screen that mirrors the StatCounter-s
   - Primary "Add Filter" button exposing dropdown for date range, country, device type, browser.
   - Quick range buttons (All, Today, 24 Hours, custom date picker) similar to reference component.
 - **Pagination footer** with page indicator and results-per-page selector.
-- **Upgrade banner slot** (optional) allowing host application to inject plan messaging.
 
 ## Data & Store Requirements
 - Confirm `VisitorList` exposes IP, path, referrer, user agent, country, and device metadata.

@@ -48,7 +48,8 @@ func (l *layout) Render(w http.ResponseWriter, r *http.Request) string {
 		SetLanguage("en").
 		SetTitle(title).
 		StyleURL(cdn.BootstrapCss_5_3_3()).
-		StyleURL(cdn.BootstrapIconsCss_1_11_3())
+		StyleURL(cdn.BootstrapIconsCss_1_11_3()).
+		StyleURL("https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css")
 
 	for _, url := range l.styleURLs {
 		page = page.StyleURL(url)

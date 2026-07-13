@@ -22,7 +22,6 @@ Evolve the Visitor Activity page to resemble the StatCounter reference while sta
 - Implement expandable detail or stacked layout for smaller screens while preserving reference layout on desktop.
 - Add flag/device/browser icon helpers to visually align with reference.
 - Ensure filters load results via query params and persist through pagination/export.
-- Integrate upgrade banner slot in footer (non-functional placeholder for host messaging).
 - Update CSV export to include all surfaced fields (page views, exit time, system, location, referrer, IP).
 
 ## Dependencies

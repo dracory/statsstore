@@ -78,7 +78,6 @@ func cardBody(data visitorPathsControllerData, ui shared.ControllerOptions) hb.T
 		Class("card-body d-flex flex-column gap-4").
 		Child(filterToolbar(data)).
 		Child(list).
-		Child(upgradeBanner()).
 		Child(footerControls(data, ui))
 }
 
@@ -382,12 +381,6 @@ func optionsButton() hb.TagInterface {
 		HTML(`<i class="bi bi-gear"></i>`)
 }
 
-func upgradeBanner() hb.TagInterface {
-	return hb.Div().
-		Class("alert alert-info text-center mb-0").
-		HTML("<strong>Upgrade Insight:</strong> Connect deeper analytics to unlock funnel visualisations and path grouping.")
-}
-
 func sessionBadge(data visitorPathsControllerData, visitor statsstore.VisitorInterface) hb.TagInterface {
 	return hb.Span().
 		Class("badge text-bg-secondary").
@@ -460,12 +453,16 @@ func browserBadge(visitor statsstore.VisitorInterface) hb.TagInterface {
 
 func countryBadge(ui shared.ControllerOptions, visitor statsstore.VisitorInterface) hb.TagInterface {
 	code := strings.ToUpper(strings.TrimSpace(visitor.GetCountry()))
-	flag := countryFlagEmoji(code)
 	name := resolvedCountryName(ui, visitor.GetCountry())
 
 	badge := hb.Span().
-		Class("badge bg-light text-dark border").
-		Text(flag)
+		Class("badge bg-light text-dark border d-inline-flex align-items-center gap-1")
+
+	if code != "" && len(code) == 2 {
+		badge = badge.Child(hb.Span().Class("fi fi-" + strings.ToLower(code)))
+	} else {
+		badge = badge.Text("🌐")
+	}
 
 	if name != "" {
 		badge = badge.Attr("title", name)

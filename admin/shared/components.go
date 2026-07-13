@@ -57,7 +57,9 @@ func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
 
 		linkClasses := "nav-link fw-semibold text-center"
 		if isActive {
-			linkClasses += " active"
+			linkClasses += " active bg-primary text-white shadow-sm"
+		} else {
+			linkClasses += " text-secondary"
 		}
 
 		link := hb.A().
@@ -78,7 +80,7 @@ func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
 		Child(hb.A().
 			Class("navbar-brand fw-semibold text-decoration-none").
 			Href(homeURL).
-			HTML("Visitor Analytics")).
+			HTML("Analytics")).
 		Child(nav)
 }
 
