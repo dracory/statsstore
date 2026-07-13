@@ -25,10 +25,11 @@ func statsOverview(data ControllerData) hb.TagInterface {
 	avgFirstVisits := float64(totalFirstVisits) / float64(days)
 	avgReturningVisits := float64(totalReturningVisits) / float64(days)
 
-	ext := computeStatsOverview(data)
+	ext := data.currentStats
 
 	return hb.Div().
 		Class("row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-6 g-4 text-center").
+		Child(liveVisitorCard(data.liveVisitorCount, data.Request)).
 		Child(hb.Div().
 			Class("col").
 			Child(shared.StatCardUI("Total Unique Visitors", fmt.Sprintf("%d", totalUniqueVisitors), "bi bi-person", "primary"))).
@@ -61,5 +62,5 @@ func statsOverview(data ControllerData) hb.TagInterface {
 			Child(shared.StatCardUI("Bounce Rate", ext.BounceRate, "bi bi-arrow-repeat", "warning"))).
 		Child(hb.Div().
 			Class("col").
-			Child(shared.StatCardUI("Session Duration", ext.SessionDuration, "bi bi-clock-history", "secondary")))
+			Child(shared.StatCardUI("Avg. Visit Duration", ext.SessionDuration, "bi bi-clock-history", "secondary")))
 }

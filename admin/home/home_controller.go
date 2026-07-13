@@ -35,9 +35,15 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Handle renders the controller to an HTML tag
 func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
+	action := r.URL.Query().Get("action")
+
+	if action == "live" {
+		return c.handleLive(w, r)
+	}
+
 	data, errorMessage := c.prepareData(r)
 
-	if action := r.URL.Query().Get("action"); action == "export" {
+	if action == "export" {
 		if errorMessage != "" {
 			w.WriteHeader(http.StatusInternalServerError)
 			return errorMessage
@@ -130,6 +136,38 @@ func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) strin
 	return shared.ExportCSV(w, shared.ExportFilename("visitor-stats"), headers, rows)
 }
 
+func (c *Controller) handleLive(w http.ResponseWriter, r *http.Request) string {
+	count, err := c.liveVisitorCount(r)
+	if err != nil {
+		count = 0
+	}
+	return liveVisitorCard(count, r).ToHTML()
+}
+
+func (c *Controller) liveVisitorCount(r *http.Request) (int64, error) {
+	liveGte := carbon.Now(carbon.UTC).SubMinutes(15).ToDateTimeString(carbon.UTC)
+	return c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQuery().SetCreatedAtGte(liveGte))
+}
+
+func previousPeriodBounds(selectedPeriod string, start, end *carbon.Carbon) (*carbon.Carbon, *carbon.Carbon, string) {
+	switch selectedPeriod {
+	case "today":
+		return start.Copy().SubDays(1), end.Copy().SubDays(1), "Yesterday"
+	case "yesterday":
+		return start.Copy().SubDays(1), end.Copy().SubDays(1), "Day Before Yesterday"
+	case "last-7-days", "previous-7-days":
+		return start.Copy().SubDays(7), end.Copy().SubDays(7), "Previous 7 Days"
+	case "this-week", "last-week":
+		return start.Copy().SubDays(7), end.Copy().SubDays(7), "Previous Week"
+	case "this-month":
+		return start.Copy().SubMonths(1).StartOfMonth(), start.Copy().SubDays(1).EndOfDay(), "Previous Month"
+	case "last-month":
+		return start.Copy().SubMonths(1).StartOfMonth(), start.Copy().SubDays(1).EndOfDay(), "Previous Month"
+	default: // this-week
+		return start.Copy().SubDays(7), end.Copy().SubDays(7), "Previous Week"
+	}
+}
+
 // prepareData prepares the data for the home page
 
 func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMessage string) {
@@ -151,7 +189,7 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 		selectedPeriod = "this-week"
 	}
 
-	now := carbon.Now()
+	now := carbon.Now(carbon.UTC)
 	start := now.Copy()
 	end := now.Copy()
 
@@ -183,8 +221,8 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	}
 
 	dateRange := datesInRange(start.Copy(), end.Copy())
-	createdAtGte := start.ToDateString() + " 00:00:00"
-	createdAtLte := end.ToDateString() + " 23:59:59"
+	createdAtGte := start.ToDateTimeString(carbon.UTC)
+	createdAtLte := end.ToDateTimeString(carbon.UTC)
 
 	visitors, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
 		SetCreatedAtGte(createdAtGte).
@@ -194,75 +232,47 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 		return data, err.Error()
 	}
 
+	currentStats := computePeriodStats(visitors, dateRange)
+
+	prevStart, prevEnd, prevLabel := previousPeriodBounds(selectedPeriod, start, end)
+	prevDateRange := datesInRange(prevStart.Copy(), prevEnd.Copy())
+	prevCreatedAtGte := prevStart.ToDateTimeString(carbon.UTC)
+	prevCreatedAtLte := prevEnd.ToDateTimeString(carbon.UTC)
+
+	previousVisitors, err := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
+		SetCreatedAtGte(prevCreatedAtGte).
+		SetCreatedAtLte(prevCreatedAtLte))
+
+	if err != nil {
+		return data, err.Error()
+	}
+
+	previousStats := computePeriodStats(previousVisitors, prevDateRange)
+
+	liveGte := carbon.Now(carbon.UTC).SubMinutes(15).ToDateTimeString(carbon.UTC)
+	liveCount, err := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQuery().SetCreatedAtGte(liveGte))
+	if err != nil {
+		return data, err.Error()
+	}
+
 	data.visitors = visitors
 	data.ui = c.ui
-
-	dailyPageViews := map[string]int64{}
-	dailyUniqueIPs := map[string]map[string]struct{}{}
-	firstVisitByIP := map[string]string{}
-
-	for _, visitor := range visitors {
-		createdAt := visitor.GetCreatedAtCarbon()
-		if createdAt == nil {
-			continue
-		}
-
-		visitDate := createdAt.ToDateString()
-		identifier := visitor.GetIpAddress()
-		if identifier == "" {
-			identifier = "unknown-ip"
-		}
-
-		dailyPageViews[visitDate]++
-
-		if _, ok := dailyUniqueIPs[visitDate]; !ok {
-			dailyUniqueIPs[visitDate] = map[string]struct{}{}
-		}
-
-		dailyUniqueIPs[visitDate][identifier] = struct{}{}
-
-		if existingDate, ok := firstVisitByIP[identifier]; !ok || visitDate < existingDate {
-			firstVisitByIP[identifier] = visitDate
-		}
-	}
-
-	dates := make([]string, 0, len(dateRange))
-	uniqueVisits := make([]int64, 0, len(dateRange))
-	totalVisits := make([]int64, 0, len(dateRange))
-	firstVisits := make([]int64, 0, len(dateRange))
-	returnVisits := make([]int64, 0, len(dateRange))
-
-	for _, date := range dateRange {
-		dates = append(dates, date)
-
-		uniqueSet := dailyUniqueIPs[date]
-		uniqueCount := int64(len(uniqueSet))
-
-		var firstCount int64
-		for ip := range uniqueSet {
-			if firstVisitByIP[ip] == date {
-				firstCount++
-			}
-		}
-
-		returnCount := uniqueCount - firstCount
-		if returnCount < 0 {
-			returnCount = 0
-		}
-
-		uniqueVisits = append(uniqueVisits, uniqueCount)
-		totalVisits = append(totalVisits, dailyPageViews[date])
-		firstVisits = append(firstVisits, firstCount)
-		returnVisits = append(returnVisits, returnCount)
-	}
-
-	data.dates = dates
-	data.uniqueVisits = uniqueVisits
-	data.totalVisits = totalVisits
-	data.firstVisits = firstVisits
-	data.returnVisits = returnVisits
+	data.dates = currentStats.dates
+	data.uniqueVisits = currentStats.uniqueVisits
+	data.totalVisits = currentStats.totalVisits
+	data.firstVisits = currentStats.firstVisits
+	data.returnVisits = currentStats.returnVisits
 	data.selectedPeriod = selectedPeriod
 	data.periodOptions = periodOptions
+	data.liveVisitorCount = liveCount
+	data.previousPeriodLabel = prevLabel
+	data.previousPeriodUnique = previousStats.totalUnique
+	data.previousPeriodTotal = previousStats.totalTotal
+	data.previousPeriodFirst = previousStats.totalFirst
+	data.previousPeriodReturning = previousStats.totalReturning
+	data.previousPeriodVisitors = previousVisitors
+	data.currentStats = computeStatsOverview(visitors)
+	data.previousStats = computeStatsOverview(previousVisitors)
 
 	return data, ""
 }

@@ -135,7 +135,7 @@ func (st *storeImplementation) VisitorCount(ctx context.Context, query VisitorQu
 	if query.HasDistinct() && query.Distinct() != "" {
 		q := st.buildQuery(query)
 		var results []map[string]any
-		err := q.Table(st.visitorTableName).Select("DISTINCT " + query.Distinct()).Get(&results)
+		err := q.Select("DISTINCT " + query.Distinct()).Get(&results)
 		if err != nil {
 			return 0, err
 		}
@@ -144,7 +144,7 @@ func (st *storeImplementation) VisitorCount(ctx context.Context, query VisitorQu
 
 	q := st.buildQuery(query)
 	var count int64
-	err := q.Table(st.visitorTableName).Count(&count)
+	err := q.Count(&count)
 	return count, err
 }
 
@@ -154,7 +154,9 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 		return errors.New("visitor is nil")
 	}
 
-	visitor.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+	if visitor.GetCreatedAt() == "" {
+		visitor.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+	}
 	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
 	row := map[string]any{
@@ -247,7 +249,7 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 	}
 
 	var rows []visitorRow
-	if err := q.Table(st.visitorTableName).Get(&rows); err != nil {
+	if err := q.Get(&rows); err != nil {
 		return []VisitorInterface{}, err
 	}
 
@@ -269,8 +271,8 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		v.SetUserBrowser(r.UserBrowser)
 		v.SetUserBrowserVersion(r.UserBrowserVersion)
 		v.SetUserReferrer(r.UserReferrer)
-		v.CreatedAtField.CreatedAt = r.CreatedAt
-		v.UpdatedAtField.UpdatedAt = r.UpdatedAt
+		v.CreatedAt.CreatedAt = r.CreatedAt
+		v.UpdatedAt.UpdatedAt = r.UpdatedAt
 		v.SoftDeletesMaxDate.SoftDeletedAt = r.SoftDeletedAt
 		list = append(list, v)
 	}
@@ -350,7 +352,7 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 
 func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contractsorm.Query {
 	// Use Model() to enable neat's automatic soft delete handling via SoftDeletesMaxDate
-	q := st.db.Query().Model(&visitorImplementation{})
+	q := st.db.Query().Model(&visitorImplementation{}).Table(st.visitorTableName)
 
 	if query.HasID() && query.ID() != "" {
 		q = q.Where(COLUMN_ID+" = ?", query.ID())
@@ -387,10 +389,18 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 	}
 
 	if query.HasCreatedAtGte() && query.CreatedAtGte() != "" {
-		q = q.Where(COLUMN_CREATED_AT+" >= ?", query.CreatedAtGte())
+		if createdAt, ok := parseCreatedAt(query.CreatedAtGte()); ok {
+			q = q.Where(COLUMN_CREATED_AT+" >= ?", createdAt)
+		} else {
+			return q.Where("1 = 0")
+		}
 	}
 	if query.HasCreatedAtLte() && query.CreatedAtLte() != "" {
-		q = q.Where(COLUMN_CREATED_AT+" <= ?", query.CreatedAtLte())
+		if createdAt, ok := parseCreatedAt(query.CreatedAtLte()); ok {
+			q = q.Where(COLUMN_CREATED_AT+" <= ?", createdAt)
+		} else {
+			return q.Where("1 = 0")
+		}
 	}
 
 	if query.HasLimit() && query.Limit() > 0 {
@@ -415,4 +425,24 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 	}
 
 	return q
+}
+
+// parseCreatedAt parses a created_at bound string into a time.Time value. It
+// accepts RFC3339 and common SQL datetime formats so callers can pass strings
+// to the visitor query interface while the ORM receives a typed DateTime
+// comparison.
+func parseCreatedAt(value string) (time.Time, bool) {
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04:05.000",
+		"2006-01-02",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, value); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }

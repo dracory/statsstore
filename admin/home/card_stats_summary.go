@@ -59,6 +59,8 @@ func cardStatsSummary(data ControllerData) hb.TagInterface {
 			Class("card-body").
 			Child(statsOverview(data)).
 			Child(hb.HR().Class("my-4")).
+			Child(periodComparisonTable(data)).
+			Child(hb.HR().Class("my-4")).
 			Child(chartStatsSummary(data)).
 			Child(hb.HR().Class("my-4")).
 			Child(tableStatsSummary(data)))

@@ -86,22 +86,6 @@ func computeTrafficSources(data ControllerData) trafficSourcesData {
 // topEntries converts a count map into a sorted slice of trafficSourceEntry
 // capped at maxItems, sorted by count descending.
 func topEntries(counts map[string]int64, maxItems int) []trafficSourceEntry {
-	entries := make([]trafficSourceEntry, 0, len(counts))
-	for label, count := range counts {
-		entries = append(entries, trafficSourceEntry{
-			Label:    label,
-			Sessions: formatCount(count),
-		})
-	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		// Sort by raw count descending; we need the raw values for comparison
-		// but we already formatted to string, so re-parse is messy.
-		// Instead, store raw counts in a parallel sort.
-		return true
-	})
-
-	// Re-sort using raw counts
 	rawEntries := make([]rawEntry, 0, len(counts))
 	for label, count := range counts {
 		rawEntries = append(rawEntries, rawEntry{label: label, count: count})
@@ -113,7 +97,7 @@ func topEntries(counts map[string]int64, maxItems int) []trafficSourceEntry {
 		return rawEntries[i].count > rawEntries[j].count
 	})
 
-	entries = entries[:0]
+	entries := make([]trafficSourceEntry, 0, maxItems)
 	for i := 0; i < len(rawEntries) && i < maxItems; i++ {
 		entries = append(entries, trafficSourceEntry{
 			Label:    rawEntries[i].label,
@@ -321,23 +305,25 @@ func intensityLevel(ratio float64) int {
 // computeStatsOverview computes the extended statistics (sessions, pageviews,
 // pages per session, bounce rate, session duration) from the visitor list.
 type extendedStats struct {
-	Sessions        string
-	Pageviews       string
-	PagesPerSession string
-	BounceRate      string
-	SessionDuration string
+	Sessions               string
+	Pageviews              string
+	PagesPerSession        string
+	BounceRate             string
+	BounceRateValue        float64
+	SessionDuration        string
+	SessionDurationSeconds float64
 }
 
-func computeStatsOverview(data ControllerData) extendedStats {
-	visitors := data.visitors
+func computeStatsOverview(visitors []statsstore.VisitorInterface) extendedStats {
 	totalPageviews := int64(len(visitors))
 
-	// Group by fingerprint (or IP fallback) to compute sessions
+	// Group by fingerprint (calculating it on the fly if not stored) to
+	// identify unique visitors/sessions for bounce rate and visit duration.
 	sessions := map[string][]statsstore.VisitorInterface{}
 	for _, v := range visitors {
 		key := strings.TrimSpace(v.GetFingerprint())
 		if key == "" {
-			key = v.GetIpAddress()
+			key = v.FingerprintCalculate()
 		}
 		if key == "" {
 			key = "unknown"
@@ -346,52 +332,62 @@ func computeStatsOverview(data ControllerData) extendedStats {
 	}
 
 	sessionCount := int64(len(sessions))
-	if sessionCount == 0 {
-		sessionCount = 1
+	divisor := sessionCount
+	if divisor == 0 {
+		divisor = 1
 	}
 
-	pagesPerSession := float64(totalPageviews) / float64(sessionCount)
+	pagesPerSession := float64(totalPageviews) / float64(divisor)
 
-	// Bounce rate = sessions with only 1 pageview / total sessions
 	var bounceSessions int64
-	var totalDuration float64
+	var totalIntervalSeconds float64
+	var intervalCount int64
+
 	for _, sessionVisitors := range sessions {
 		if len(sessionVisitors) == 1 {
 			bounceSessions++
+			continue
 		}
 
-		// Compute session duration from first to last visit
-		if len(sessionVisitors) > 1 {
-			times := make([]time.Time, 0, len(sessionVisitors))
-			for _, sv := range sessionVisitors {
-				c := sv.GetCreatedAtCarbon()
-				if c != nil {
-					times = append(times, c.StdTime())
-				}
+		times := make([]time.Time, 0, len(sessionVisitors))
+		for _, sv := range sessionVisitors {
+			c := sv.GetCreatedAtCarbon()
+			if c != nil {
+				times = append(times, c.StdTime())
 			}
-			if len(times) >= 2 {
-				sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
-				totalDuration += times[len(times)-1].Sub(times[0]).Seconds()
+		}
+		if len(times) < 2 {
+			continue
+		}
+
+		sort.Slice(times, func(i, j int) bool { return times[i].Before(times[j]) })
+		for i := 1; i < len(times); i++ {
+			interval := times[i].Sub(times[i-1]).Seconds()
+			if interval > 0 {
+				totalIntervalSeconds += interval
+				intervalCount++
 			}
 		}
 	}
 
 	bounceRate := float64(0)
-	if sessionCount > 0 {
-		bounceRate = float64(bounceSessions) / float64(sessionCount) * 100
+	if divisor > 0 {
+		bounceRate = float64(bounceSessions) / float64(divisor) * 100
 	}
 
-	avgSessionDuration := float64(0)
-	if sessionCount > 0 {
-		avgSessionDuration = totalDuration / float64(sessionCount)
+	avgVisitDuration := float64(0)
+	if intervalCount > 0 {
+		avgVisitDuration = totalIntervalSeconds / float64(intervalCount)
 	}
 
 	return extendedStats{
-		Sessions:        formatCount(sessionCount),
-		Pageviews:       formatCount(totalPageviews),
-		PagesPerSession: formatFloat2(pagesPerSession),
-		BounceRate:      formatFloat2(bounceRate) + "%",
-		SessionDuration: formatDuration(avgSessionDuration),
+		Sessions:               formatCount(sessionCount),
+		Pageviews:              formatCount(totalPageviews),
+		PagesPerSession:        formatFloat2(pagesPerSession),
+		BounceRate:             formatFloat2(bounceRate) + "%",
+		BounceRateValue:        bounceRate,
+		SessionDuration:        formatDuration(avgVisitDuration),
+		SessionDurationSeconds: avgVisitDuration,
 	}
 }
 
@@ -403,8 +399,13 @@ func formatDuration(seconds float64) string {
 	if seconds <= 0 {
 		return "0s"
 	}
-	minutes := int(seconds / 60)
-	secs := int(seconds) - minutes*60
+	totalSecs := int(seconds)
+	hours := totalSecs / 3600
+	minutes := (totalSecs % 3600) / 60
+	secs := totalSecs % 60
+	if hours > 0 {
+		return formatInt(int64(hours)) + "h " + formatInt(int64(minutes)) + "m"
+	}
 	if minutes > 0 {
 		return formatInt(int64(minutes)) + "m " + formatInt(int64(secs)) + "s"
 	}

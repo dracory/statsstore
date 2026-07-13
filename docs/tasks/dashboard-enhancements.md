@@ -3,7 +3,7 @@
 ## Source
 Plausible + Rybbit feature research (`docs/proposals/todo/plausible.md`, `docs/proposals/todo/rybbit.md`)
 
-## Status: Not Started
+## Status: Completed
 
 ## Objective
 Add four high-value dashboard metrics that require no schema changes — pure computation and presentation on existing visitor data.

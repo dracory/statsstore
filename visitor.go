@@ -27,8 +27,8 @@ type visitorImplementation struct {
 	UserBrowserField        string `db:"user_browser"`
 	UserBrowserVersionField string `db:"user_browser_version"`
 	UserReferrerField       string `db:"user_referrer"`
-	CreatedAtField          orm.CreatedAt
-	UpdatedAtField          orm.UpdatedAt
+	orm.CreatedAt
+	orm.UpdatedAt
 	soft_delete.SoftDeletesMaxDate
 }
 
@@ -171,15 +171,15 @@ func (o *visitorImplementation) SetCountry(country string) VisitorInterface {
 
 // GetCreatedAt returns the created at time of the visitor.
 func (o *visitorImplementation) GetCreatedAt() string {
-	if o.CreatedAtField.CreatedAt.IsZero() {
+	if o.CreatedAt.CreatedAt.IsZero() {
 		return ""
 	}
-	return carbon.CreateFromStdTime(o.CreatedAtField.CreatedAt).ToDateTimeString()
+	return carbon.CreateFromStdTime(o.CreatedAt.CreatedAt).ToDateTimeString()
 }
 
 // GetCreatedAtCarbon returns the created at time of the visitor as a carbon object.
 func (o *visitorImplementation) GetCreatedAtCarbon() *carbon.Carbon {
-	return carbon.CreateFromStdTime(o.CreatedAtField.CreatedAt)
+	return carbon.CreateFromStdTime(o.CreatedAt.CreatedAt)
 }
 
 // SetCreatedAt sets the created at time of the visitor.
@@ -187,7 +187,7 @@ func (o *visitorImplementation) SetCreatedAt(createdAt string) VisitorInterface 
 	if createdAt == "" {
 		return o
 	}
-	o.CreatedAtField.CreatedAt = carbon.Parse(createdAt, carbon.UTC).StdTime()
+	o.CreatedAt.CreatedAt = carbon.Parse(createdAt, carbon.UTC).StdTime()
 	return o
 }
 
@@ -237,15 +237,15 @@ func (o *visitorImplementation) SetIpAddress(ipAddress string) VisitorInterface 
 
 // GetUpdatedAt returns the updated at time of the visitor.
 func (o *visitorImplementation) GetUpdatedAt() string {
-	if o.UpdatedAtField.UpdatedAt.IsZero() {
+	if o.UpdatedAt.UpdatedAt.IsZero() {
 		return ""
 	}
-	return carbon.CreateFromStdTime(o.UpdatedAtField.UpdatedAt).ToDateTimeString()
+	return carbon.CreateFromStdTime(o.UpdatedAt.UpdatedAt).ToDateTimeString()
 }
 
 // GetUpdatedAtCarbon returns the updated at time of the visitor as a carbon object.
 func (o *visitorImplementation) GetUpdatedAtCarbon() *carbon.Carbon {
-	return carbon.CreateFromStdTime(o.UpdatedAtField.UpdatedAt)
+	return carbon.CreateFromStdTime(o.UpdatedAt.UpdatedAt)
 }
 
 // SetUpdatedAt sets the updated at time of the visitor.
@@ -253,7 +253,7 @@ func (o *visitorImplementation) SetUpdatedAt(updatedAt string) VisitorInterface 
 	if updatedAt == "" {
 		return o
 	}
-	o.UpdatedAtField.UpdatedAt = carbon.Parse(updatedAt, carbon.UTC).StdTime()
+	o.UpdatedAt.UpdatedAt = carbon.Parse(updatedAt, carbon.UTC).StdTime()
 	return o
 }
 

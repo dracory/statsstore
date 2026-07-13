@@ -19,6 +19,16 @@ type ControllerData struct {
 	returnVisits   []int64
 	selectedPeriod string
 	periodOptions  []periodOption
+
+	liveVisitorCount        int64
+	previousPeriodLabel     string
+	previousPeriodUnique    int64
+	previousPeriodTotal     int64
+	previousPeriodFirst     int64
+	previousPeriodReturning int64
+	previousPeriodVisitors  []statsstore.VisitorInterface
+	currentStats            extendedStats
+	previousStats           extendedStats
 }
 
 type periodOption struct {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -145,5 +146,38 @@ func TestStoreVisitorSoftDelete(t *testing.T) {
 
 	if strings.Contains(visitorFindWithDeleted[0].GetSoftDeletedAt(), MAX_DATETIME) {
 		t.Fatal("visitor MUST be soft deleted", visitor.GetSoftDeletedAt())
+	}
+}
+
+func TestStoreVisitorListCreatedAtRange(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	visitors := []VisitorInterface{
+		NewVisitor().SetCreatedAt(now.Add(-2 * time.Hour).Format(time.RFC3339)),
+		NewVisitor().SetCreatedAt(now.Add(-10 * time.Minute).Format(time.RFC3339)),
+		NewVisitor().SetCreatedAt(now.Add(-48 * time.Hour).Format(time.RFC3339)),
+	}
+
+	for _, v := range visitors {
+		if err := store.VisitorCreate(ctx, v); err != nil {
+			t.Fatal("unexpected error:", err)
+		}
+	}
+
+	from := now.Add(-24 * time.Hour).Format(time.RFC3339)
+	to := now.Format(time.RFC3339)
+	result, err := store.VisitorList(ctx, VisitorQuery().SetCreatedAtGte(from).SetCreatedAtLte(to))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 visitors in range, got %d", len(result))
 	}
 }

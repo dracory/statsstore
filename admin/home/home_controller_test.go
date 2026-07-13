@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dromara/carbon/v2"
 
@@ -127,6 +128,69 @@ func TestHomeControllerHandleError(t *testing.T) {
 
 	if !strings.Contains(strings.ToLower(layout.body), "database operation failed") {
 		t.Fatalf("expected database operation failed error in body, got: %s", layout.body)
+	}
+}
+
+func TestHomeControllerDashboardMetrics(t *testing.T) {
+	store := newTestStore(t, true)
+	now := carbon.Now(carbon.UTC)
+	base := now.StdTime()
+
+	visitors := []struct {
+		fp   string
+		ip   string
+		t    time.Time
+		path string
+	}{
+		{"fp1", "1.1.1.1", base.Add(-2 * time.Hour), "/"},
+		{"fp1", "1.1.1.1", base.Add(-1 * time.Hour), "/docs"},
+		{"fp2", "2.2.2.2", base.Add(-10 * time.Minute), "/"},
+	}
+
+	for _, v := range visitors {
+		visitor := statsstore.NewVisitor().
+			SetFingerprint(v.fp).
+			SetIpAddress(v.ip).
+			SetPath(v.path).
+			SetCreatedAt(carbon.CreateFromStdTime(v.t).ToDateTimeString(carbon.UTC))
+		if err := store.VisitorCreate(context.Background(), visitor); err != nil {
+			t.Fatalf("failed to create visitor: %v", err)
+		}
+	}
+
+	layout := &fakeLayout{renderReturn: "rendered"}
+	controller := New(shared.ControllerOptions{
+		Store:   store,
+		Layout:  layout,
+		HomeURL: "https://admin.local",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days", nil)
+	rr := httptest.NewRecorder()
+	controller.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d", rr.Code)
+	}
+
+	body := layout.body
+	for _, label := range []string{"Live Visitors", "Period Comparison", "Bounce Rate", "Avg. Visit Duration"} {
+		if !strings.Contains(body, label) {
+			t.Errorf("expected body to contain %q", label)
+		}
+	}
+
+	// 2 sessions, 1 bounce (fp2) -> 50.0%
+	if !strings.Contains(body, "50.0%") {
+		t.Errorf("expected bounce rate 50.0%% in body, got: %s", body)
+	}
+	// fp1 had a 1 hour interval between page views
+	if !strings.Contains(body, "1h 0m") {
+		t.Errorf("expected avg visit duration 1h 0m in body, got: %s", body)
+	}
+	// fp2 visited within the last 15 minutes
+	if !strings.Contains(body, ">1</h3>") {
+		t.Errorf("expected live visitor count 1 in body, got: %s", body)
 	}
 }
 
