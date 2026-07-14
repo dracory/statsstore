@@ -184,10 +184,18 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		}
 	}
 
+	uaInfo := parseUserAgent(userAgent)
+
 	visitor := NewVisitor().
 		SetPath(path).
 		SetIpAddress(ip).
 		SetUserAgent(userAgent).
+		SetUserBrowser(uaInfo.Browser).
+		SetUserBrowserVersion(uaInfo.BrowserVersion).
+		SetUserOs(uaInfo.Os).
+		SetUserOsVersion(uaInfo.OsVersion).
+		SetUserDevice(uaInfo.Device).
+		SetUserDeviceType(uaInfo.DeviceType).
 		SetUserReferrer(referrer)
 
 	return st.VisitorCreate(ctx, visitor)
