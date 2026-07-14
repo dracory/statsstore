@@ -1,5 +1,7 @@
 filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
 filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
+github.com/LumenResearch/uasurfer v0.0.0-20260126094926-dace53404a8d h1:9i/cEq712Ep4enz06tBtiNnclbtyBwN6GcWomLzoqpA=
+github.com/LumenResearch/uasurfer v0.0.0-20260126094926-dace53404a8d/go.mod h1:Rn8VHlIvl5AgS2VrIpcMM5CAZWtKuRxCjiD3COhyIDE=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
 github.com/coder/websocket v1.8.15 h1:6B2JPeOGlpff2Uz6vOEH1Vzpi0iUz20A+lPVhPHtNUA=

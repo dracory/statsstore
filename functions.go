@@ -1,8 +1,10 @@
 package statsstore
 
 import (
-	"regexp"
+	"fmt"
 	"strings"
+
+	"github.com/LumenResearch/uasurfer"
 )
 
 // == USER AGENT PARSING =======================================================
@@ -17,120 +19,90 @@ type userAgentInfo struct {
 	DeviceType     string
 }
 
-// Precompiled regexes for user-agent parsing.
-var (
-	reEdge    = regexp.MustCompile(`Edg(?:e|A|iOS)?/([\d.]+)`)
-	reOpera   = regexp.MustCompile(`OPR/([\d.]+)`)
-	reFirefox = regexp.MustCompile(`Firefox/([\d.]+)`)
-	reChrome  = regexp.MustCompile(`Chrome/([\d.]+)`)
-	reSafari  = regexp.MustCompile(`Version/([\d.]+).*Safari`)
-	reAndroid = regexp.MustCompile(`Android ([\d.]+)`)
-	reWinNT   = regexp.MustCompile(`Windows NT ([\d.]+)`)
-	reIOS     = regexp.MustCompile(`OS ([\d_]+)`)
-	reMacOS   = regexp.MustCompile(`Mac OS X ([\d_]+)`)
-)
-
 // parseUserAgent extracts browser, OS, device, and device-type from a
-// user-agent string. Unknown values are left as empty strings.
+// user-agent string using the uasurfer library. Unknown values are left
+// as empty strings.
 func parseUserAgent(ua string) userAgentInfo {
 	info := userAgentInfo{}
 	if ua == "" {
 		return info
 	}
 
-	uaLower := strings.ToLower(ua)
+	parsed := uasurfer.Parse(ua)
 
-	// --- Browser detection (order matters: specific first) ---
-	switch {
-	case reEdge.MatchString(ua):
-		if m := reEdge.FindStringSubmatch(ua); m != nil {
-			info.Browser = "Edge"
-			info.BrowserVersion = m[1]
+	// Browser — uasurfer lacks an Edge constant, so detect it from the
+	// Edg/ token that Edge (Chromium) includes in its UA string.
+	if strings.Contains(ua, "Edg/") {
+		info.Browser = "Edge"
+		if parsed.Browser.Version.Major > 0 {
+			info.BrowserVersion = versionToString(parsed.Browser.Version)
 		}
-	case reOpera.MatchString(ua):
-		if m := reOpera.FindStringSubmatch(ua); m != nil {
-			info.Browser = "Opera"
-			info.BrowserVersion = m[1]
-		}
-	case reFirefox.MatchString(ua):
-		if m := reFirefox.FindStringSubmatch(ua); m != nil {
-			info.Browser = "Firefox"
-			info.BrowserVersion = m[1]
-		}
-	case reChrome.MatchString(ua):
-		if m := reChrome.FindStringSubmatch(ua); m != nil {
-			info.Browser = "Chrome"
-			info.BrowserVersion = m[1]
-		}
-	case reSafari.MatchString(ua):
-		if m := reSafari.FindStringSubmatch(ua); m != nil {
-			info.Browser = "Safari"
-			info.BrowserVersion = m[1]
-		}
-	case strings.Contains(uaLower, "safari"):
-		info.Browser = "Safari"
+	} else if parsed.Browser.Name != uasurfer.BrowserUnknown {
+		info.Browser = parsed.Browser.Name.StringTrimPrefix()
+		info.BrowserVersion = versionToString(parsed.Browser.Version)
 	}
 
-	// --- OS detection ---
-	switch {
-	case reAndroid.MatchString(ua):
-		if m := reAndroid.FindStringSubmatch(ua); m != nil {
-			info.Os = "Android"
-			info.OsVersion = m[1]
-		}
-	case reWinNT.MatchString(ua):
-		if m := reWinNT.FindStringSubmatch(ua); m != nil {
-			info.Os = "Windows"
-			switch m[1] {
-			case "10.0":
-				info.OsVersion = "10"
-			case "6.3":
-				info.OsVersion = "8.1"
-			case "6.2":
-				info.OsVersion = "8"
-			case "6.1":
-				info.OsVersion = "7"
-			case "6.0":
-				info.OsVersion = "Vista"
-			case "5.1":
-				info.OsVersion = "XP"
-			default:
-				info.OsVersion = m[1]
-			}
-		}
-	case strings.Contains(uaLower, "iphone") || strings.Contains(uaLower, "ipad") || strings.Contains(uaLower, "ipod"):
-		info.Os = "iOS"
-		if m := reIOS.FindStringSubmatch(ua); m != nil {
-			info.OsVersion = strings.ReplaceAll(m[1], "_", ".")
-		}
-	case reMacOS.MatchString(ua):
-		if m := reMacOS.FindStringSubmatch(ua); m != nil {
-			info.Os = "macOS"
-			info.OsVersion = strings.ReplaceAll(m[1], "_", ".")
-		}
-	case strings.Contains(uaLower, "linux"):
-		info.Os = "Linux"
+	// OS
+	if parsed.OS.Name != uasurfer.OSUnknown {
+		info.Os = osNameToString(parsed.OS.Name)
 	}
 
-	// --- Device & device-type detection ---
-	switch {
-	case strings.Contains(uaLower, "ipad"):
-		info.DeviceType = "tablet"
-		info.Device = "iPad"
-	case strings.Contains(uaLower, "iphone"):
-		info.DeviceType = "mobile"
+	// OS version
+	info.OsVersion = versionToString(parsed.OS.Version)
+
+	// Device name (from platform)
+	switch parsed.OS.Platform {
+	case uasurfer.PlatformiPhone:
 		info.Device = "iPhone"
-	case strings.Contains(uaLower, "android"):
-		if strings.Contains(uaLower, "tablet") || !strings.Contains(uaLower, "mobile") {
-			info.DeviceType = "tablet"
-		} else {
-			info.DeviceType = "mobile"
-		}
-	case strings.Contains(uaLower, "mobile"):
-		info.DeviceType = "mobile"
-	case info.Os != "" && info.Os != "Android" && info.Os != "iOS":
-		info.DeviceType = "desktop"
+	case uasurfer.PlatformiPad:
+		info.Device = "iPad"
+	case uasurfer.PlatformiPod:
+		info.Device = "iPod"
 	}
+
+	// Device type
+	info.DeviceType = deviceTypeToString(parsed.DeviceType)
 
 	return info
+}
+
+// osNameToString maps uasurfer OSName constants to human-readable strings.
+func osNameToString(name uasurfer.OSName) string {
+	switch name {
+	case uasurfer.OSMacOSX:
+		return "macOS"
+	case uasurfer.OSiPadOS:
+		return "iOS"
+	default:
+		return name.StringTrimPrefix()
+	}
+}
+
+// versionToString formats a uasurfer.Version as "major.minor" or
+// "major.minor.patch" (when patch > 0). Returns empty string if major is 0.
+func versionToString(v uasurfer.Version) string {
+	if v.Major == 0 {
+		return ""
+	}
+	if v.Patch > 0 {
+		return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	}
+	return fmt.Sprintf("%d.%d", v.Major, v.Minor)
+}
+
+// deviceTypeToString maps uasurfer DeviceType constants to the lowercase
+// values expected by the admin UI (desktop, mobile, tablet).
+func deviceTypeToString(dt uasurfer.DeviceType) string {
+	switch dt {
+	case uasurfer.DeviceComputer:
+		return "desktop"
+	case uasurfer.DevicePhone:
+		return "mobile"
+	case uasurfer.DeviceTablet:
+		return "tablet"
+	case uasurfer.DeviceUnknown:
+		return ""
+	default:
+		return strings.ToLower(dt.StringTrimPrefix())
+	}
 }
