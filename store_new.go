@@ -13,6 +13,7 @@ import (
 // NewStoreOptions defines the options for creating a new stats store.
 type NewStoreOptions struct {
 	VisitorTableName     string
+	SettingsTableName    string
 	DB                   *sql.DB
 	AutomigrateEnabled   bool
 	DebugEnabled         bool
@@ -36,9 +37,15 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		return nil, err
 	}
 
+	settingsTable := opts.SettingsTableName
+	if settingsTable == "" {
+		settingsTable = DEFAULT_SETTINGS_TABLE
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	store := &storeImplementation{
 		visitorTableName:     opts.VisitorTableName,
+		settingsTableName:    settingsTable,
 		db:                   neatDB,
 		automigrateEnabled:   opts.AutomigrateEnabled,
 		debugEnabled:         opts.DebugEnabled,
@@ -52,6 +59,24 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		if err := store.MigrateUp(context.Background()); err != nil {
 			return nil, err
 		}
+	}
+
+	// Load excluded IPs from the database and merge with any provided via options
+	if dbIPs, err := store.excludedIPsLoadFromDB(context.Background()); err == nil {
+		merged := append([]string{}, opts.ExcludedIPs...)
+		for _, dbIP := range dbIPs {
+			found := false
+			for _, existing := range merged {
+				if existing == dbIP {
+					found = true
+					break
+				}
+			}
+			if !found {
+				merged = append(merged, dbIP)
+			}
+		}
+		store.excludedIPs = merged
 	}
 
 	return store, nil

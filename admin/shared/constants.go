@@ -15,6 +15,7 @@ const (
 	ControllerVisitorActivity  = "visitor-activity"
 	ControllerVisitorPaths     = "visitor-paths"
 	ControllerPageViewActivity = "page-view-activity"
+	ControllerSettings         = "settings"
 )
 
 // Path constants for admin routes
@@ -23,4 +24,5 @@ const (
 	PathVisitorActivity  = "/admin/visitor-activity"
 	PathVisitorPaths     = "/admin/visitor-paths"
 	PathPageViewActivity = "/admin/page-view-activity"
+	PathSettings         = "/admin/settings"
 )

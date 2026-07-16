@@ -9,6 +9,7 @@ import (
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/home"
 	pageviewactivity "github.com/dracory/statsstore/admin/page-view-activity"
+	"github.com/dracory/statsstore/admin/settings"
 	"github.com/dracory/statsstore/admin/shared"
 	visitoractivity "github.com/dracory/statsstore/admin/visitor-activity"
 	visitorpaths "github.com/dracory/statsstore/admin/visitor-paths"
@@ -64,6 +65,7 @@ func (a *admin) findHandlerFromPath(path string) http.Handler {
 		shared.PathVisitorActivity:  visitoractivity.New(options),
 		shared.PathVisitorPaths:     visitorpaths.New(options),
 		shared.PathPageViewActivity: pageviewactivity.New(options),
+		shared.PathSettings:         settings.New(options),
 	}
 
 	if val, ok := routes[path]; ok {

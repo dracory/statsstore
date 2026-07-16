@@ -48,6 +48,16 @@ func UrlPageViewActivity(r *http.Request, params ...map[string]string) string {
 	return URL(r, endpoint, p)
 }
 
+func UrlSettings(r *http.Request, params ...map[string]string) string {
+	endpoint := lo.IfF(r.Context().Value(KeyEndpoint) != nil, func() string { return r.Context().Value(KeyEndpoint).(string) }).Else("/")
+
+	p := lo.IfF(len(params) > 0, func() map[string]string { return params[0] }).Else(map[string]string{})
+
+	p["path"] = PathSettings
+
+	return URL(r, endpoint, p)
+}
+
 // URL generates a URL with the given path and parameters
 func URL(r *http.Request, path string, params map[string]string) string {
 	scheme := "http"

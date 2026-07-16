@@ -21,5 +21,15 @@ const (
 	COLUMN_USER_REFERRER        = "user_referrer"
 )
 
+// Default table name for key-value settings.
+const DEFAULT_SETTINGS_TABLE = "statsstore_settings"
+
+// Settings table column names.
+const (
+	COLUMN_KEY           = "key"
+	COLUMN_VALUE         = "value"
+	SETTING_EXCLUDED_IPS = "excluded_ips"
+)
+
 // MAX_DATETIME is a far-future datetime used as the default soft-delete sentinel.
 const MAX_DATETIME = "9999-12-31 23:59:59"

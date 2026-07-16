@@ -26,6 +26,10 @@ type StoreInterface interface {
 	SetExcludedIPs(ips []string)
 	GetExcludedIPs() []string
 
+	ExcludedIPList(ctx context.Context) ([]string, error)
+	ExcludedIPAdd(ctx context.Context, ip string) error
+	ExcludedIPRemove(ctx context.Context, ip string) error
+
 	VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error)
 	VisitorCreate(ctx context.Context, user VisitorInterface) error
 	VisitorDelete(ctx context.Context, user VisitorInterface) error

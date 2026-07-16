@@ -37,6 +37,11 @@ func AdminHeaderUI(r *http.Request, homeURL string) hb.TagInterface {
 			href:  UrlPageViewActivity(r),
 			path:  PathPageViewActivity,
 		},
+		{
+			title: "Settings",
+			href:  UrlSettings(r),
+			path:  PathSettings,
+		},
 	}
 
 	currentPath := strings.TrimSuffix(r.URL.Query().Get("path"), "/")

@@ -24,6 +24,7 @@ var _ StoreInterface = (*storeImplementation)(nil)
 // storeImplementation implements StoreInterface for visitor operations.
 type storeImplementation struct {
 	visitorTableName     string
+	settingsTableName    string
 	db                   *neat.Database
 	automigrateEnabled   bool
 	debugEnabled         bool
@@ -35,49 +36,74 @@ type storeImplementation struct {
 
 // == MIGRATE ==================================================================
 
-// MigrateUp creates the visitor table if it does not already exist.
+// MigrateUp creates the visitor table and excluded IPs table if they do not already exist.
 func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) error {
 	if st.db.Schema().HasTable(st.visitorTableName) {
 		if st.debugEnabled {
 			st.logger.Info("MigrateUp: table already exists", "table", st.visitorTableName)
 		}
-		return nil
+	} else {
+		err := st.db.Schema().Create(st.visitorTableName, func(table contractsschema.Blueprint) {
+			table.String(COLUMN_ID, 40)
+			table.Primary(COLUMN_ID)
+			table.String(COLUMN_PATH, 510)
+			table.String(COLUMN_FINGERPRINT, 40)
+			table.String(COLUMN_IP_ADDRESS, 40)
+			table.String(COLUMN_COUNTRY, 2)
+			table.String(COLUMN_USER_ACCEPT_LANGUAGE, 100)
+			table.String(COLUMN_USER_ACCEPT_ENCODING, 40)
+			table.String(COLUMN_USER_AGENT, 510)
+			table.String(COLUMN_USER_OS, 12)
+			table.String(COLUMN_USER_OS_VERSION, 12)
+			table.String(COLUMN_USER_DEVICE, 40)
+			table.String(COLUMN_USER_DEVICE_TYPE, 12)
+			table.String(COLUMN_USER_BROWSER, 40)
+			table.String(COLUMN_USER_BROWSER_VERSION, 24)
+			table.String(COLUMN_USER_REFERRER, 510)
+			table.DateTime(COLUMN_CREATED_AT)
+			table.DateTime(COLUMN_UPDATED_AT)
+			table.DateTime(COLUMN_SOFT_DELETED_AT)
+		})
+
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Error("MigrateUp failed", "error", err)
+			}
+			return err
+		}
 	}
 
-	err := st.db.Schema().Create(st.visitorTableName, func(table contractsschema.Blueprint) {
-		table.String(COLUMN_ID, 40)
-		table.Primary(COLUMN_ID)
-		table.String(COLUMN_PATH, 510)
-		table.String(COLUMN_FINGERPRINT, 40)
-		table.String(COLUMN_IP_ADDRESS, 40)
-		table.String(COLUMN_COUNTRY, 2)
-		table.String(COLUMN_USER_ACCEPT_LANGUAGE, 100)
-		table.String(COLUMN_USER_ACCEPT_ENCODING, 40)
-		table.String(COLUMN_USER_AGENT, 510)
-		table.String(COLUMN_USER_OS, 12)
-		table.String(COLUMN_USER_OS_VERSION, 12)
-		table.String(COLUMN_USER_DEVICE, 40)
-		table.String(COLUMN_USER_DEVICE_TYPE, 12)
-		table.String(COLUMN_USER_BROWSER, 40)
-		table.String(COLUMN_USER_BROWSER_VERSION, 24)
-		table.String(COLUMN_USER_REFERRER, 510)
-		table.DateTime(COLUMN_CREATED_AT)
-		table.DateTime(COLUMN_UPDATED_AT)
-		table.DateTime(COLUMN_SOFT_DELETED_AT)
-	})
+	if st.settingsTableName != "" && !st.db.Schema().HasTable(st.settingsTableName) {
+		err := st.db.Schema().Create(st.settingsTableName, func(table contractsschema.Blueprint) {
+			table.String(COLUMN_KEY, 100)
+			table.Primary(COLUMN_KEY)
+			table.Text(COLUMN_VALUE)
+			table.DateTime(COLUMN_CREATED_AT)
+			table.DateTime(COLUMN_UPDATED_AT)
+		})
 
-	if err != nil {
-		if st.debugEnabled {
-			st.logger.Error("MigrateUp failed", "error", err)
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Error("MigrateUp: settings table creation failed", "error", err)
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil
 }
 
-// MigrateDown drops the visitor table.
+// MigrateDown drops the visitor table and settings table.
 func (st *storeImplementation) MigrateDown(ctx context.Context, tx ...*sql.Tx) error {
+	if st.settingsTableName != "" && st.db.Schema().HasTable(st.settingsTableName) {
+		if err := st.db.Schema().Drop(st.settingsTableName); err != nil {
+			if st.debugEnabled {
+				st.logger.Error("MigrateDown: settings table drop failed", "error", err)
+			}
+			return err
+		}
+	}
+
 	if !st.db.Schema().HasTable(st.visitorTableName) {
 		if st.debugEnabled {
 			st.logger.Info("MigrateDown: table does not exist", "table", st.visitorTableName)
