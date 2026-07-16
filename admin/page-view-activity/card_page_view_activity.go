@@ -16,7 +16,8 @@ func CardPageViewActivity(data ControllerData, ui shared.ControllerOptions) hb.T
 	return hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(cardHeader(data)).
-		Child(cardBody(data, ui))
+		Child(cardBody(data, ui)).
+		Child(filterModal(data))
 }
 
 func cardHeader(data ControllerData) hb.TagInterface {
@@ -26,7 +27,7 @@ func cardHeader(data ControllerData) hb.TagInterface {
 	actions := hb.Div().
 		Class("d-flex align-items-center gap-2").
 		Child(shared.ExportDropdown(exportURL)).
-		Child(shared.OptionsButton())
+		Child(shared.FilterModalButton("pageViewActivityFilterModal"))
 
 	return hb.Div().
 		Class("card-header d-flex flex-wrap justify-content-between align-items-center gap-2").
@@ -65,42 +66,21 @@ func cardBody(data ControllerData, ui shared.ControllerOptions) hb.TagInterface 
 func filterToolbar(data ControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3").
-		Child(addFilterDropdown(data)).
+		Child(shared.FilterModalButton("pageViewActivityFilterModal")).
 		Child(activeFilterBadges(data.Filters))
 }
 
-func addFilterDropdown(data ControllerData) hb.TagInterface {
-	items := []struct {
-		label  string
-		params map[string]string
-	}{
-		{"Last 24 Hours", shared.QueryParamsWith(data.Request, map[string]string{"range": "24h", "from": "", "to": "", "page": "1"})},
-		{"Today", shared.QueryParamsWith(data.Request, map[string]string{"range": "today", "from": "", "to": "", "page": "1"})},
-		{"Last 7 Days", shared.QueryParamsWith(data.Request, map[string]string{"range": "7d", "from": "", "to": "", "page": "1"})},
-		{"Last 30 Days", shared.QueryParamsWith(data.Request, map[string]string{"range": "30d", "from": "", "to": "", "page": "1"})},
-		{"Country: Unknown", shared.QueryParamsWith(data.Request, map[string]string{"country": "empty", "page": "1"})},
-		{"Device: Desktop", shared.QueryParamsWith(data.Request, map[string]string{"device": "desktop", "page": "1"})},
-		{"Device: Mobile", shared.QueryParamsWith(data.Request, map[string]string{"device": "mobile", "page": "1"})},
-	}
-
-	menu := hb.UL().Class("dropdown-menu")
-	for _, item := range items {
-		menu = menu.Child(hb.LI().
-			Child(hb.A().
-				Class("dropdown-item").
-				Href(shared.UrlPageViewActivity(data.Request, item.params)).
-				Text(item.label)))
-	}
-
-	return hb.Div().
-		Class("dropdown").
-		Child(hb.Button().
-			Class("btn btn-outline-primary dropdown-toggle").
-			Attr("type", "button").
-			Attr("data-bs-toggle", "dropdown").
-			Attr("aria-expanded", "false").
-			HTML(`<i class="bi bi-funnel"></i> Add Filter`)).
-		Child(menu)
+func filterModal(data ControllerData) hb.TagInterface {
+	return shared.FilterModal(shared.FilterModalConfig{
+		ModalID: "pageViewActivityFilterModal",
+		Title:   "Filter Page View Activity",
+		Fields: []shared.FilterFieldDef{
+			{Name: "range", Label: "Time Range", Type: "select", Options: shared.RangeFilterOptions(), Value: data.Filters.Range},
+			{Name: "country", Label: "Country (ISO code or 'empty')", Type: "text", Value: data.Filters.Country},
+			{Name: "device", Label: "Device Type", Type: "select", Options: shared.DeviceFilterOptions(), Value: data.Filters.Device},
+			{Name: "browser", Label: "Browser", Type: "text", Value: data.Filters.Browser},
+		},
+	})
 }
 
 func activeFilterBadges(filters FilterOptions) hb.TagInterface {

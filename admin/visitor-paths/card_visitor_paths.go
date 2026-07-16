@@ -15,7 +15,8 @@ func CardVisitorPaths(data visitorPathsControllerData, ui shared.ControllerOptio
 	return hb.Div().
 		Class("card shadow-sm mb-4").
 		Child(cardHeader(data)).
-		Child(cardBody(data, ui))
+		Child(cardBody(data, ui)).
+		Child(filterModal(data))
 }
 
 func cardHeader(data visitorPathsControllerData) hb.TagInterface {
@@ -25,7 +26,7 @@ func cardHeader(data visitorPathsControllerData) hb.TagInterface {
 	actions := hb.Div().
 		Class("d-flex align-items-center gap-2").
 		Child(shared.ExportDropdown(exportURL)).
-		Child(shared.OptionsButton())
+		Child(shared.FilterModalButton("visitorPathsFilterModal"))
 
 	return hb.Div().
 		Class("card-header d-flex flex-wrap justify-content-between align-items-center gap-2").
@@ -62,40 +63,22 @@ func cardBody(data visitorPathsControllerData, ui shared.ControllerOptions) hb.T
 func filterToolbar(data visitorPathsControllerData) hb.TagInterface {
 	return hb.Div().
 		Class("d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3").
-		Child(addFilterDropdown(data)).
+		Child(shared.FilterModalButton("visitorPathsFilterModal")).
 		Child(activeFilterBadges(data.Filters))
 }
 
-func addFilterDropdown(data visitorPathsControllerData) hb.TagInterface {
-	items := []struct {
-		label  string
-		params map[string]string
-	}{
-		{"Last 24 Hours", shared.QueryParamsWith(data.Request, map[string]string{"range": "24h", "from": "", "to": "", "page": "1"})},
-		{"Today", shared.QueryParamsWith(data.Request, map[string]string{"range": "today", "from": "", "to": "", "page": "1"})},
-		{"Country: Unknown", shared.QueryParamsWith(data.Request, map[string]string{"country": "empty", "page": "1"})},
-		{"Device: Desktop", shared.QueryParamsWith(data.Request, map[string]string{"device": "desktop", "page": "1"})},
-		{"Path contains '/pricing'", shared.QueryParamsWith(data.Request, map[string]string{"path_contains": "pricing", "page": "1"})},
-	}
-
-	menu := hb.UL().Class("dropdown-menu")
-	for _, item := range items {
-		menu = menu.Child(hb.LI().
-			Child(hb.A().
-				Class("dropdown-item").
-				Href(shared.UrlVisitorPaths(data.Request, item.params)).
-				Text(item.label)))
-	}
-
-	return hb.Div().
-		Class("dropdown").
-		Child(hb.Button().
-			Class("btn btn-outline-primary dropdown-toggle").
-			Attr("type", "button").
-			Attr("data-bs-toggle", "dropdown").
-			Attr("aria-expanded", "false").
-			HTML(`<i class="bi bi-funnel"></i> Add Filter`)).
-		Child(menu)
+func filterModal(data visitorPathsControllerData) hb.TagInterface {
+	return shared.FilterModal(shared.FilterModalConfig{
+		ModalID: "visitorPathsFilterModal",
+		Title:   "Filter Visitor Paths",
+		Fields: []shared.FilterFieldDef{
+			{Name: "range", Label: "Time Range", Type: "select", Options: shared.RangeFilterOptions(), Value: data.Filters.Range},
+			{Name: "country", Label: "Country (ISO code or 'empty')", Type: "text", Value: data.Filters.Country},
+			{Name: "device", Label: "Device Type", Type: "select", Options: shared.DeviceFilterOptions(), Value: data.Filters.Device},
+			{Name: "path_contains", Label: "Path Contains", Type: "text", Value: data.Filters.PathContains},
+			{Name: "path_exact", Label: "Path Exact", Type: "text", Value: data.Filters.PathExact},
+		},
+	})
 }
 
 func activeFilterBadges(filters FilterOptions) hb.TagInterface {

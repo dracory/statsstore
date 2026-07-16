@@ -29,6 +29,7 @@ type storeImplementation struct {
 	debugEnabled         bool
 	botFilterEnabled     bool
 	excludedPathPrefixes []string
+	excludedIPs          []string
 	logger               *slog.Logger
 }
 
@@ -140,6 +141,17 @@ func (st *storeImplementation) GetExcludedPathPrefixes() []string {
 	return st.excludedPathPrefixes
 }
 
+// SetExcludedIPs sets IP addresses that should be excluded from visitor tracking.
+// Requests from these IPs will be silently skipped by VisitorRegister.
+func (st *storeImplementation) SetExcludedIPs(ips []string) {
+	st.excludedIPs = ips
+}
+
+// GetExcludedIPs returns the currently configured excluded IP addresses.
+func (st *storeImplementation) GetExcludedIPs() []string {
+	return st.excludedIPs
+}
+
 // == VISITOR OPERATIONS =======================================================
 
 // VisitorRegister creates a visitor from an HTTP request.
@@ -160,6 +172,15 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 	ip := req.GetIP(r)
 	userAgent := r.UserAgent()
 	referrer := r.Header.Get("Referer")
+
+	for _, excludedIP := range st.excludedIPs {
+		if ip == excludedIP {
+			if st.debugEnabled {
+				st.logger.Info("ip-filter: skipping excluded IP", "ip", ip)
+			}
+			return nil
+		}
+	}
 
 	if st.botFilterEnabled {
 		if IsBot(userAgent) {
@@ -274,6 +295,24 @@ func (st *storeImplementation) VisitorDeleteByID(ctx context.Context, id string)
 		Delete()
 
 	return err
+}
+
+// VisitorDeleteByIP permanently deletes all visitor records matching the given IP address.
+// Returns the number of deleted rows.
+func (st *storeImplementation) VisitorDeleteByIP(ctx context.Context, ip string) (int64, error) {
+	if ip == "" {
+		return 0, errors.New("visitor ip is empty")
+	}
+
+	rowsAffected, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_IP_ADDRESS+" = ?", ip).
+		Delete()
+	if err != nil {
+		return 0, err
+	}
+
+	return rowsAffected.RowsAffected, nil
 }
 
 // VisitorFindByID finds a visitor by ID.

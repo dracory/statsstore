@@ -18,6 +18,7 @@ type NewStoreOptions struct {
 	DebugEnabled         bool
 	BotFilterEnabled     bool
 	ExcludedPathPrefixes []string
+	ExcludedIPs          []string
 }
 
 // NewStore creates a new stats store.
@@ -43,6 +44,7 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		debugEnabled:         opts.DebugEnabled,
 		botFilterEnabled:     opts.BotFilterEnabled,
 		excludedPathPrefixes: opts.ExcludedPathPrefixes,
+		excludedIPs:          opts.ExcludedIPs,
 		logger:               logger,
 	}
 

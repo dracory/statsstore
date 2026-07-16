@@ -23,10 +23,14 @@ type StoreInterface interface {
 	SetExcludedPathPrefixes(prefixes []string)
 	GetExcludedPathPrefixes() []string
 
+	SetExcludedIPs(ips []string)
+	GetExcludedIPs() []string
+
 	VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error)
 	VisitorCreate(ctx context.Context, user VisitorInterface) error
 	VisitorDelete(ctx context.Context, user VisitorInterface) error
 	VisitorDeleteByID(ctx context.Context, id string) error
+	VisitorDeleteByIP(ctx context.Context, ip string) (int64, error)
 	VisitorFindByID(ctx context.Context, userID string) (VisitorInterface, error)
 	VisitorList(ctx context.Context, query VisitorQueryInterface) ([]VisitorInterface, error)
 	VisitorRegister(ctx context.Context, r *http.Request) error
