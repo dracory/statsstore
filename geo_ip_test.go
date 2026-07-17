@@ -191,10 +191,10 @@ func TestVisitorEnhanceNoRecords(t *testing.T) {
 	}
 
 	store, err := NewStore(NewStoreOptions{
-		DB:              db,
-		VisitorTableName: "visitor_table",
+		DB:                 db,
+		VisitorTableName:   "visitor_table",
 		AutomigrateEnabled: true,
-		GeoIPResolver:   &mockGeoIPResolver{results: map[string]string{}},
+		GeoIPResolver:      &mockGeoIPResolver{results: map[string]string{}},
 	})
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -217,18 +217,18 @@ func TestVisitorEnhanceWithRecords(t *testing.T) {
 
 	resolver := &mockGeoIPResolver{
 		results: map[string]string{
-			"8.8.8.8":     "US",
-			"1.1.1.1":     "AU",
-			"127.0.0.1":   CountryUnknown,
+			"8.8.8.8":   "US",
+			"1.1.1.1":   "AU",
+			"127.0.0.1": CountryUnknown,
 		},
 	}
 
 	store, err := NewStore(NewStoreOptions{
-		DB:               db,
-		VisitorTableName: "visitor_table",
+		DB:                 db,
+		VisitorTableName:   "visitor_table",
 		AutomigrateEnabled: true,
-		GeoIPResolver:    resolver,
-		EnhanceBatchSize: 10,
+		GeoIPResolver:      resolver,
+		EnhanceBatchSize:   10,
 	})
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -236,11 +236,11 @@ func TestVisitorEnhanceWithRecords(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Create visitors with empty country
+	// Create visitors with empty country and empty UA fields
 	visitors := []VisitorInterface{
-		NewVisitor().SetIpAddress("8.8.8.8").SetCountry(""),
-		NewVisitor().SetIpAddress("1.1.1.1").SetCountry(""),
-		NewVisitor().SetIpAddress("127.0.0.1").SetCountry(""),
+		NewVisitor().SetIpAddress("8.8.8.8").SetCountry("").SetUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
+		NewVisitor().SetIpAddress("1.1.1.1").SetCountry("").SetUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"),
+		NewVisitor().SetIpAddress("127.0.0.1").SetCountry("").SetUserAgent(""),
 	}
 
 	for _, v := range visitors {
@@ -257,7 +257,7 @@ func TestVisitorEnhanceWithRecords(t *testing.T) {
 		t.Fatalf("expected 3 processed, got %d", processed)
 	}
 
-	// Verify countries were set
+	// Verify countries and UA fields were set
 	for _, v := range visitors {
 		found, err := store.VisitorFindByID(ctx, v.GetID())
 		if err != nil {
@@ -271,6 +271,16 @@ func TestVisitorEnhanceWithRecords(t *testing.T) {
 		if found.GetCountry() != expected {
 			t.Fatalf("expected country %q for IP %s, got %q",
 				expected, v.GetIpAddress(), found.GetCountry())
+		}
+
+		// UA fields should be populated for visitors with a UA string
+		if v.GetUserAgent() != "" {
+			if found.GetUserBrowser() == "" {
+				t.Fatalf("expected non-empty browser for IP %s", v.GetIpAddress())
+			}
+			if found.GetUserOs() == "" {
+				t.Fatalf("expected non-empty OS for IP %s", v.GetIpAddress())
+			}
 		}
 	}
 }
@@ -288,18 +298,21 @@ func TestVisitorEnhanceLookupFailureLeavesEmpty(t *testing.T) {
 	}
 
 	store, err := NewStore(NewStoreOptions{
-		DB:               db,
-		VisitorTableName: "visitor_table",
+		DB:                 db,
+		VisitorTableName:   "visitor_table",
 		AutomigrateEnabled: true,
-		GeoIPResolver:    resolver,
-		EnhanceBatchSize: 10,
+		GeoIPResolver:      resolver,
+		EnhanceBatchSize:   10,
 	})
 	if err != nil {
 		t.Fatal("unexpected error:", err)
 	}
 
 	ctx := context.Background()
-	visitor := NewVisitor().SetIpAddress("8.8.8.8").SetCountry("")
+	visitor := NewVisitor().
+		SetIpAddress("8.8.8.8").
+		SetCountry("").
+		SetUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	if err := store.VisitorCreate(ctx, visitor); err != nil {
 		t.Fatal("unexpected error:", err)
 	}
@@ -312,7 +325,6 @@ func TestVisitorEnhanceLookupFailureLeavesEmpty(t *testing.T) {
 		t.Fatalf("expected 0 processed (lookup failed), got %d", processed)
 	}
 
-	// Country should still be empty for retry
 	found, err := store.VisitorFindByID(ctx, visitor.GetID())
 	if err != nil {
 		t.Fatal("unexpected error:", err)
@@ -320,8 +332,21 @@ func TestVisitorEnhanceLookupFailureLeavesEmpty(t *testing.T) {
 	if found == nil {
 		t.Fatal("visitor not found")
 	}
+
+	// Country should still be empty for retry
 	if found.GetCountry() != "" {
 		t.Fatalf("expected empty country after failed lookup, got %q", found.GetCountry())
+	}
+
+	// UA fields should be populated even though geo-IP failed
+	if found.GetUserBrowser() != "Chrome" {
+		t.Fatalf("expected browser 'Chrome', got %q", found.GetUserBrowser())
+	}
+	if found.GetUserOs() != "Windows" {
+		t.Fatalf("expected OS 'Windows', got %q", found.GetUserOs())
+	}
+	if found.GetUserDeviceType() != "desktop" {
+		t.Fatalf("expected device type 'desktop', got %q", found.GetUserDeviceType())
 	}
 }
 
@@ -338,11 +363,11 @@ func TestVisitorEnhanceBatchSize(t *testing.T) {
 	}
 
 	store, err := NewStore(NewStoreOptions{
-		DB:               db,
-		VisitorTableName: "visitor_table",
+		DB:                 db,
+		VisitorTableName:   "visitor_table",
 		AutomigrateEnabled: true,
-		GeoIPResolver:    resolver,
-		EnhanceBatchSize: 2,
+		GeoIPResolver:      resolver,
+		EnhanceBatchSize:   2,
 	})
 	if err != nil {
 		t.Fatal("unexpected error:", err)

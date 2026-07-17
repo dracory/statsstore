@@ -488,10 +488,16 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 
 // == ENHANCE ==================================================================
 
-// VisitorEnhance enriches visitor records that have an empty country field
-// by looking up their IP via the configured GeoIPResolver. Returns the number
-// of records processed. Records whose lookup fails are left with an empty
-// country so they get retried on the next call.
+// VisitorEnhance enriches visitor records that have an empty country field.
+// For each record it:
+//  1. Parses the user agent to fill in browser, OS, device, and device type
+//     (if those fields are empty — e.g. when the record was created via
+//     VisitorCreate instead of VisitorRegister)
+//  2. Looks up the country via the configured GeoIPResolver
+//
+// Records whose geo-IP lookup fails are still updated with UA data, but
+// their country field is left empty so they get retried on the next call.
+// Returns the number of records that were fully processed (country + UA).
 func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) {
 	if st.geoIPResolver == nil {
 		return 0, errors.New("stats store: GeoIPResolver is not configured")
@@ -515,13 +521,41 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 
 	processed := 0
 	for _, visitor := range visitors {
+		// Parse user agent and fill in empty fields
+		uaInfo := parseUserAgent(visitor.GetUserAgent())
+		if visitor.GetUserBrowser() == "" {
+			visitor.SetUserBrowser(uaInfo.Browser)
+		}
+		if visitor.GetUserBrowserVersion() == "" {
+			visitor.SetUserBrowserVersion(uaInfo.BrowserVersion)
+		}
+		if visitor.GetUserOs() == "" {
+			visitor.SetUserOs(uaInfo.Os)
+		}
+		if visitor.GetUserOsVersion() == "" {
+			visitor.SetUserOsVersion(uaInfo.OsVersion)
+		}
+		if visitor.GetUserDevice() == "" {
+			visitor.SetUserDevice(uaInfo.Device)
+		}
+		if visitor.GetUserDeviceType() == "" {
+			visitor.SetUserDeviceType(uaInfo.DeviceType)
+		}
+
+		// Look up country via GeoIP
 		country, err := st.geoIPResolver.Resolve(ctx, visitor.GetIpAddress())
 		if err != nil {
 			if st.debugEnabled {
 				st.logger.Error("VisitorEnhance: geo-IP lookup failed",
 					"ip", visitor.GetIpAddress(), "error", err)
 			}
-			// Leave country empty so it gets retried next time
+			// Still update UA fields, but leave country empty for retry
+			if err := st.VisitorUpdate(ctx, visitor); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("VisitorEnhance: update failed",
+						"id", visitor.GetID(), "error", err)
+				}
+			}
 			continue
 		}
 

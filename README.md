@@ -56,11 +56,12 @@ processed, err := store.VisitorEnhance(context.Background())
 
 `VisitorEnhance` will:
 1. Fetch up to `EnhanceBatchSize` visitor records where `country` is empty
-2. For each record, resolve the IP to a country code via the configured `GeoIPResolver`
-3. Update the record with the country code
-4. Return the count of successfully processed records
+2. For each record, parse the user agent to fill in browser, OS, device, and device type (if those fields are empty)
+3. Look up the country via the configured `GeoIPResolver`
+4. Update the record with the enriched data
+5. Return the count of fully processed records (country + UA)
 
-Records whose lookup fails (network error, timeout, etc.) are left with an empty country so they get retried on the next call.
+UA fields are updated even if the geo-IP lookup fails, but the country stays empty so the record gets retried on the next call. This makes `VisitorEnhance` a complete replacement for any custom post-processing task — it handles both UA parsing and country enrichment.
 
 ### Default Resolver (ip2c.org)
 
