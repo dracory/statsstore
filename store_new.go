@@ -20,6 +20,8 @@ type NewStoreOptions struct {
 	BotFilterEnabled     bool
 	ExcludedPathPrefixes []string
 	ExcludedIPs          []string
+	GeoIPResolver        GeoIPResolver // optional; enables VisitorEnhance for batch country enrichment
+	EnhanceBatchSize     int           // number of records per VisitorEnhance call; default 10
 }
 
 // NewStore creates a new stats store.
@@ -52,6 +54,8 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		botFilterEnabled:     opts.BotFilterEnabled,
 		excludedPathPrefixes: opts.ExcludedPathPrefixes,
 		excludedIPs:          opts.ExcludedIPs,
+		geoIPResolver:        opts.GeoIPResolver,
+		enhanceBatchSize:     opts.EnhanceBatchSize,
 		logger:               logger,
 	}
 

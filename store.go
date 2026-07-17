@@ -31,6 +31,8 @@ type storeImplementation struct {
 	botFilterEnabled     bool
 	excludedPathPrefixes []string
 	excludedIPs          []string
+	geoIPResolver        GeoIPResolver
+	enhanceBatchSize     int
 	logger               *slog.Logger
 }
 
@@ -482,6 +484,61 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 		Update(row)
 
 	return err
+}
+
+// == ENHANCE ==================================================================
+
+// VisitorEnhance enriches visitor records that have an empty country field
+// by looking up their IP via the configured GeoIPResolver. Returns the number
+// of records processed. Records whose lookup fails are left with an empty
+// country so they get retried on the next call.
+func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) {
+	if st.geoIPResolver == nil {
+		return 0, errors.New("stats store: GeoIPResolver is not configured")
+	}
+
+	batchSize := st.enhanceBatchSize
+	if batchSize <= 0 {
+		batchSize = 10
+	}
+
+	visitors, err := st.VisitorList(ctx, VisitorQuery().
+		SetCountry("empty").
+		SetLimit(batchSize))
+	if err != nil {
+		return 0, err
+	}
+
+	if len(visitors) == 0 {
+		return 0, nil
+	}
+
+	processed := 0
+	for _, visitor := range visitors {
+		country, err := st.geoIPResolver.Resolve(ctx, visitor.GetIpAddress())
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Error("VisitorEnhance: geo-IP lookup failed",
+					"ip", visitor.GetIpAddress(), "error", err)
+			}
+			// Leave country empty so it gets retried next time
+			continue
+		}
+
+		visitor.SetCountry(country)
+
+		if err := st.VisitorUpdate(ctx, visitor); err != nil {
+			if st.debugEnabled {
+				st.logger.Error("VisitorEnhance: update failed",
+					"id", visitor.GetID(), "error", err)
+			}
+			continue
+		}
+
+		processed++
+	}
+
+	return processed, nil
 }
 
 // == QUERY BUILDER ============================================================

@@ -41,4 +41,14 @@ type StoreInterface interface {
 	VisitorSoftDelete(ctx context.Context, user VisitorInterface) error
 	VisitorSoftDeleteByID(ctx context.Context, id string) error
 	VisitorUpdate(ctx context.Context, user VisitorInterface) error
+
+	// VisitorEnhance enriches visitor records that have an empty country field
+	// by looking up their IP via the configured GeoIPResolver. Returns the
+	// number of records processed. Call this from a background task/cron on
+	// whatever schedule suits your traffic (e.g. every 5 minutes).
+	//
+	// If no GeoIPResolver was configured, it returns 0 and an error.
+	// Records whose lookup fails are left with an empty country so they get
+	// retried on the next call.
+	VisitorEnhance(ctx context.Context) (int, error)
 }
