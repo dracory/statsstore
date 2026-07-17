@@ -1,9 +1,12 @@
 package settings
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/dracory/cdn"
 	"github.com/dracory/hb"
 	"github.com/dracory/statsstore/admin/shared"
 )
@@ -32,6 +35,43 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 		return c.handlePost(w, r, action)
 	}
 
+	// Add Notiflix and Axios for AJAX interactions
+	c.UI.Layout.SetStyleURLs([]string{cdn.Notiflix_3_2_8_CSS()})
+	c.UI.Layout.SetScriptURLs([]string{
+		cdn.Notiflix_3_2_8(),
+		"https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js",
+	})
+	c.UI.Layout.SetScripts([]string{`
+		Notiflix.Notify.init({ position: 'right-top', timeout: 4000 });
+		function deleteVisitorsByIP(ip, url) {
+			Notiflix.Confirm.show(
+				'Delete Visitor Records',
+				'Permanently delete ALL visitor records from IP ' + ip + '? This cannot be undone.',
+				'Yes, Delete',
+				'Cancel',
+				function() {
+					var formData = new FormData();
+					formData.append('ip_address', ip);
+					axios.post(url, formData)
+						.then(function(response) {
+							var data = response.data;
+							if (data.success) {
+								Notiflix.Notify.success(data.message);
+								setTimeout(function() { window.location.reload(); }, 1500);
+							} else {
+								Notiflix.Notify.failure(data.message);
+							}
+						})
+						.catch(function(error) {
+							var msg = error.response && error.response.data && error.response.data.message
+								? error.response.data.message : 'Request failed';
+							Notiflix.Notify.failure(msg);
+						});
+				}
+			);
+		}
+	`})
+
 	c.UI.Layout.SetTitle("Settings | Visitor Analytics")
 
 	data, err := c.prepareData(r)
@@ -50,6 +90,9 @@ func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
 // handlePost processes form submissions for adding/removing excluded IPs
 func (c *Controller) handlePost(w http.ResponseWriter, r *http.Request, action string) string {
 	if err := r.ParseForm(); err != nil {
+		if action == "delete_visitors_by_ip" {
+			return c.jsonError(w, "Failed to parse form: "+err.Error())
+		}
 		c.UI.Layout.SetTitle("Settings | Visitor Analytics")
 		c.UI.Layout.SetBody(hb.Div().
 			Class("alert alert-danger").
@@ -79,16 +122,13 @@ func (c *Controller) handlePost(w http.ResponseWriter, r *http.Request, action s
 	case "delete_visitors_by_ip":
 		ip := strings.TrimSpace(r.FormValue("ip_address"))
 		if ip == "" {
-			actionError = "IP address cannot be empty"
-		} else {
-			count, err := c.UI.Store.VisitorDeleteByIP(r.Context(), ip)
-			if err != nil {
-				actionError = err.Error()
-			} else {
-				actionError = ""
-				_ = count
-			}
+			return c.jsonError(w, "IP address cannot be empty")
 		}
+		count, err := c.UI.Store.VisitorDeleteByIP(r.Context(), ip)
+		if err != nil {
+			return c.jsonError(w, err.Error())
+		}
+		return c.jsonSuccess(w, fmt.Sprintf("Deleted %d visitor record(s) for IP %s", count, ip))
 	}
 
 	// Redirect back to settings page (PRG pattern)
@@ -100,6 +140,21 @@ func (c *Controller) handlePost(w http.ResponseWriter, r *http.Request, action s
 	w.Header().Set("Location", redirectURL)
 	w.WriteHeader(http.StatusSeeOther)
 	return ""
+}
+
+// jsonSuccess writes a JSON success response
+func (c *Controller) jsonSuccess(w http.ResponseWriter, message string) string {
+	w.Header().Set("Content-Type", "application/json")
+	resp, _ := json.Marshal(map[string]any{"success": true, "message": message})
+	return string(resp)
+}
+
+// jsonError writes a JSON error response
+func (c *Controller) jsonError(w http.ResponseWriter, message string) string {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	resp, _ := json.Marshal(map[string]any{"success": false, "message": message})
+	return string(resp)
 }
 
 // prepareData loads the current excluded IPs list
@@ -194,20 +249,12 @@ func (c *Controller) excludedIPsCard(data ControllerData) hb.TagInterface {
 		tbody := hb.TBody()
 		for _, ip := range data.ExcludedIPs {
 			// Delete visitors by IP form
-			deleteVisitorsForm := hb.Form().
-				Class("d-inline").
-				Attr("method", "POST").
-				Attr("action", shared.UrlSettings(data.Request, map[string]string{"action": "delete_visitors_by_ip"})).
-				Attr("onsubmit", "return confirm('Permanently delete ALL visitor records from IP "+ip+"? This cannot be undone.')").
-				Child(hb.Input().
-					Attr("type", "hidden").
-					Attr("name", "ip_address").
-					Attr("value", ip)).
-				Child(hb.Button().
-					Class("btn btn-sm btn-outline-danger").
-					Attr("type", "submit").
-					Attr("title", "Delete all visitor records from this IP").
-					HTML("<i class=\"bi bi-trash\"></i> Delete Stats"))
+			deleteVisitorsBtn := hb.Button().
+				Class("btn btn-sm btn-outline-danger").
+				Attr("type", "button").
+				Attr("title", "Delete all visitor records from this IP").
+				Attr("onclick", fmt.Sprintf("deleteVisitorsByIP('%s', '%s')", ip, shared.UrlSettings(data.Request, map[string]string{"action": "delete_visitors_by_ip"}))).
+				HTML("<i class=\"bi bi-trash\"></i> Delete Stats")
 
 			// Remove from excluded list form
 			removeForm := hb.Form().
@@ -230,7 +277,7 @@ func (c *Controller) excludedIPsCard(data ControllerData) hb.TagInterface {
 					Text(ip)).
 				Child(hb.TD().
 					Class("align-middle text-nowrap").
-					Child(deleteVisitorsForm)).
+					Child(deleteVisitorsBtn)).
 				Child(hb.TD().
 					Class("align-middle text-nowrap").
 					Child(removeForm)))
