@@ -537,8 +537,18 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 
 	// Resolve each unique IP once, then bulk-update country for ALL records
 	// with that IP (not just the current batch) to minimize DB writes.
+	// A 2-second delay is added between API calls to avoid overwhelming the
+	// geo-IP service (e.g. ip2c.org rate limits).
 	resolvedCountries := make(map[string]string)
-	for _, ip := range ipOrder {
+	for i, ip := range ipOrder {
+		if i > 0 {
+			select {
+			case <-time.After(2 * time.Second):
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			}
+		}
+
 		country, err := st.geoIPResolver.Resolve(ctx, ip)
 		if err != nil {
 			if st.debugEnabled {
