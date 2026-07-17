@@ -350,6 +350,72 @@ func TestVisitorEnhanceLookupFailureLeavesEmpty(t *testing.T) {
 	}
 }
 
+func TestVisitorEnhanceBulkUpdateByIP(t *testing.T) {
+	db, err := initDB()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	resolver := &mockGeoIPResolver{
+		results: map[string]string{
+			"8.8.8.8": "US",
+		},
+	}
+
+	store, err := NewStore(NewStoreOptions{
+		DB:                 db,
+		VisitorTableName:   "visitor_table",
+		AutomigrateEnabled: true,
+		GeoIPResolver:      resolver,
+		EnhanceBatchSize:   2,
+	})
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	ctx := context.Background()
+
+	// Create 5 visitors with the same IP but empty country
+	visitorIDs := []string{}
+	for i := 0; i < 5; i++ {
+		v := NewVisitor().SetIpAddress("8.8.8.8").SetCountry("")
+		if err := store.VisitorCreate(ctx, v); err != nil {
+			t.Fatal("unexpected error:", err)
+		}
+		visitorIDs = append(visitorIDs, v.GetID())
+	}
+
+	processed, err := store.VisitorEnhance(ctx)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Only 2 records are in the batch, so only 2 are "fully processed"
+	if processed != 2 {
+		t.Fatalf("expected 2 processed (batch size), got %d", processed)
+	}
+
+	// But ALL 5 records should have country set via the bulk update
+	for _, id := range visitorIDs {
+		found, err := store.VisitorFindByID(ctx, id)
+		if err != nil {
+			t.Fatal("unexpected error:", err)
+		}
+		if found == nil {
+			t.Fatal("visitor not found:", id)
+		}
+		if found.GetCountry() != "US" {
+			t.Fatalf("expected country 'US' for visitor %s (bulk-updated), got %q",
+				id, found.GetCountry())
+		}
+	}
+
+	// Resolver should have been called only once for the unique IP
+	if resolver.calls != 1 {
+		t.Fatalf("expected 1 resolve call (1 unique IP), got %d", resolver.calls)
+	}
+}
+
 func TestVisitorEnhanceBatchSize(t *testing.T) {
 	db, err := initDB()
 	if err != nil {

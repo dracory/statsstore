@@ -495,6 +495,11 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 //     VisitorCreate instead of VisitorRegister)
 //  2. Looks up the country via the configured GeoIPResolver
 //
+// Records are grouped by IP so that each unique IP is resolved only once.
+// The country is then bulk-updated for ALL records sharing that IP (not just
+// the current batch), significantly reducing DB writes when many visitors
+// share the same IP.
+//
 // Records whose geo-IP lookup fails are still updated with UA data, but
 // their country field is left empty so they get retried on the next call.
 // Returns the number of records that were fully processed (country + UA).
@@ -519,9 +524,52 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 		return 0, nil
 	}
 
+	// Collect unique IPs to resolve each only once
+	seenIPs := make(map[string]bool)
+	ipOrder := []string{}
+	for _, v := range visitors {
+		ip := v.GetIpAddress()
+		if !seenIPs[ip] {
+			seenIPs[ip] = true
+			ipOrder = append(ipOrder, ip)
+		}
+	}
+
+	// Resolve each unique IP once, then bulk-update country for ALL records
+	// with that IP (not just the current batch) to minimize DB writes.
+	resolvedCountries := make(map[string]string)
+	for _, ip := range ipOrder {
+		country, err := st.geoIPResolver.Resolve(ctx, ip)
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Error("VisitorEnhance: geo-IP lookup failed",
+					"ip", ip, "error", err)
+			}
+			continue
+		}
+
+		_, err = st.db.Query().
+			Table(st.visitorTableName).
+			Where(COLUMN_IP_ADDRESS+" = ?", ip).
+			Where(COLUMN_COUNTRY+" = ?", "").
+			Update(map[string]any{
+				COLUMN_COUNTRY:    country,
+				COLUMN_UPDATED_AT: carbon.Now(carbon.UTC).StdTime(),
+			})
+		if err != nil {
+			if st.debugEnabled {
+				st.logger.Error("VisitorEnhance: bulk country update failed",
+					"ip", ip, "error", err)
+			}
+			continue
+		}
+
+		resolvedCountries[ip] = country
+	}
+
+	// Update UA fields per record (UA differs per visitor even for the same IP)
 	processed := 0
 	for _, visitor := range visitors {
-		// Parse user agent and fill in empty fields
 		uaInfo := parseUserAgent(visitor.GetUserAgent())
 		if visitor.GetUserBrowser() == "" {
 			visitor.SetUserBrowser(uaInfo.Browser)
@@ -542,24 +590,12 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 			visitor.SetUserDeviceType(uaInfo.DeviceType)
 		}
 
-		// Look up country via GeoIP
-		country, err := st.geoIPResolver.Resolve(ctx, visitor.GetIpAddress())
-		if err != nil {
-			if st.debugEnabled {
-				st.logger.Error("VisitorEnhance: geo-IP lookup failed",
-					"ip", visitor.GetIpAddress(), "error", err)
-			}
-			// Still update UA fields, but leave country empty for retry
-			if err := st.VisitorUpdate(ctx, visitor); err != nil {
-				if st.debugEnabled {
-					st.logger.Error("VisitorEnhance: update failed",
-						"id", visitor.GetID(), "error", err)
-				}
-			}
-			continue
+		// Set country from the resolved map so VisitorUpdate persists it
+		ipResolved := false
+		if country, ok := resolvedCountries[visitor.GetIpAddress()]; ok {
+			visitor.SetCountry(country)
+			ipResolved = true
 		}
-
-		visitor.SetCountry(country)
 
 		if err := st.VisitorUpdate(ctx, visitor); err != nil {
 			if st.debugEnabled {
@@ -569,7 +605,9 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 			continue
 		}
 
-		processed++
+		if ipResolved {
+			processed++
+		}
 	}
 
 	return processed, nil
