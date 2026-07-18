@@ -1,6 +1,7 @@
 package home
 
 import (
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -19,12 +20,23 @@ type trafficSourceEntry struct {
 // trafficSourcesData holds all computed traffic source breakdowns derived
 // from the actual visitor records for the selected period.
 type trafficSourcesData struct {
-	Referrers []trafficSourceEntry
-	Pages     []trafficSourceEntry
-	Browsers  []trafficSourceEntry
-	Countries []trafficSourceEntry
-	Events    []trafficSourceEntry
-	Heatmap   weeklyHeatmapData
+	Referrers        []trafficSourceEntry
+	Pages            []trafficSourceEntry
+	Browsers         []trafficSourceEntry
+	Countries        []trafficSourceEntry
+	Events           []trafficSourceEntry
+	Heatmap          weeklyHeatmapData
+	Channels         []trafficSourceEntry
+	Sources          []trafficSourceEntry
+	Mediums          []trafficSourceEntry
+	Campaigns        []trafficSourceEntry
+	Terms            []trafficSourceEntry
+	EntryPages       []trafficSourceEntry
+	ExitPages        []trafficSourceEntry
+	Devices          []trafficSourceEntry
+	OperatingSystems []trafficSourceEntry
+	Languages        []trafficSourceEntry
+	OutboundLinks    []trafficSourceEntry
 }
 
 // weeklyHeatmapData holds the computed weekly trends heatmap.
@@ -74,12 +86,23 @@ func computeTrafficSources(data ControllerData) trafficSourcesData {
 	}
 
 	return trafficSourcesData{
-		Referrers: topEntries(referrerCounts, 10),
-		Pages:     topEntries(pageCounts, 10),
-		Browsers:  topEntries(browserCounts, 10),
-		Countries: topEntries(countryCounts, 10),
-		Events:    computeEvents(visitors),
-		Heatmap:   computeHeatmap(visitors),
+		Referrers:        topEntries(referrerCounts, 10),
+		Pages:            topEntries(pageCounts, 10),
+		Browsers:         topEntries(browserCounts, 10),
+		Countries:        topEntries(countryCounts, 10),
+		Events:           computeEvents(visitors),
+		Heatmap:          computeHeatmap(visitors),
+		Channels:         computeChannels(visitors),
+		Sources:          computeSources(visitors),
+		Mediums:          computeMediums(visitors),
+		Campaigns:        computeCampaigns(visitors),
+		Terms:            computeTerms(visitors),
+		EntryPages:       computeEntryExitPages(visitors, true),
+		ExitPages:        computeEntryExitPages(visitors, false),
+		Devices:          computeDevices(visitors),
+		OperatingSystems: computeOperatingSystems(visitors),
+		Languages:        computeLanguages(visitors),
+		OutboundLinks:    computeOutboundLinks(visitors),
 	}
 }
 
@@ -410,6 +433,256 @@ func formatDuration(seconds float64) string {
 		return formatInt(int64(minutes)) + "m " + formatInt(int64(secs)) + "s"
 	}
 	return formatInt(int64(secs)) + "s"
+}
+
+// == TRAFFIC SOURCE BREAKDOWN COMPUTATIONS ====================================
+
+var searchEngines = map[string]bool{
+	"google.com": true, "bing.com": true, "duckduckgo.com": true,
+	"yahoo.com": true, "baidu.com": true, "yandex.com": true,
+	"ecosia.org": true, "ask.com": true, "aol.com": true,
+}
+
+var socialNetworks = map[string]bool{
+	"facebook.com": true, "twitter.com": true, "x.com": true,
+	"linkedin.com": true, "instagram.com": true, "pinterest.com": true,
+	"reddit.com": true, "tiktok.com": true, "youtube.com": true,
+	"tumblr.com": true, "mastodon.social": true, "threads.net": true,
+}
+
+func extractDomain(rawURL string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	for _, prefix := range []string{"https://", "http://", "www."} {
+		rawURL = strings.TrimPrefix(rawURL, prefix)
+	}
+	if idx := strings.Index(rawURL, "/"); idx > 0 {
+		rawURL = rawURL[:idx]
+	}
+	return rawURL
+}
+
+func parseReferrerURL(referrer string) *url.URL {
+	referrer = strings.TrimSpace(referrer)
+	if referrer == "" {
+		return nil
+	}
+	if !strings.HasPrefix(referrer, "http://") && !strings.HasPrefix(referrer, "https://") {
+		referrer = "https://" + referrer
+	}
+	u, err := url.Parse(referrer)
+	if err != nil {
+		return nil
+	}
+	return u
+}
+
+func classifyChannel(domain string) string {
+	if domain == "" {
+		return "Direct"
+	}
+	if searchEngines[domain] {
+		return "Organic Search"
+	}
+	if socialNetworks[domain] {
+		return "Social"
+	}
+	return "Referral"
+}
+
+func classifyMedium(referrer string) string {
+	if referrer == "" {
+		return "direct"
+	}
+	u := parseReferrerURL(referrer)
+	if u == nil {
+		return "referral"
+	}
+	if q := u.Query(); q.Get("utm_medium") != "" {
+		return q.Get("utm_medium")
+	}
+	domain := extractDomain(referrer)
+	if searchEngines[domain] {
+		return "organic"
+	}
+	return "referral"
+}
+
+func computeChannels(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		referrer := strings.TrimSpace(v.GetUserReferrer())
+		domain := extractDomain(referrer)
+		counts[classifyChannel(domain)]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeSources(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		referrer := strings.TrimSpace(v.GetUserReferrer())
+		if referrer == "" {
+			counts["(Direct)"]++
+			continue
+		}
+		domain := extractDomain(referrer)
+		if domain == "" {
+			domain = "(Direct)"
+		}
+		counts[domain]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeMediums(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		counts[classifyMedium(v.GetUserReferrer())]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeCampaigns(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		u := parseReferrerURL(v.GetUserReferrer())
+		if u == nil {
+			continue
+		}
+		campaign := strings.TrimSpace(u.Query().Get("utm_campaign"))
+		if campaign == "" {
+			continue
+		}
+		counts[campaign]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeTerms(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		u := parseReferrerURL(v.GetUserReferrer())
+		if u == nil {
+			continue
+		}
+		term := strings.TrimSpace(u.Query().Get("utm_term"))
+		if term == "" {
+			continue
+		}
+		counts[term]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeEntryExitPages(visitors []statsstore.VisitorInterface, entry bool) []trafficSourceEntry {
+	sessions := map[string][]statsstore.VisitorInterface{}
+	for _, v := range visitors {
+		key := strings.TrimSpace(v.GetFingerprint())
+		if key == "" {
+			key = v.FingerprintCalculate()
+		}
+		if key == "" {
+			key = "unknown"
+		}
+		sessions[key] = append(sessions[key], v)
+	}
+
+	counts := map[string]int64{}
+	for _, sessionVisitors := range sessions {
+		if len(sessionVisitors) == 0 {
+			continue
+		}
+		sort.Slice(sessionVisitors, func(i, j int) bool {
+			ci := sessionVisitors[i].GetCreatedAtCarbon()
+			cj := sessionVisitors[j].GetCreatedAtCarbon()
+			if ci == nil || cj == nil {
+				return false
+			}
+			return ci.StdTime().Before(cj.StdTime())
+		})
+		var page string
+		if entry {
+			page = sessionVisitors[0].GetPath()
+		} else {
+			page = sessionVisitors[len(sessionVisitors)-1].GetPath()
+		}
+		if page == "" {
+			page = "/"
+		}
+		counts[page]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeDevices(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		device := strings.TrimSpace(v.GetUserDeviceType())
+		if device == "" {
+			device = "Unknown"
+		}
+		device = strings.Title(strings.ToLower(device))
+		counts[device]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeOperatingSystems(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		os := strings.TrimSpace(v.GetUserOs())
+		if os == "" {
+			os = "Unknown"
+		}
+		counts[os]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeLanguages(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		lang := strings.TrimSpace(v.GetUserAcceptLanguage())
+		if lang == "" {
+			continue
+		}
+		parts := strings.Split(lang, ",")
+		primary := strings.TrimSpace(parts[0])
+		if idx := strings.Index(primary, ";"); idx > 0 {
+			primary = primary[:idx]
+		}
+		if idx := strings.Index(primary, "-"); idx > 0 {
+			primary = strings.ToUpper(primary[:idx])
+		} else {
+			primary = strings.ToUpper(primary)
+		}
+		if primary == "" {
+			continue
+		}
+		counts[primary]++
+	}
+	return topEntries(counts, 10)
+}
+
+func computeOutboundLinks(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
+	counts := map[string]int64{}
+	for _, v := range visitors {
+		path := strings.TrimSpace(v.GetPath())
+		if path == "" {
+			continue
+		}
+		lower := strings.ToLower(path)
+		if strings.HasPrefix(lower, "/outbound/") || strings.HasPrefix(lower, "/out/") {
+			name := strings.TrimSpace(path[strings.Index(lower, "/")+1:])
+			name = strings.TrimPrefix(name, "outbound/")
+			name = strings.TrimPrefix(name, "out/")
+			if name == "" {
+				name = "unnamed"
+			}
+			counts[name]++
+		}
+	}
+	return topEntries(counts, 10)
 }
 
 // carbonNow returns the current carbon time – kept as a convenience to

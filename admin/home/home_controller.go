@@ -37,6 +37,13 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 	action := r.URL.Query().Get("action")
 
+	// JSON endpoints for Vue.js AJAX requests
+	if action == "json" {
+		return c.handleJSON(w, r)
+	}
+	if action == "live-json" {
+		return c.handleLiveJSON(w, r)
+	}
 	if action == "live" {
 		return c.handleLive(w, r)
 	}
@@ -59,53 +66,18 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 		return c.ui.Layout.Render(w, r)
 	}
 
-	// Load required scripts asynchronously
-	scripts := []string{
-		// Load Chart.js
-		`
-		if (!window.Chart) {
-			const loadChartJS = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('Chart.js loaded');
-			};
-			loadChartJS();
-		}
-		`,
-		// Load HTMX
-		`
-		if (!window.htmx) {
-			const loadHtmx = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = '` + cdn.Htmx_2_0_0() + `';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('HTMX loaded');
-			};
-			loadHtmx();
-		}
-		`,
-		// Load SweetAlert2
-		`
-		if (!window.Swal) {
-			const loadSwal = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = '` + cdn.Sweetalert2_11() + `';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('SweetAlert2 loaded');
-			};
-			loadSwal();
-		}
-		`,
+	// Load Vue.js and the dashboard app script
+	scriptURLs := []string{
+		cdn.VueJs_3_5_32(),
 	}
 
-	c.ui.Layout.SetBody(c.page(data).ToHTML())
+	scripts := []string{
+		homeJS,
+	}
+
+	// The page shell (breadcrumbs, header, nav) + the Vue.js template
+	c.ui.Layout.SetBody(c.pageShell(data).ToHTML())
+	c.ui.Layout.SetScriptURLs(scriptURLs)
 	c.ui.Layout.SetScripts(scripts)
 
 	return c.ui.Layout.Render(w, r)
@@ -277,8 +249,9 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 	return data, ""
 }
 
-// page builds the main page layout
-func (c *Controller) page(data ControllerData) hb.TagInterface {
+// pageShell builds the page shell (breadcrumbs, header, nav) and embeds
+// the Vue.js dashboard template from home.html.
+func (c *Controller) pageShell(data ControllerData) hb.TagInterface {
 	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
 		{
 			Name: "Home",
@@ -302,6 +275,5 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Child(hb.HR()).
 		Child(title).
 		Child(navigationPanel(data)).
-		Child(cardStatsSummary(data)).
-		Child(trafficSourcesCards(data))
+		Child(hb.Raw(homeHTML))
 }

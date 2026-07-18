@@ -90,12 +90,20 @@ func TestHomeControllerHandleSuccess(t *testing.T) {
 		t.Fatalf("unexpected title: %s", layout.title)
 	}
 
-	if len(layout.scripts) != 3 {
-		t.Fatalf("expected 3 scripts, got %d", len(layout.scripts))
+	if len(layout.scripts) != 1 {
+		t.Fatalf("expected 1 script, got %d", len(layout.scripts))
+	}
+
+	if len(layout.scriptURLs) != 1 {
+		t.Fatalf("expected 1 script URL (Vue.js), got %d", len(layout.scriptURLs))
 	}
 
 	if !strings.Contains(layout.body, "Visitor Analytics Dashboard") {
 		t.Fatalf("expected dashboard content, got: %s", layout.body)
+	}
+
+	if !strings.Contains(layout.body, "dashboard-app") {
+		t.Fatalf("expected Vue.js mount point in body, got: %s", layout.body)
 	}
 }
 
@@ -165,7 +173,8 @@ func TestHomeControllerDashboardMetrics(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days", nil)
+	// Test the JSON endpoint — this is what the Vue.js frontend calls via AJAX
+	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days&action=json", nil)
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 
@@ -173,24 +182,26 @@ func TestHomeControllerDashboardMetrics(t *testing.T) {
 		t.Fatalf("unexpected status: %d", rr.Code)
 	}
 
-	body := layout.body
-	for _, label := range []string{"Live Visitors", "Period Comparison", "Bounce Rate", "Avg. Visit Duration"} {
+	body := rr.Body.String()
+
+	// The JSON response should contain the computed metrics
+	for _, label := range []string{"Total Unique Visitors", "Bounce Rate", "Avg. Visit Duration", "comparisonRows"} {
 		if !strings.Contains(body, label) {
-			t.Errorf("expected body to contain %q", label)
+			t.Errorf("expected JSON to contain %q", label)
 		}
 	}
 
 	// 2 sessions, 1 bounce (fp2) -> 50.0%
 	if !strings.Contains(body, "50.0%") {
-		t.Errorf("expected bounce rate 50.0%% in body, got: %s", body)
+		t.Errorf("expected bounce rate 50.0%% in JSON, got: %s", body)
 	}
 	// fp1 had a 1 hour interval between page views
 	if !strings.Contains(body, "1h 0m") {
-		t.Errorf("expected avg visit duration 1h 0m in body, got: %s", body)
+		t.Errorf("expected avg visit duration 1h 0m in JSON, got: %s", body)
 	}
-	// fp2 visited within the last 15 minutes
-	if !strings.Contains(body, ">1</h3>") {
-		t.Errorf("expected live visitor count 1 in body, got: %s", body)
+	// Live visitor count should be 1 (fp2 visited within last 15 minutes)
+	if !strings.Contains(body, `"liveVisitorCount":1`) {
+		t.Errorf("expected liveVisitorCount 1 in JSON, got: %s", body)
 	}
 }
 

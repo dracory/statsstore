@@ -2,51 +2,77 @@ package home
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dracory/hb"
 )
 
+type tabData struct {
+	Label   string
+	Entries []trafficSourceEntry
+}
+
+func ensureEntries(entries []trafficSourceEntry, emptyLabel string) []trafficSourceEntry {
+	if len(entries) == 0 {
+		return []trafficSourceEntry{{Label: emptyLabel, Sessions: "0"}}
+	}
+	return entries
+}
+
 func trafficSourcesCards(data ControllerData) hb.TagInterface {
 	tsd := computeTrafficSources(data)
 
-	referrerEntries := tsd.Referrers
-	if len(referrerEntries) == 0 {
-		referrerEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
+	trafficTabs := []tabData{
+		{Label: "Referrers", Entries: ensureEntries(tsd.Referrers, "(No data)")},
+		{Label: "Channels", Entries: ensureEntries(tsd.Channels, "(No data)")},
+		{Label: "Source", Entries: ensureEntries(tsd.Sources, "(No data)")},
+		{Label: "Medium", Entries: ensureEntries(tsd.Mediums, "(No data)")},
+		{Label: "Campaign", Entries: ensureEntries(tsd.Campaigns, "(No data)")},
+		{Label: "Term", Entries: ensureEntries(tsd.Terms, "(No data)")},
 	}
 
-	pageEntries := tsd.Pages
-	if len(pageEntries) == 0 {
-		pageEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
+	pageTabs := []tabData{
+		{Label: "Pages", Entries: ensureEntries(tsd.Pages, "(No data)")},
+		{Label: "Page Titles", Entries: ensureEntries(nil, "(No data)")},
+		{Label: "Entry Pages", Entries: ensureEntries(tsd.EntryPages, "(No data)")},
+		{Label: "Exit Pages", Entries: ensureEntries(tsd.ExitPages, "(No data)")},
+		{Label: "Hostnames", Entries: ensureEntries(nil, "(No data)")},
 	}
 
-	eventEntries := tsd.Events
-	if len(eventEntries) == 0 {
-		eventEntries = []trafficSourceEntry{{Label: "(No events)", Sessions: "0"}}
+	audienceTabs := []tabData{
+		{Label: "Browsers", Entries: ensureEntries(tsd.Browsers, "(No data)")},
+		{Label: "Devices", Entries: ensureEntries(tsd.Devices, "(No data)")},
+		{Label: "Operating Systems", Entries: ensureEntries(tsd.OperatingSystems, "(No data)")},
+		{Label: "Screen Dimensions", Entries: ensureEntries(nil, "(No data)")},
 	}
 
-	browserEntries := tsd.Browsers
-	if len(browserEntries) == 0 {
-		browserEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
+	geoTabs := []tabData{
+		{Label: "Countries", Entries: ensureEntries(tsd.Countries, "(No data)")},
+		{Label: "Regions", Entries: ensureEntries(nil, "(No data)")},
+		{Label: "Cities", Entries: ensureEntries(nil, "(No data)")},
+		{Label: "Languages", Entries: ensureEntries(tsd.Languages, "(No data)")},
+		{Label: "Map", Entries: ensureEntries(nil, "(No map data)")},
+		{Label: "Timezones", Entries: ensureEntries(nil, "(No data)")},
 	}
 
-	countryEntries := tsd.Countries
-	if len(countryEntries) == 0 {
-		countryEntries = []trafficSourceEntry{{Label: "(No data)", Sessions: "0"}}
+	eventTabs := []tabData{
+		{Label: "Custom Events", Entries: ensureEntries(tsd.Events, "(No events)")},
+		{Label: "Outbound Links", Entries: ensureEntries(tsd.OutboundLinks, "(No outbound links)")},
 	}
 
 	trafficRow := hb.Div().
 		Class("row row-cols-1 row-cols-lg-2 g-4").
-		Child(trafficSourceColumn("Referrers", "Sessions", referrerEntries, []string{"Referrers", "Channels", "Source", "Medium", "Campaign", "Term"})).
-		Child(trafficSourceColumn("Pages", "Sessions", pageEntries, []string{"Pages", "Page Titles", "Entry Pages", "Exit Pages", "Hostnames"}))
+		Child(trafficSourceColumn("Referrers", "Sessions", trafficTabs)).
+		Child(trafficSourceColumn("Pages", "Sessions", pageTabs))
 
 	audienceRow := hb.Div().
 		Class("row row-cols-1 row-cols-lg-2 g-4").
-		Child(trafficSourceColumn("Browsers", "Sessions", browserEntries, []string{"Browsers", "Devices", "Operating Systems", "Screen Dimensions"})).
-		Child(trafficSourceColumn("Countries", "Sessions", countryEntries, []string{"Countries", "Regions", "Cities", "Languages", "Map", "Timezones"}))
+		Child(trafficSourceColumn("Browsers", "Sessions", audienceTabs)).
+		Child(trafficSourceColumn("Countries", "Sessions", geoTabs))
 
 	engagementRow := hb.Div().
 		Class("row row-cols-1 row-cols-lg-2 g-4").
-		Child(trafficSourceColumn("Custom Events", "Count", eventEntries, []string{"Custom Events", "Outbound Links"})).
+		Child(trafficSourceColumn("Custom Events", "Count", eventTabs)).
 		Child(weeklyTrendsColumn(data))
 
 	return hb.Div().
@@ -56,35 +82,80 @@ func trafficSourcesCards(data ControllerData) hb.TagInterface {
 		Child(engagementRow)
 }
 
-func trafficSourceColumn(title, valueLabel string, entries []trafficSourceEntry, tabs []string) hb.TagInterface {
+func trafficSourceColumn(title, valueLabel string, tabs []tabData) hb.TagInterface {
 	return hb.Div().
 		Class("col").
-		Child(trafficSourceCard(title, valueLabel, entries, tabs))
+		Child(trafficSourceCard(title, valueLabel, tabs))
 }
 
-func trafficSourceCard(title, valueLabel string, entries []trafficSourceEntry, tabs []string) hb.TagInterface {
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "/", "-")
+	return s
+}
+
+func trafficSourceCard(title, valueLabel string, tabs []tabData) hb.TagInterface {
+	cardSlug := slugify(title)
+
 	navLinks := make([]hb.TagInterface, 0, len(tabs))
+	tabPanes := make([]hb.TagInterface, 0, len(tabs))
+
 	for i, tab := range tabs {
-		classes := "nav-link text-nowrap"
+		tabID := fmt.Sprintf("%s-tab-%d", cardSlug, i)
+		paneID := fmt.Sprintf("%s-pane-%d", cardSlug, i)
+
+		linkClasses := "nav-link text-nowrap"
+		paneClasses := "tab-pane fade"
 		if i == 0 {
-			classes += " active"
+			linkClasses += " active"
+			paneClasses += " show active"
 		}
+
 		navLinks = append(navLinks,
 			hb.A().
-				Class(classes).
-				Attr("href", "#").
-				Attr("onclick", "return false;").
-				Text(tab),
+				Class(linkClasses).
+				Attr("id", tabID).
+				Attr("data-bs-toggle", "tab").
+				Attr("data-bs-target", "#"+paneID).
+				Attr("type", "button").
+				Attr("role", "tab").
+				Attr("aria-controls", paneID).
+				Attr("aria-selected", fmt.Sprintf("%t", i == 0)).
+				Text(tab.Label),
 		)
-	}
 
-	rows := make([]hb.TagInterface, 0, len(entries))
-	for _, entry := range entries {
-		rows = append(rows,
-			hb.TR().Children([]hb.TagInterface{
-				hb.TD().Class("fw-medium").Text(entry.Label),
-				hb.TD().Class("text-end").Text(entry.Sessions),
-			}),
+		rows := make([]hb.TagInterface, 0, len(tab.Entries))
+		for _, entry := range tab.Entries {
+			rows = append(rows,
+				hb.TR().Children([]hb.TagInterface{
+					hb.TD().Class("fw-medium").Text(entry.Label),
+					hb.TD().Class("text-end").Text(entry.Sessions),
+				}),
+			)
+		}
+
+		tabPanes = append(tabPanes,
+			hb.Div().
+				Class(paneClasses).
+				Attr("id", paneID).
+				Attr("role", "tabpanel").
+				Attr("aria-labelledby", tabID).
+				Child(hb.Div().
+					Class("table-responsive").
+					Child(hb.Table().
+						Class("table table-hover table-sm mb-0").
+						Children([]hb.TagInterface{
+							hb.Thead().
+								Class("table-light").
+								Children([]hb.TagInterface{
+									hb.TR().Children([]hb.TagInterface{
+										hb.TH().Text(tab.Label),
+										hb.TH().Class("text-end").Text(valueLabel),
+									}),
+								}),
+							hb.Tbody().Children(rows),
+						}))),
 		)
 	}
 
@@ -106,24 +177,13 @@ func trafficSourceCard(title, valueLabel string, entries []trafficSourceEntry, t
 			Class("card-header pt-0 bg-transparent border-bottom-0 pb-0").
 			Child(hb.Div().
 				Class("nav nav-tabs card-header-tabs small overflow-auto flex-nowrap").
+				Attr("role", "tablist").
 				Children(navLinks))).
 		Child(hb.Div().
 			Class("card-body p-0").
 			Child(hb.Div().
-				Class("table-responsive").
-				Child(hb.Table().
-					Class("table table-hover table-sm mb-0").
-					Children([]hb.TagInterface{
-						hb.Thead().
-							Class("table-light").
-							Children([]hb.TagInterface{
-								hb.TR().Children([]hb.TagInterface{
-									hb.TH().Text(title),
-									hb.TH().Class("text-end").Text(valueLabel),
-								}),
-							}),
-						hb.Tbody().Children(rows),
-					}))))
+				Class("tab-content").
+				Children(tabPanes)))
 }
 
 func weeklyTrendsColumn(data ControllerData) hb.TagInterface {
