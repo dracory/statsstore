@@ -13,22 +13,22 @@ import (
 )
 
 type pathJSON struct {
-	ID              string `json:"id"`
-	Path            string `json:"path"`
-	AbsoluteURL     string `json:"absoluteUrl"`
-	VisitTime       string `json:"visitTime"`
-	Country         string `json:"country"`
-	CountryCode     string `json:"countryCode"`
-	CountryName     string `json:"countryName"`
-	Location        string `json:"location"`
-	IPAddress       string `json:"ipAddress"`
-	Referrer        string `json:"referrer"`
-	UserAgent       string `json:"userAgent"`
-	SessionLabel    string `json:"sessionLabel"`
-	DeviceLabel     string `json:"deviceLabel"`
+	ID               string `json:"id"`
+	Path             string `json:"path"`
+	AbsoluteURL      string `json:"absoluteUrl"`
+	VisitTime        string `json:"visitTime"`
+	Country          string `json:"country"`
+	CountryCode      string `json:"countryCode"`
+	CountryName      string `json:"countryName"`
+	Location         string `json:"location"`
+	IPAddress        string `json:"ipAddress"`
+	Referrer         string `json:"referrer"`
+	UserAgent        string `json:"userAgent"`
+	SessionLabel     string `json:"sessionLabel"`
+	DeviceLabel      string `json:"deviceLabel"`
 	DeviceBadgeClass string `json:"deviceBadgeClass"`
-	BrowserLabel    string `json:"browserLabel"`
-	DrillDownURL    string `json:"drillDownUrl"`
+	BrowserLabel     string `json:"browserLabel"`
+	DrillDownURL     string `json:"drillDownUrl"`
 }
 
 // handleListAjax returns the visitor paths list as JSON for the Vue.js frontend
@@ -107,21 +107,21 @@ func (c *visitorPathsController) handleListAjax(w http.ResponseWriter, r *http.R
 	pathList := make([]pathJSON, 0, len(visitors))
 	for _, v := range visitors {
 		pj := pathJSON{
-			ID:          v.GetID(),
-			Path:        v.GetPath(),
-			AbsoluteURL: shared.FullPathURL(c.ui, v.GetPath()),
-			VisitTime:   shared.FormatTimestamp(v.GetCreatedAt()),
-			Country:     v.GetCountry(),
-			CountryCode: strings.ToUpper(strings.TrimSpace(v.GetCountry())),
-			CountryName: shared.ResolvedCountryName(c.ui, v.GetCountry()),
-			Location:    shared.FormatLocation(c.ui, v),
-			IPAddress:   v.GetIpAddress(),
-			Referrer:    v.GetUserReferrer(),
-			UserAgent:   v.GetUserAgent(),
+			ID:           v.GetID(),
+			Path:         v.GetPath(),
+			AbsoluteURL:  shared.FullPathURL(c.ui, v.GetPath()),
+			VisitTime:    shared.FormatTimestamp(v.GetCreatedAt()),
+			Country:      v.GetCountry(),
+			CountryCode:  strings.ToUpper(strings.TrimSpace(v.GetCountry())),
+			CountryName:  shared.ResolvedCountryName(c.ui, v.GetCountry()),
+			Location:     shared.FormatLocation(c.ui, v),
+			IPAddress:    v.GetIpAddress(),
+			Referrer:     v.GetUserReferrer(),
+			UserAgent:    v.GetUserAgent(),
 			SessionLabel: fmt.Sprintf("Sessions: %d", sessionCount(visitors, v)),
 		}
 
-		pj.DeviceLabel = v.GetUserDeviceType()
+		pj.DeviceLabel = strings.Title(strings.ToLower(v.GetUserDeviceType()))
 		if pj.DeviceLabel == "" {
 			pj.DeviceLabel = "Unknown"
 		}
@@ -140,11 +140,11 @@ func (c *visitorPathsController) handleListAjax(w http.ResponseWriter, r *http.R
 	}
 
 	api.Respond(w, r, api.SuccessWithData("success", map[string]any{
-		"paths":       pathList,
-		"page":        page,
-		"totalPages":  totalPages,
-		"pageSize":    perPage,
-		"totalCount":  totalCount,
+		"paths":      pathList,
+		"page":       page,
+		"totalPages": totalPages,
+		"pageSize":   perPage,
+		"totalCount": totalCount,
 	}))
 
 	return ""
