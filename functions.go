@@ -9,8 +9,8 @@ import (
 
 // == USER AGENT PARSING =======================================================
 
-// userAgentInfo holds parsed user-agent data.
-type userAgentInfo struct {
+// UserAgentInfo holds parsed user-agent data.
+type UserAgentInfo struct {
 	Browser        string
 	BrowserVersion string
 	Os             string
@@ -19,11 +19,11 @@ type userAgentInfo struct {
 	DeviceType     string
 }
 
-// parseUserAgent extracts browser, OS, device, and device-type from a
+// ParseUserAgent extracts browser, OS, device, and device-type from a
 // user-agent string using the uasurfer library. Unknown values are left
 // as empty strings.
-func parseUserAgent(ua string) userAgentInfo {
-	info := userAgentInfo{}
+func ParseUserAgent(ua string) UserAgentInfo {
+	info := UserAgentInfo{}
 	if ua == "" {
 		return info
 	}

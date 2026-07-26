@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 )
 
 func buildTrafficCardsJSON(tsd trafficSourcesData) []trafficCardJSON {
@@ -148,15 +149,7 @@ func computeTrafficSources(data ControllerData) trafficSourcesData {
 		}
 		browserCounts[browser]++
 
-		country := strings.ToUpper(strings.TrimSpace(v.GetCountry()))
-		if country == "" || country == "UN" || country == "ZZ" {
-			country = "Unknown"
-		}
-		if data.ui.CountryNameByIso2 != nil && country != "Unknown" {
-			if name, err := data.ui.CountryNameByIso2(country); err == nil && name != "" {
-				country = name
-			}
-		}
+		country := shared.ResolvedCountryName(data.ui, v.GetCountry())
 		countryCounts[country]++
 
 		// Events

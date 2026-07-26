@@ -237,7 +237,7 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		}
 	}
 
-	uaInfo := parseUserAgent(userAgent)
+	uaInfo := ParseUserAgent(userAgent)
 
 	visitor := NewVisitor().
 		SetPath(path).
@@ -584,7 +584,7 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 	// Update UA fields per record (UA differs per visitor even for the same IP)
 	processed := 0
 	for _, visitor := range visitors {
-		uaInfo := parseUserAgent(visitor.GetUserAgent())
+		uaInfo := ParseUserAgent(visitor.GetUserAgent())
 		if visitor.GetUserBrowser() == "" {
 			visitor.SetUserBrowser(uaInfo.Browser)
 		}

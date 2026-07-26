@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dracory/hb"
@@ -122,8 +123,19 @@ func FormatTimestamp(value string) string {
 
 // == COUNTRY / LOCATION HELPERS ================================================
 
+// countryNameCache caches ISO2->name lookups at the package level so that
+// country name resolution is a single map lookup after the first call,
+// regardless of which controller triggers it. Country data is static.
+type countryNameCache struct {
+	mu   sync.RWMutex
+	data map[string]string
+}
+
+var globalCountryNameCache = &countryNameCache{data: map[string]string{}}
+
 // ResolvedCountryName resolves a country code to a human-readable name,
-// falling back to the ISO code or "Unknown".
+// falling back to the ISO code or "Unknown". Results are cached package-wide
+// so the CountryNameByIso2 callback is invoked at most once per ISO code.
 func ResolvedCountryName(ui ControllerOptions, code string) string {
 	trimmed := strings.TrimSpace(code)
 	if trimmed == "" {
@@ -135,13 +147,24 @@ func ResolvedCountryName(ui ControllerOptions, code string) string {
 		return "Unknown"
 	}
 
+	globalCountryNameCache.mu.RLock()
+	if name, ok := globalCountryNameCache.data[iso]; ok {
+		globalCountryNameCache.mu.RUnlock()
+		return name
+	}
+	globalCountryNameCache.mu.RUnlock()
+
+	name := iso
 	if ui.CountryNameByIso2 != nil {
-		if name, err := ui.CountryNameByIso2(iso); err == nil && name != "" {
-			return name
+		if resolved, err := ui.CountryNameByIso2(iso); err == nil && resolved != "" {
+			name = resolved
 		}
+		globalCountryNameCache.mu.Lock()
+		globalCountryNameCache.data[iso] = name
+		globalCountryNameCache.mu.Unlock()
 	}
 
-	return iso
+	return name
 }
 
 // FormatLocation returns a human-readable location string for a visitor.
