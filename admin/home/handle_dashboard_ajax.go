@@ -4,9 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/dracory/statsstore/admin/shared"
 	"github.com/samber/lo"
 )
 
@@ -74,8 +72,8 @@ type heatmapJSON struct {
 	Intensities [][]int  `json:"intensities"`
 }
 
-// handleJSON returns all dashboard data as a JSON response for the Vue.js frontend.
-func (c *Controller) handleJSON(w http.ResponseWriter, r *http.Request) string {
+// handleJSONAjax returns all dashboard data as a JSON response for the Vue.js frontend.
+func (c *Controller) handleJSONAjax(w http.ResponseWriter, r *http.Request) string {
 	data, errorMessage := c.prepareData(r)
 	if errorMessage != "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -84,16 +82,6 @@ func (c *Controller) handleJSON(w http.ResponseWriter, r *http.Request) string {
 	}
 
 	return c.buildDashboardJSON(w, data)
-}
-
-// handleLiveJSON returns just the live visitor count as JSON.
-func (c *Controller) handleLiveJSON(w http.ResponseWriter, r *http.Request) string {
-	count, err := c.liveVisitorCount(r)
-	if err != nil {
-		count = 0
-	}
-	w.Header().Set("Content-Type", "application/json")
-	return fmt.Sprintf(`{"liveVisitorCount":%d}`, count)
 }
 
 func (c *Controller) buildDashboardJSON(w http.ResponseWriter, data ControllerData) string {
@@ -125,7 +113,6 @@ func (c *Controller) buildDashboardJSON(w http.ResponseWriter, data ControllerDa
 		{"Avg. Visit Duration", ext.SessionDuration, "bi bi-clock-history", "secondary"},
 	}
 
-	// Build comparison rows
 	prevUnique := data.previousPeriodUnique
 	prevTotal := data.previousPeriodTotal
 	prevFirst := data.previousPeriodFirst
@@ -140,7 +127,6 @@ func (c *Controller) buildDashboardJSON(w http.ResponseWriter, data ControllerDa
 		{"Avg. Visit Duration", formatDuration(ext.SessionDurationSeconds), formatDuration(data.previousStats.SessionDurationSeconds), changePercentFloat(ext.SessionDurationSeconds, data.previousStats.SessionDurationSeconds), false},
 	}
 
-	// Build daily stats
 	daily := make([]dailyStatJSON, 0, len(data.dates))
 	for i, date := range data.dates {
 		daily = append(daily, dailyStatJSON{
@@ -152,11 +138,9 @@ func (c *Controller) buildDashboardJSON(w http.ResponseWriter, data ControllerDa
 		})
 	}
 
-	// Build traffic cards
 	tsd := computeTrafficSources(data)
 	trafficCards := buildTrafficCardsJSON(tsd)
 
-	// Build heatmap
 	hm := heatmapJSON{
 		Days:        tsd.Heatmap.Days,
 		Slots:       tsd.Heatmap.Slots,
@@ -254,10 +238,3 @@ func jsonMarshal(v interface{}) string {
 	}
 	return string(b)
 }
-
-// formatSummaryDate is already defined in table_stats_summary.go
-// formatCount, formatFloat, formatFloat2, formatDuration are in traffic_sources_data.go
-// changePercentInt, changePercentFloat are in period_comparison.go
-
-var _ = strings.TrimSpace
-var _ = shared.PathHome

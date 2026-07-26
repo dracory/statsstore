@@ -117,6 +117,7 @@ func TestHomeControllerHandleError(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
+	// Page shell should always render successfully (no DB queries in Handle now)
 	req := httptest.NewRequest(http.MethodGet, "/admin/home", nil)
 	rr := httptest.NewRecorder()
 
@@ -130,12 +131,27 @@ func TestHomeControllerHandleError(t *testing.T) {
 		t.Fatalf("unexpected body: %s", body)
 	}
 
-	if len(layout.scripts) != 0 {
-		t.Fatalf("expected no scripts when error occurs, got %d", len(layout.scripts))
+	// Page shell always includes scripts (Vue.js + dashboard app)
+	if len(layout.scripts) != 1 {
+		t.Fatalf("expected 1 script (dashboard app), got %d", len(layout.scripts))
 	}
 
-	if !strings.Contains(strings.ToLower(layout.body), "database operation failed") {
-		t.Fatalf("expected database operation failed error in body, got: %s", layout.body)
+	if len(layout.scriptURLs) != 1 {
+		t.Fatalf("expected 1 script URL (Vue.js), got %d", len(layout.scriptURLs))
+	}
+
+	if !strings.Contains(layout.body, "dashboard-app") {
+		t.Fatalf("expected Vue.js mount point in body, got: %s", layout.body)
+	}
+
+	// DB errors now appear in AJAX endpoint responses, not the page shell
+	ajaxReq := httptest.NewRequest(http.MethodGet, "/admin/home?action=overview-ajax", nil)
+	ajaxRR := httptest.NewRecorder()
+	controller.ServeHTTP(ajaxRR, ajaxReq)
+
+	ajaxBody := ajaxRR.Body.String()
+	if !strings.Contains(ajaxBody, "error") {
+		t.Fatalf("expected error in AJAX response when DB fails, got: %s", ajaxBody)
 	}
 }
 
@@ -173,8 +189,8 @@ func TestHomeControllerDashboardMetrics(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
-	// Test the JSON endpoint — this is what the Vue.js frontend calls via AJAX
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days&action=json", nil)
+	// Test the dashboard AJAX endpoint — this is what the Vue.js frontend calls via AJAX
+	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days&action=dashboard-ajax", nil)
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 

@@ -3,8 +3,6 @@
 
     createApp({
         setup() {
-            const loading = ref(true);
-            const error = ref('');
             const selectedPeriod = ref('this-week');
             const periodOptions = ref([]);
             const liveVisitorCount = ref(0);
@@ -21,45 +19,127 @@
             let chartInstance = null;
             let chartType = ref('bar');
 
+            // Per-section loading states
+            const loadingOverview = ref(false);
+            const loadingComparison = ref(false);
+            const loadingDaily = ref(false);
+            const loadingTraffic = ref(false);
+            const loadingHeatmap = ref(false);
+
+            // Per-section error states
+            const overviewError = ref('');
+            const comparisonError = ref('');
+            const dailyError = ref('');
+            const trafficError = ref('');
+            const heatmapError = ref('');
+
             const exportUrl = computed(() => {
                 return window.location.pathname + '?path=/admin/home&action=export&period=' + selectedPeriod.value;
             });
 
-            function buildApiUrl(period) {
+            const visitorActivityUrl = computed(() => {
+                return window.location.pathname + '?path=/admin/visitor-activity';
+            });
+
+            const visitorPathsUrl = computed(() => {
+                return window.location.pathname + '?path=/admin/visitor-paths';
+            });
+
+            function buildApiUrl(action, period) {
                 const params = new URLSearchParams();
                 params.set('path', '/admin/home');
-                params.set('action', 'json');
+                params.set('action', action);
                 if (period) params.set('period', period);
                 return window.location.pathname + '?' + params.toString();
             }
 
-            async function fetchData(period) {
-                loading.value = true;
-                error.value = '';
-                try {
-                    const resp = await fetch(buildApiUrl(period));
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                    const data = await resp.json();
-                    if (data.error) throw new Error(data.error);
+            async function fetchSection(action, period) {
+                const resp = await fetch(buildApiUrl(action, period));
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                if (data.error) throw new Error(data.error);
+                return data;
+            }
 
+            async function fetchOverview(period) {
+                loadingOverview.value = true;
+                overviewError.value = '';
+                try {
+                    const data = await fetchSection('overview-ajax', period);
                     periodOptions.value = data.periodOptions || [];
                     selectedPeriod.value = data.selectedPeriod || 'this-week';
                     liveVisitorCount.value = data.liveVisitorCount || 0;
+                } catch (e) {
+                    overviewError.value = e.message;
+                } finally {
+                    loadingOverview.value = false;
+                }
+            }
+
+            async function fetchComparison(period) {
+                loadingComparison.value = true;
+                comparisonError.value = '';
+                try {
+                    const data = await fetchSection('comparison-ajax', period);
                     statCards.value = data.statCards || [];
                     comparisonRows.value = data.comparisonRows || [];
                     previousPeriodLabel.value = data.previousPeriodLabel || '';
+                } catch (e) {
+                    comparisonError.value = e.message;
+                } finally {
+                    loadingComparison.value = false;
+                }
+            }
+
+            async function fetchDaily(period) {
+                loadingDaily.value = true;
+                dailyError.value = '';
+                try {
+                    const data = await fetchSection('daily-ajax', period);
                     dailyStats.value = data.dailyStats || [];
                     totals.value = data.totals || {};
-                    trafficCards.value = (data.trafficCards || []).map(c => reactive({ ...c, activeTab: 0 }));
-                    heatmap.value = data.heatmap || { days: [], slots: [], intensities: [] };
-
                     await nextTick();
                     renderChart(data.chartLabels || [], data.chartUniqueVisits || [], data.chartTotalVisits || []);
                 } catch (e) {
-                    error.value = e.message;
+                    dailyError.value = e.message;
                 } finally {
-                    loading.value = false;
+                    loadingDaily.value = false;
                 }
+            }
+
+            async function fetchTraffic(period) {
+                loadingTraffic.value = true;
+                trafficError.value = '';
+                try {
+                    const data = await fetchSection('traffic-ajax', period);
+                    trafficCards.value = (data.trafficCards || []).map(c => reactive({ ...c, activeTab: 0 }));
+                } catch (e) {
+                    trafficError.value = e.message;
+                } finally {
+                    loadingTraffic.value = false;
+                }
+            }
+
+            async function fetchHeatmap(period) {
+                loadingHeatmap.value = true;
+                heatmapError.value = '';
+                try {
+                    const data = await fetchSection('heatmap-ajax', period);
+                    heatmap.value = data || { days: [], slots: [], intensities: [] };
+                } catch (e) {
+                    heatmapError.value = e.message;
+                } finally {
+                    loadingHeatmap.value = false;
+                }
+            }
+
+            function fetchAll(period) {
+                // Fire all requests in parallel — each section loads independently
+                fetchOverview(period);
+                fetchComparison(period);
+                fetchDaily(period);
+                fetchTraffic(period);
+                fetchHeatmap(period);
             }
 
             function renderChart(labels, uniqueVisits, totalVisits) {
@@ -128,7 +208,7 @@
             }
 
             function onPeriodChange() {
-                fetchData(selectedPeriod.value);
+                fetchAll(selectedPeriod.value);
             }
 
             function heatmapColor(level) {
@@ -144,14 +224,14 @@
                 if (!window.Chart) {
                     const script = document.createElement('script');
                     script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-                    script.onload = () => fetchData(period);
+                    script.onload = () => fetchAll(period);
                     document.head.appendChild(script);
                 } else {
-                    fetchData(period);
+                    fetchAll(period);
                 }
 
                 setInterval(() => {
-                    fetch(buildApiUrl(selectedPeriod.value).replace('action=json', 'action=live'))
+                    fetch(buildApiUrl('live-ajax', selectedPeriod.value))
                         .then(r => r.json())
                         .then(d => { if (d.liveVisitorCount !== undefined) liveVisitorCount.value = d.liveVisitorCount; })
                         .catch(() => {});
@@ -159,10 +239,13 @@
             });
 
             return {
-                loading, error, selectedPeriod, periodOptions, liveVisitorCount,
+                selectedPeriod, periodOptions, liveVisitorCount,
                 statCards, comparisonRows, previousPeriodLabel, dailyStats, totals,
                 trafficCards, heatmap, metrics, selectedMetric, chartCanvas,
-                exportUrl, onPeriodChange, toggleChartType, heatmapColor
+                loadingOverview, loadingComparison, loadingDaily, loadingTraffic, loadingHeatmap,
+                overviewError, comparisonError, dailyError, trafficError, heatmapError,
+                exportUrl, visitorActivityUrl, visitorPathsUrl,
+                onPeriodChange, toggleChartType, heatmapColor
             };
         }
     }).mount('#dashboard-app');

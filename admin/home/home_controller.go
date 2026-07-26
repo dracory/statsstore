@@ -1,8 +1,8 @@
 package home
 
 import (
+	_ "embed"
 	"net/http"
-	"strconv"
 
 	"github.com/dromara/carbon/v2"
 
@@ -11,6 +11,12 @@ import (
 	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
 )
+
+//go:embed home.html
+var homeHTML string
+
+//go:embed home.js
+var homeJS string
 
 // == CONSTRUCTOR ==============================================================
 
@@ -37,36 +43,28 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 	action := r.URL.Query().Get("action")
 
-	// JSON endpoints for Vue.js AJAX requests
-	if action == "json" {
-		return c.handleJSON(w, r)
-	}
-	if action == "live-json" {
-		return c.handleLiveJSON(w, r)
-	}
-	if action == "live" {
-		return c.handleLive(w, r)
-	}
-
-	data, errorMessage := c.prepareData(r)
-
-	if action == "export" {
-		if errorMessage != "" {
-			w.WriteHeader(http.StatusInternalServerError)
-			return errorMessage
-		}
-		return c.exportCSV(w, data)
+	// Per-section AJAX endpoints for Vue.js
+	switch action {
+	case "dashboard-ajax":
+		return c.handleJSONAjax(w, r)
+	case "overview-ajax":
+		return c.handleOverviewAjax(w, r)
+	case "comparison-ajax":
+		return c.handleComparisonAjax(w, r)
+	case "daily-ajax":
+		return c.handleDailyAjax(w, r)
+	case "traffic-ajax":
+		return c.handleTrafficAjax(w, r)
+	case "heatmap-ajax":
+		return c.handleHeatmapAjax(w, r)
+	case "live-ajax":
+		return c.handleLiveAjax(w, r)
+	case "export":
+		return c.handleExport(w, r)
 	}
 
 	c.ui.Layout.SetTitle("Dashboard | Visitor Analytics")
 
-	if errorMessage != "" {
-		c.ui.Layout.
-			SetBody(hb.Div().Class("alert alert-danger").Text(errorMessage).ToHTML())
-		return c.ui.Layout.Render(w, r)
-	}
-
-	// Load Vue.js and the dashboard app script
 	scriptURLs := []string{
 		cdn.VueJs_3_5_32(),
 	}
@@ -75,8 +73,7 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 		homeJS,
 	}
 
-	// The page shell (breadcrumbs, header, nav) + the Vue.js template
-	c.ui.Layout.SetBody(c.pageShell(data).ToHTML())
+	c.ui.Layout.SetBody(c.pageShell(r).ToHTML())
 	c.ui.Layout.SetScriptURLs(scriptURLs)
 	c.ui.Layout.SetScripts(scripts)
 
@@ -84,42 +81,6 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 }
 
 // == PRIVATE METHODS ==========================================================
-
-func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) string {
-	headers := []string{
-		"Date",
-		"Page Views",
-		"Unique Visits",
-		"First Time Visits",
-		"Returning Visits",
-	}
-
-	rows := make([][]string, 0, len(data.dates))
-	for i, date := range data.dates {
-		rows = append(rows, []string{
-			formatSummaryDate(date),
-			strconv.FormatInt(data.totalVisits[i], 10),
-			strconv.FormatInt(data.uniqueVisits[i], 10),
-			strconv.FormatInt(data.firstVisits[i], 10),
-			strconv.FormatInt(data.returnVisits[i], 10),
-		})
-	}
-
-	return shared.ExportCSV(w, shared.ExportFilename("visitor-stats"), headers, rows)
-}
-
-func (c *Controller) handleLive(w http.ResponseWriter, r *http.Request) string {
-	count, err := c.liveVisitorCount(r)
-	if err != nil {
-		count = 0
-	}
-	return liveVisitorCard(count, r).ToHTML()
-}
-
-func (c *Controller) liveVisitorCount(r *http.Request) (int64, error) {
-	liveGte := carbon.Now(carbon.UTC).SubMinutes(15).ToDateTimeString(carbon.UTC)
-	return c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQuery().SetCreatedAtGte(liveGte))
-}
 
 func previousPeriodBounds(selectedPeriod string, start, end *carbon.Carbon) (*carbon.Carbon, *carbon.Carbon, string) {
 	switch selectedPeriod {
@@ -250,16 +211,17 @@ func (c *Controller) prepareData(r *http.Request) (data ControllerData, errorMes
 }
 
 // pageShell builds the page shell (breadcrumbs, header, nav) and embeds
-// the Vue.js dashboard template from home.html.
-func (c *Controller) pageShell(data ControllerData) hb.TagInterface {
-	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
+// the Vue.js dashboard template from home.html. No DB queries are made here —
+// all data is loaded via AJAX from the per-section endpoints.
+func (c *Controller) pageShell(r *http.Request) hb.TagInterface {
+	breadcrumbs := shared.Breadcrumbs(r, []shared.Breadcrumb{
 		{
 			Name: "Home",
-			URL:  shared.UrlHome(data.Request),
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Visitor Analytics",
-			URL:  shared.UrlHome(data.Request),
+			URL:  shared.UrlHome(r),
 		},
 	})
 
@@ -271,9 +233,8 @@ func (c *Controller) pageShell(data ControllerData) hb.TagInterface {
 		Class("container").
 		Child(breadcrumbs).
 		Child(hb.HR()).
-		Child(shared.AdminHeaderUI(data.Request, c.ui.HomeURL)).
+		Child(shared.AdminHeaderUI(r, c.ui.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
-		Child(navigationPanel(data)).
 		Child(hb.Raw(homeHTML))
 }
