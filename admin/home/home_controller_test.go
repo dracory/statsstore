@@ -145,7 +145,9 @@ func TestHomeControllerHandleError(t *testing.T) {
 	}
 
 	// DB errors now appear in AJAX endpoint responses, not the page shell
-	ajaxReq := httptest.NewRequest(http.MethodGet, "/admin/home?action=comparison-ajax", nil)
+	ajaxForm := strings.NewReader("action=comparison-ajax")
+	ajaxReq := httptest.NewRequest(http.MethodPost, "/admin/home", ajaxForm)
+	ajaxReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	ajaxRR := httptest.NewRecorder()
 	controller.ServeHTTP(ajaxRR, ajaxReq)
 
@@ -190,7 +192,9 @@ func TestHomeControllerDashboardMetrics(t *testing.T) {
 	})
 
 	// Test the comparison AJAX endpoint — this provides statCards and comparisonRows
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days&action=comparison-ajax", nil)
+	ajaxForm := strings.NewReader("action=comparison-ajax&period=last-7-days")
+	req := httptest.NewRequest(http.MethodPost, "/admin/home", ajaxForm)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 

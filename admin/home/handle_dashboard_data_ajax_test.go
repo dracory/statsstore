@@ -39,7 +39,9 @@ func TestHandleDashboardDataAjaxSuccess(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?action=dashboard-data-ajax&period=this-week", nil)
+	form := strings.NewReader("action=dashboard-data-ajax&period=this-week")
+	req := httptest.NewRequest(http.MethodPost, "/admin/home", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 
@@ -62,7 +64,9 @@ func TestHandleDashboardDataAjaxError(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?action=dashboard-data-ajax", nil)
+	form := strings.NewReader("action=dashboard-data-ajax")
+	req := httptest.NewRequest(http.MethodPost, "/admin/home", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 

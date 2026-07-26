@@ -18,7 +18,9 @@ func TestHandleLiveAjaxSuccess(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?action=live-ajax", nil)
+	form := strings.NewReader("action=live-ajax")
+	req := httptest.NewRequest(http.MethodPost, "/admin/home", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 

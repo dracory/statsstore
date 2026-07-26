@@ -1,10 +1,9 @@
 package home
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 
+	"github.com/dracory/api"
 	"github.com/dracory/statsstore"
 	"github.com/samber/lo"
 )
@@ -14,18 +13,18 @@ import (
 // occurred when daily, traffic, and heatmap endpoints each independently
 // queried VisitorList with the same period bounds.
 func (c *Controller) handleDashboardDataAjax(w http.ResponseWriter, r *http.Request) string {
-	w.Header().Set("Content-Type", "application/json")
-
 	periodBounds, err := c.getPeriodBounds(r)
 	if err != "" {
-		return fmt.Sprintf(`{"error":%q}`, err)
+		api.Respond(w, r, api.Error(err))
+		return ""
 	}
 
 	visitors, dbErr := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
 		SetCreatedAtGte(periodBounds.createdAtGte).
 		SetCreatedAtLte(periodBounds.createdAtLte))
 	if dbErr != nil {
-		return fmt.Sprintf(`{"error":%q}`, dbErr.Error())
+		api.Respond(w, r, api.Error(dbErr.Error()))
+		return ""
 	}
 
 	// Daily stats
@@ -52,7 +51,7 @@ func (c *Controller) handleDashboardDataAjax(w http.ResponseWriter, r *http.Requ
 	// Heatmap
 	hm := computeHeatmap(visitors)
 
-	result := map[string]any{
+	api.Respond(w, r, api.SuccessWithData("success", map[string]any{
 		"dailyStats":        daily,
 		"chartLabels":       currentStats.dates,
 		"chartUniqueVisits": currentStats.uniqueVisits,
@@ -69,8 +68,7 @@ func (c *Controller) handleDashboardDataAjax(w http.ResponseWriter, r *http.Requ
 			Slots:       hm.Slots,
 			Intensities: hm.Intensities,
 		},
-	}
+	}))
 
-	b, _ := json.Marshal(result)
-	return string(b)
+	return ""
 }

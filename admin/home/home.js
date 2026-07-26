@@ -45,20 +45,23 @@
                 return window.location.pathname + '?path=/admin/visitor-paths';
             });
 
-            function buildApiUrl(action, period) {
+            function buildApiUrl() {
                 const params = new URLSearchParams();
                 params.set('path', '/admin/home');
-                params.set('action', action);
-                if (period) params.set('period', period);
                 return window.location.pathname + '?' + params.toString();
             }
 
             async function fetchSection(action, period) {
-                const resp = await fetch(buildApiUrl(action, period));
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const formData = new FormData();
+                formData.set('action', action);
+                if (period) formData.set('period', period);
+                const resp = await fetch(buildApiUrl(), {
+                    method: 'POST',
+                    body: formData
+                });
                 const data = await resp.json();
-                if (data.error) throw new Error(data.error);
-                return data;
+                if (data.status !== 'success') throw new Error(data.message || 'Request failed');
+                return data.data || {};
             }
 
             async function fetchOverview(period) {
@@ -213,9 +216,11 @@
                 }
 
                 const liveInterval = setInterval(() => {
-                    fetch(buildApiUrl('live-ajax', selectedPeriod.value))
+                    const formData = new FormData();
+                    formData.set('action', 'live-ajax');
+                    fetch(buildApiUrl(), { method: 'POST', body: formData })
                         .then(r => r.json())
-                        .then(d => { if (d.liveVisitorCount !== undefined) liveVisitorCount.value = d.liveVisitorCount; })
+                        .then(d => { if (d.status === 'success' && d.data && d.data.liveVisitorCount !== undefined) liveVisitorCount.value = d.data.liveVisitorCount; })
                         .catch(() => {});
                 }, 30000);
 

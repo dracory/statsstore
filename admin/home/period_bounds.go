@@ -3,6 +3,7 @@ package home
 import (
 	"net/http"
 
+	"github.com/dracory/req"
 	"github.com/dromara/carbon/v2"
 )
 
@@ -31,10 +32,7 @@ func (c *Controller) getPeriodBounds(r *http.Request) (periodBoundsData, string)
 		{Value: "last-month", Label: "Last Month"},
 	}
 
-	selectedPeriod := r.URL.Query().Get("period")
-	if selectedPeriod == "" {
-		selectedPeriod = "this-week"
-	}
+	selectedPeriod := req.GetStringOr(r, "period", "this-week")
 
 	now := carbon.Now(carbon.UTC)
 	start := now.Copy()

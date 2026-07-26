@@ -8,6 +8,7 @@ import (
 
 	"github.com/dracory/cdn"
 	"github.com/dracory/hb"
+	"github.com/dracory/req"
 	"github.com/dracory/statsstore/admin/shared"
 )
 
@@ -40,7 +41,7 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Handle renders the controller to an HTML tag
 func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
-	action := r.URL.Query().Get("action")
+	action := req.GetString(r, "action")
 
 	// Per-section AJAX endpoints for Vue.js
 	switch action {

@@ -4,6 +4,7 @@ go 1.26.3
 
 require (
 	github.com/LumenResearch/uasurfer v0.0.0-20260126094926-dace53404a8d
+	github.com/dracory/api v1.7.0
 	github.com/dracory/cdn v1.11.0
 	github.com/dracory/hb v1.88.0
 	github.com/dracory/neat v0.33.0

@@ -1,8 +1,9 @@
 package home
 
 import (
-	"fmt"
 	"net/http"
+
+	"github.com/dracory/api"
 )
 
 // handleLiveAjax returns just the live visitor count as JSON.
@@ -11,6 +12,10 @@ func (c *Controller) handleLiveAjax(w http.ResponseWriter, r *http.Request) stri
 	if err != nil {
 		count = 0
 	}
-	w.Header().Set("Content-Type", "application/json")
-	return fmt.Sprintf(`{"liveVisitorCount":%d}`, count)
+
+	api.Respond(w, r, api.SuccessWithData("success", map[string]any{
+		"liveVisitorCount": count,
+	}))
+
+	return ""
 }
