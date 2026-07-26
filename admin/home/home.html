@@ -62,13 +62,13 @@
                 </div>
             </div>
             <div class="card-body">
-                <!-- Stat Cards Grid — loads via overview-json -->
-                <div v-if="loadingOverview" class="text-center py-4">
+                <!-- Stat Cards Grid — loads via comparison-ajax -->
+                <div v-if="loadingComparison" class="text-center py-4">
                     <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                     <span class="ms-2 text-muted small">Loading stats...</span>
                 </div>
-                <div v-else-if="overviewError" class="alert alert-danger py-2 small">
-                    <i class="bi bi-exclamation-triangle"></i> {{ overviewError }}
+                <div v-else-if="comparisonError" class="alert alert-danger py-2 small">
+                    <i class="bi bi-exclamation-triangle"></i> {{ comparisonError }}
                 </div>
                 <div v-else>
                 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-6 g-4 text-center">

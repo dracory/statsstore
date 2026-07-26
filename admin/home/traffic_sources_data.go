@@ -13,8 +13,8 @@ import (
 // trafficSourceEntry represents a single row in a traffic source breakdown
 // table (e.g. top referrers, top pages, top browsers).
 type trafficSourceEntry struct {
-	Label    string
-	Sessions string
+	Label    string `json:"label"`
+	Sessions string `json:"sessions"`
 }
 
 // trafficSourcesData holds all computed traffic source breakdowns derived

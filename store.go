@@ -65,6 +65,10 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.DateTime(COLUMN_CREATED_AT)
 			table.DateTime(COLUMN_UPDATED_AT)
 			table.DateTime(COLUMN_SOFT_DELETED_AT)
+
+			table.Index(COLUMN_CREATED_AT)
+			table.Index(COLUMN_IP_ADDRESS)
+			table.Index(COLUMN_FINGERPRINT)
 		})
 
 		if err != nil {
@@ -89,36 +93,6 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 				st.logger.Error("MigrateUp: settings table creation failed", "error", err)
 			}
 			return err
-		}
-	}
-
-	if err := st.createIndexes(); err != nil {
-		if st.debugEnabled {
-			st.logger.Error("MigrateUp: index creation failed", "error", err)
-		}
-		return err
-	}
-
-	return nil
-}
-
-func (st *storeImplementation) createIndexes() error {
-	sqlDB, err := st.db.DB()
-	if err != nil {
-		return err
-	}
-
-	indexes := []string{
-		"CREATE INDEX IF NOT EXISTS idx_" + st.visitorTableName + "_created_at ON " + st.visitorTableName + " (" + COLUMN_CREATED_AT + ")",
-		"CREATE INDEX IF NOT EXISTS idx_" + st.visitorTableName + "_ip_address ON " + st.visitorTableName + " (" + COLUMN_IP_ADDRESS + ")",
-		"CREATE INDEX IF NOT EXISTS idx_" + st.visitorTableName + "_fingerprint ON " + st.visitorTableName + " (" + COLUMN_FINGERPRINT + ")",
-	}
-
-	for _, sql := range indexes {
-		if _, err := sqlDB.Exec(sql); err != nil {
-			if st.debugEnabled {
-				st.logger.Warn("MigrateUp: index creation skipped", "sql", sql, "error", err)
-			}
 		}
 	}
 

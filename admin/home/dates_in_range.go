@@ -5,6 +5,7 @@ import "github.com/dromara/carbon/v2"
 // datesInRange returns an array of dates between the start and end dates
 func datesInRange(timeStart, timeEnd *carbon.Carbon) []string {
 	rangeDates := []string{}
+	timeStart = timeStart.Copy()
 
 	if timeStart.Lte(timeEnd) {
 		rangeDates = append(rangeDates, timeStart.ToDateString())

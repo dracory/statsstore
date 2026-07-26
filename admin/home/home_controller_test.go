@@ -145,7 +145,7 @@ func TestHomeControllerHandleError(t *testing.T) {
 	}
 
 	// DB errors now appear in AJAX endpoint responses, not the page shell
-	ajaxReq := httptest.NewRequest(http.MethodGet, "/admin/home?action=overview-ajax", nil)
+	ajaxReq := httptest.NewRequest(http.MethodGet, "/admin/home?action=comparison-ajax", nil)
 	ajaxRR := httptest.NewRecorder()
 	controller.ServeHTTP(ajaxRR, ajaxReq)
 

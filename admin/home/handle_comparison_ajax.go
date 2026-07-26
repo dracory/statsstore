@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/dracory/statsstore"
 	"github.com/samber/lo"
 )
 
@@ -13,32 +14,50 @@ import (
 func (c *Controller) handleComparisonAjax(w http.ResponseWriter, r *http.Request) string {
 	w.Header().Set("Content-Type", "application/json")
 
-	data, errorMessage := c.prepareData(r)
-	if errorMessage != "" {
-		return fmt.Sprintf(`{"error":%q}`, errorMessage)
+	periodBounds, err := c.getPeriodBounds(r)
+	if err != "" {
+		return fmt.Sprintf(`{"error":%q}`, err)
 	}
 
-	totalUniqueVisitors := lo.Sum(data.uniqueVisits)
-	totalVisitors := lo.Sum(data.totalVisits)
-	totalFirstVisits := lo.Sum(data.firstVisits)
-	totalReturningVisits := lo.Sum(data.returnVisits)
+	visitors, dbErr := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
+		SetCreatedAtGte(periodBounds.createdAtGte).
+		SetCreatedAtLte(periodBounds.createdAtLte))
+	if dbErr != nil {
+		return fmt.Sprintf(`{"error":%q}`, dbErr.Error())
+	}
 
-	ext := data.currentStats
+	prevVisitors, dbErr := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
+		SetCreatedAtGte(periodBounds.prevCreatedAtGte).
+		SetCreatedAtLte(periodBounds.prevCreatedAtLte))
+	if dbErr != nil {
+		return fmt.Sprintf(`{"error":%q}`, dbErr.Error())
+	}
+
+	currentStats := computePeriodStats(visitors, periodBounds.dateRange)
+	prevStats := computePeriodStats(prevVisitors, periodBounds.dateRange)
+
+	totalUniqueVisitors := lo.Sum(currentStats.uniqueVisits)
+	totalVisitors := lo.Sum(currentStats.totalVisits)
+	totalFirstVisits := lo.Sum(currentStats.firstVisits)
+	totalReturningVisits := lo.Sum(currentStats.returnVisits)
+
+	ext := computeStatsOverview(visitors)
+	prevExt := computeStatsOverview(prevVisitors)
 
 	comparisons := []comparisonRowJSON{
-		{"Total Unique Visitors", formatCount(totalUniqueVisitors), formatCount(data.previousPeriodUnique), changePercentInt(totalUniqueVisitors, data.previousPeriodUnique), false},
-		{"Total Visitors", formatCount(totalVisitors), formatCount(data.previousPeriodTotal), changePercentInt(totalVisitors, data.previousPeriodTotal), false},
-		{"First Time Visits", formatCount(totalFirstVisits), formatCount(data.previousPeriodFirst), changePercentInt(totalFirstVisits, data.previousPeriodFirst), false},
-		{"Returning Visits", formatCount(totalReturningVisits), formatCount(data.previousPeriodReturning), changePercentInt(totalReturningVisits, data.previousPeriodReturning), false},
-		{"Bounce Rate", formatFloat2(ext.BounceRateValue) + "%", formatFloat2(data.previousStats.BounceRateValue) + "%", changePercentFloat(ext.BounceRateValue, data.previousStats.BounceRateValue), true},
-		{"Avg. Visit Duration", formatDuration(ext.SessionDurationSeconds), formatDuration(data.previousStats.SessionDurationSeconds), changePercentFloat(ext.SessionDurationSeconds, data.previousStats.SessionDurationSeconds), false},
+		{"Total Unique Visitors", formatCount(totalUniqueVisitors), formatCount(prevStats.totalUnique), changePercentInt(totalUniqueVisitors, prevStats.totalUnique), false},
+		{"Total Visitors", formatCount(totalVisitors), formatCount(prevStats.totalTotal), changePercentInt(totalVisitors, prevStats.totalTotal), false},
+		{"First Time Visits", formatCount(totalFirstVisits), formatCount(prevStats.totalFirst), changePercentInt(totalFirstVisits, prevStats.totalFirst), false},
+		{"Returning Visits", formatCount(totalReturningVisits), formatCount(prevStats.totalReturning), changePercentInt(totalReturningVisits, prevStats.totalReturning), false},
+		{"Bounce Rate", formatFloat2(ext.BounceRateValue) + "%", formatFloat2(prevExt.BounceRateValue) + "%", changePercentFloat(ext.BounceRateValue, prevExt.BounceRateValue), true},
+		{"Avg. Visit Duration", formatDuration(ext.SessionDurationSeconds), formatDuration(prevExt.SessionDurationSeconds), changePercentFloat(ext.SessionDurationSeconds, prevExt.SessionDurationSeconds), false},
 	}
 
 	statCards := []statCardJSON{
 		{"Total Unique Visitors", formatCount(totalUniqueVisitors), "bi bi-person", "primary"},
 		{"Total Visitors", formatCount(totalVisitors), "bi bi-people", "success"},
-		{"Avg. Daily First Time Visits", formatFloat(float64(totalFirstVisits) / float64(maxInt(len(data.dates), 1))), "bi bi-person-plus", "secondary"},
-		{"Avg. Daily Returning Visits", formatFloat(float64(totalReturningVisits) / float64(maxInt(len(data.dates), 1))), "bi bi-person-check", "dark"},
+		{"Avg. Daily First Time Visits", formatFloat(float64(totalFirstVisits) / float64(maxInt(len(currentStats.dates), 1))), "bi bi-person-plus", "secondary"},
+		{"Avg. Daily Returning Visits", formatFloat(float64(totalReturningVisits) / float64(maxInt(len(currentStats.dates), 1))), "bi bi-person-check", "dark"},
 		{"Sessions", ext.Sessions, "bi bi-activity", "primary"},
 		{"Pageviews", ext.Pageviews, "bi bi-collection", "success"},
 		{"Pages per Session", ext.PagesPerSession, "bi bi-diagram-3", "info"},
@@ -49,7 +68,7 @@ func (c *Controller) handleComparisonAjax(w http.ResponseWriter, r *http.Request
 	result := map[string]any{
 		"statCards":           statCards,
 		"comparisonRows":      comparisons,
-		"previousPeriodLabel": data.previousPeriodLabel,
+		"previousPeriodLabel": periodBounds.prevLabel,
 	}
 
 	b, _ := json.Marshal(result)

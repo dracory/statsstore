@@ -4,20 +4,28 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
 )
 
 // handleExport exports the dashboard data as CSV.
 func (c *Controller) handleExport(w http.ResponseWriter, r *http.Request) string {
-	data, errorMessage := c.prepareData(r)
-	if errorMessage != "" {
+	periodBounds, err := c.getPeriodBounds(r)
+	if err != "" {
 		w.WriteHeader(http.StatusInternalServerError)
-		return errorMessage
+		return err
 	}
-	return c.exportCSV(w, data)
-}
 
-func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) string {
+	visitors, dbErr := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
+		SetCreatedAtGte(periodBounds.createdAtGte).
+		SetCreatedAtLte(periodBounds.createdAtLte))
+	if dbErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return dbErr.Error()
+	}
+
+	stats := computePeriodStats(visitors, periodBounds.dateRange)
+
 	headers := []string{
 		"Date",
 		"Page Views",
@@ -26,14 +34,14 @@ func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) strin
 		"Returning Visits",
 	}
 
-	rows := make([][]string, 0, len(data.dates))
-	for i, date := range data.dates {
+	rows := make([][]string, 0, len(stats.dates))
+	for i, date := range stats.dates {
 		rows = append(rows, []string{
 			formatSummaryDate(date),
-			strconv.FormatInt(data.totalVisits[i], 10),
-			strconv.FormatInt(data.uniqueVisits[i], 10),
-			strconv.FormatInt(data.firstVisits[i], 10),
-			strconv.FormatInt(data.returnVisits[i], 10),
+			strconv.FormatInt(stats.totalVisits[i], 10),
+			strconv.FormatInt(stats.uniqueVisits[i], 10),
+			strconv.FormatInt(stats.firstVisits[i], 10),
+			strconv.FormatInt(stats.returnVisits[i], 10),
 		})
 	}
 

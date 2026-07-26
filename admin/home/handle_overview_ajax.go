@@ -19,24 +19,11 @@ func (c *Controller) handleOverviewAjax(w http.ResponseWriter, r *http.Request) 
 		return fmt.Sprintf(`{"error":%q}`, err)
 	}
 
-	currentCount, dbErr := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQuery().
-		SetCreatedAtGte(periodBounds.createdAtGte).
-		SetCreatedAtLte(periodBounds.createdAtLte))
-	if dbErr != nil {
-		return fmt.Sprintf(`{"error":%q}`, dbErr.Error())
-	}
-
 	liveGte := carbon.Now(carbon.UTC).SubMinutes(15).ToDateTimeString(carbon.UTC)
 	liveCount, _ := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQuery().SetCreatedAtGte(liveGte))
 
-	prevCount, _ := c.ui.Store.VisitorCount(r.Context(), statsstore.VisitorQuery().
-		SetCreatedAtGte(periodBounds.prevCreatedAtGte).
-		SetCreatedAtLte(periodBounds.prevCreatedAtLte))
-
 	result := map[string]any{
 		"liveVisitorCount": liveCount,
-		"totalVisits":      currentCount,
-		"previousVisits":   prevCount,
 		"selectedPeriod":   periodBounds.selectedPeriod,
 		"periodOptions":    periodBounds.periodOptions,
 	}

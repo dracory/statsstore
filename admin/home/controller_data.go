@@ -32,6 +32,6 @@ type ControllerData struct {
 }
 
 type periodOption struct {
-	Value string
-	Label string
+	Value string `json:"value"`
+	Label string `json:"label"`
 }
