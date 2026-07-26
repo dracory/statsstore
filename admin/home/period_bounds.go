@@ -15,6 +15,7 @@ type periodBoundsData struct {
 	prevCreatedAtLte string
 	prevLabel        string
 	dateRange        []string
+	prevDateRange    []string
 }
 
 // getPeriodBounds computes the date bounds for the selected period without loading any data.
@@ -73,6 +74,7 @@ func (c *Controller) getPeriodBounds(r *http.Request) (periodBoundsData, string)
 	prevStart, prevEnd, prevLabel := previousPeriodBounds(selectedPeriod, start, end)
 	prevCreatedAtGte := prevStart.ToDateTimeString(carbon.UTC)
 	prevCreatedAtLte := prevEnd.ToDateTimeString(carbon.UTC)
+	prevDateRange := datesInRange(prevStart.Copy(), prevEnd.Copy())
 
 	return periodBoundsData{
 		selectedPeriod:   selectedPeriod,
@@ -83,6 +85,7 @@ func (c *Controller) getPeriodBounds(r *http.Request) (periodBoundsData, string)
 		prevCreatedAtLte: prevCreatedAtLte,
 		prevLabel:        prevLabel,
 		dateRange:        dateRange,
+		prevDateRange:    prevDateRange,
 	}, ""
 }
 

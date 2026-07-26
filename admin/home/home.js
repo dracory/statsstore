@@ -1,5 +1,5 @@
 (function() {
-    const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+    const { createApp, ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
 
     createApp({
         setup() {
@@ -230,12 +230,14 @@
                     fetchAll(period);
                 }
 
-                setInterval(() => {
+                const liveInterval = setInterval(() => {
                     fetch(buildApiUrl('live-ajax', selectedPeriod.value))
                         .then(r => r.json())
                         .then(d => { if (d.liveVisitorCount !== undefined) liveVisitorCount.value = d.liveVisitorCount; })
                         .catch(() => {});
                 }, 30000);
+
+                onUnmounted(() => clearInterval(liveInterval));
             });
 
             return {

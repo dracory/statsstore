@@ -189,8 +189,8 @@ func TestHomeControllerDashboardMetrics(t *testing.T) {
 		HomeURL: "https://admin.local",
 	})
 
-	// Test the dashboard AJAX endpoint — this is what the Vue.js frontend calls via AJAX
-	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days&action=dashboard-ajax", nil)
+	// Test the comparison AJAX endpoint — this provides statCards and comparisonRows
+	req := httptest.NewRequest(http.MethodGet, "/admin/home?period=last-7-days&action=comparison-ajax", nil)
 	rr := httptest.NewRecorder()
 	controller.ServeHTTP(rr, req)
 
@@ -214,10 +214,6 @@ func TestHomeControllerDashboardMetrics(t *testing.T) {
 	// fp1 had a 1 hour interval between page views
 	if !strings.Contains(body, "1h 0m") {
 		t.Errorf("expected avg visit duration 1h 0m in JSON, got: %s", body)
-	}
-	// Live visitor count should be 1 (fp2 visited within last 15 minutes)
-	if !strings.Contains(body, `"liveVisitorCount":1`) {
-		t.Errorf("expected liveVisitorCount 1 in JSON, got: %s", body)
 	}
 }
 

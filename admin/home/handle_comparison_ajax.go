@@ -34,7 +34,7 @@ func (c *Controller) handleComparisonAjax(w http.ResponseWriter, r *http.Request
 	}
 
 	currentStats := computePeriodStats(visitors, periodBounds.dateRange)
-	prevStats := computePeriodStats(prevVisitors, periodBounds.dateRange)
+	prevStats := computePeriodStats(prevVisitors, periodBounds.prevDateRange)
 
 	totalUniqueVisitors := lo.Sum(currentStats.uniqueVisits)
 	totalVisitors := lo.Sum(currentStats.totalVisits)
