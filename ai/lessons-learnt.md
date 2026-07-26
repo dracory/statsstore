@@ -50,6 +50,26 @@ Prefer this over re-deriving facts. Update it when you discover new non-obvious 
 - `parseFiltersFromReq(r)` in `handle_list_ajax.go` replaces the old `parseFilters(url.Values)` — uses `req.GetString` instead of `r.URL.Query().Get`.
 - HTMX and SweetAlert2 are no longer loaded — replaced by Vue reactivity and native `confirm()`.
 
+## Visitor paths page conventions
+- The `admin/visitor-paths/` page follows the same Vue SPA pattern: embedded `visitor_paths.html` + `visitor_paths.js`, AJAX POST for list data, `api.Respond` for JSON.
+- The AJAX handler (`handle_list_ajax.go`) returns path rows as JSON with server-side formatting (device badge class, session label, drill-down URL). The Vue template renders pre-formatted strings.
+- `helpers.go` was stripped to just `sessionCount`. `ControllerData` was removed from `types.go`.
+- The "View Session" drill-down link uses `shared.UrlVisitorActivity(r, drillParams)`. Do NOT pass `path` as a key in `drillParams` — `UrlVisitorActivity` overwrites `p["path"]` with the routing path `/admin/visitor-activity`. The `path` key is reserved for routing.
+
+## Page view activity page conventions
+- The `admin/page-view-activity/` page follows the same Vue SPA pattern: embedded `page_view_activity.html` + `page_view_activity.js`, AJAX POST for list data, `api.Respond` for JSON.
+- Old server-rendered files (`card_page_view_activity.go`, `pagination.go`) were deleted. `helpers.go` was stripped to just `splitTimestamp`. `ControllerData` was removed from `types.go`.
+- The AJAX handler (`handle_list_ajax.go`) returns page view rows as JSON with server-side formatting (device/browser/OS labels, location, country code/name).
+
+## Path prefix stripping
+- **Consumers may store paths with HTTP method prefixes** (e.g. `[GET] /shop/product/1`). `shared.StripMethodPrefix(path)` strips any `[METHOD] ` prefix. Use it whenever displaying or building URLs from `visitor.GetPath()`.
+- `shared.FullPathURL()` calls `StripMethodPrefix` internally, so absolute URLs are always clean. But the raw `Path` field sent to the frontend must also be stripped in each AJAX handler and CSV export.
+- Applied in: `visitor-activity`, `visitor-paths`, `page-view-activity` (both AJAX handlers and CSV exports).
+
+## Vue.js gotchas
+- **`@click="return false"` is invalid.** Vue directive expressions must be expressions, not function bodies. `return` is a keyword that cannot start an expression. Use `@click.prevent` instead to prevent default behavior.
+- **Always test in the browser after JS template changes.** Go tests don't catch JS syntax errors in embedded `.html`/`.js` files. Use Chrome DevTools MCP to navigate and check `list_console_messages` for errors.
+
 ## Behavior quirks
 - **Geo-IP enrichment is manual.** `VisitorEnhance` is NOT auto-invoked. It must be driven from a cron/goroutine, only updates rows where `country` is empty, and returns the count of fully processed (country+UA) rows. UA fields update even if geo lookup fails; country stays empty for retry.
 - Default `DefaultGeoIPResolver` calls the free ip2c.org service with a built-in **2s delay between calls** (rate limiting) and a 24h in-memory cache; localhost/private IPs return `"UN"` without a call. Swap in a custom `GeoIPResolver` for production.
