@@ -49,7 +49,7 @@
                         <input type="hidden" name="path" value="/admin/home">
                         <label class="form-label mb-0 text-muted small" for="stats-period-select">Period</label>
                         <select id="stats-period-select" class="form-select form-select-sm" v-model="selectedPeriod" @change="onPeriodChange">
-                            <option v-for="opt in periodOptions" :key="opt.Value" :value="opt.Value">{{ opt.Label }}</option>
+                            <option v-for="opt in periodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                         </select>
                         <button class="btn btn-sm btn-outline-primary" type="submit">Apply</button>
                         <div class="dropdown">
@@ -250,8 +250,8 @@
                                     </thead>
                                     <tbody>
                                         <tr v-for="(entry, ei) in card.tabs[card.activeTab].entries" :key="ei">
-                                            <td class="fw-medium">{{ entry.Label }}</td>
-                                            <td class="text-end">{{ entry.Sessions }}</td>
+                                            <td class="fw-medium">{{ entry.label }}</td>
+                                            <td class="text-end">{{ entry.sessions }}</td>
                                         </tr>
                                     </tbody>
                                 </table>

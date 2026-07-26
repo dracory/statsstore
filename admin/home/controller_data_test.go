@@ -4,11 +4,8 @@ import "testing"
 
 func TestControllerDataZeroValue(t *testing.T) {
 	var data ControllerData
-	if data.selectedPeriod != "" {
-		t.Fatalf("expected empty selectedPeriod, got %s", data.selectedPeriod)
-	}
-	if data.liveVisitorCount != 0 {
-		t.Fatalf("expected zero liveVisitorCount, got %d", data.liveVisitorCount)
+	if data.visitors != nil {
+		t.Fatalf("expected nil visitors, got %v", data.visitors)
 	}
 }
 
