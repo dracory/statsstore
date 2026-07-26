@@ -1,12 +1,22 @@
 package visitoractivity
 
 import (
+	_ "embed"
 	"net/http"
 	"strings"
 
+	"github.com/dracory/cdn"
 	"github.com/dracory/hb"
+	"github.com/dracory/req"
+	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
 )
+
+//go:embed visitor_activity.html
+var visitorActivityHTML string
+
+//go:embed visitor_activity.js
+var visitorActivityJS string
 
 // New creates a new visitor activity controller
 func New(ui ControllerOptions) http.Handler {
@@ -25,98 +35,65 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Handler renders the controller output using the shared layout
 func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
-	data, errorMessage := buildControllerData(r, c.UI.Store)
+	action := req.GetString(r, "action")
 
-	if action := r.URL.Query().Get("action"); action == "export" {
-		if errorMessage != "" {
-			w.WriteHeader(http.StatusInternalServerError)
-			return errorMessage
-		}
-		return c.exportCSV(w, data)
+	// AJAX endpoints for Vue.js
+	switch action {
+	case "list-ajax":
+		return c.handleListAjax(w, r)
+	case "export":
+		return c.handleExport(w, r)
 	}
 
 	c.UI.Layout.SetTitle("Visitor Activity | Visitor Analytics")
 
-	if errorMessage != "" {
-		c.UI.Layout.SetBody(hb.Div().
-			Class("alert alert-danger").
-			Text(errorMessage).ToHTML())
-
-		return c.UI.Layout.Render(w, r)
+	scriptURLs := []string{
+		cdn.VueJs_3_5_32(),
 	}
 
-	// Load required scripts asynchronously
 	scripts := []string{
-		// Load HTMX
-		`
-		if (!window.htmx) {
-			const loadHtmx = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = 'https://unpkg.com/htmx.org@1.9.6';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('HTMX loaded');
-			};
-			loadHtmx();
-		}
-		`,
-		// Load SweetAlert2
-		`
-		if (!window.Swal) {
-			const loadSwal = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('SweetAlert2 loaded');
-			};
-			loadSwal();
-		}
-		`,
-		// Visitor detail modal populator
-		`
-		document.addEventListener('DOMContentLoaded', function() {
-			var modal = document.getElementById('visitorDetailModal');
-			if (modal) {
-				modal.addEventListener('show.bs.modal', function(event) {
-					var button = event.relatedTarget;
-					if (!button) return;
-					var raw = button.getAttribute('data-visitor');
-					if (!raw) return;
-					var v = JSON.parse(raw);
-					var content = document.getElementById('visitorDetailModalContent');
-					if (!content) return;
-					var esc = function(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; };
-					var row = function(label, val) { return '<div class="d-flex justify-content-between border-bottom py-2"><span class="text-muted fw-semibold">' + esc(label) + '</span><span class="text-body text-break text-end">' + esc(val) + '</span></div>'; };
-					var html = '<div class="p-3">' +
-						row('Visitor ID', v.id) +
-						row('Visit Time', v.createdAt) +
-						row('Path', v.path) +
-						row('Country', v.country) +
-						row('IP Address', v.ipAddress) +
-						row('Referrer', v.referrer) +
-						row('Device', v.device) +
-						row('Browser', (v.browser + ' ' + v.browserVer).trim()) +
-						row('OS', (v.os + ' ' + v.osVer).trim()) +
-						row('Fingerprint', v.fingerprint) +
-						row('User Agent', v.userAgent) +
-						'</div>';
-					content.innerHTML = html;
-				});
-			}
-		});
-		`,
+		visitorActivityJS,
 	}
 
-	c.UI.Layout.SetBody(c.page(data).ToHTML())
+	c.UI.Layout.SetBody(c.pageShell(r).ToHTML())
+	c.UI.Layout.SetScriptURLs(scriptURLs)
 	c.UI.Layout.SetScripts(scripts)
 
 	return c.UI.Layout.Render(w, r)
 }
 
-func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) string {
+// handleExport exports visitor data as CSV
+func (c *Controller) handleExport(w http.ResponseWriter, r *http.Request) string {
+	filters := parseFiltersFromReq(r)
+	page := shared.ParseIntWithDefault(req.GetString(r, "page"), 1)
+	perPage := shared.ClampPerPage(shared.ParseIntWithDefault(req.GetString(r, "per_page"), 10))
+	offset := (page - 1) * perPage
+
+	options := statsstore.VisitorQuery().
+		SetLimit(perPage).
+		SetOffset(offset).
+		SetOrderBy(statsstore.COLUMN_CREATED_AT).
+		SetSortOrder("DESC")
+
+	if filters.Country != "" {
+		options = options.SetCountry(filters.Country)
+	}
+	if filters.From != "" {
+		options = options.SetCreatedAtGte(filters.From)
+	}
+	if filters.To != "" {
+		options = options.SetCreatedAtLte(filters.To)
+	}
+	if filters.Device != "" {
+		options = options.SetDeviceType(filters.Device)
+	}
+
+	visitors, err := c.UI.Store.VisitorList(r.Context(), options)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return err.Error()
+	}
+
 	headers := []string{
 		"Visit Time",
 		"Path",
@@ -128,8 +105,8 @@ func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) strin
 		"User Agent",
 	}
 
-	rows := make([][]string, 0, len(data.Visitors))
-	for _, visitor := range data.Visitors {
+	rows := make([][]string, 0, len(visitors))
+	for _, visitor := range visitors {
 		rows = append(rows, []string{
 			formatVisitorTimestamp(visitor.GetCreatedAt()),
 			visitor.GetPath(),
@@ -145,26 +122,22 @@ func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) strin
 	return shared.ExportCSV(w, shared.ExportFilename("visitor-activity"), headers, rows)
 }
 
-// ToTag renders the controller to an HTML tag
-func (c *Controller) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterface {
-	return hb.Raw(c.Handler(w, r))
-}
-
-// == PRIVATE METHODS ==========================================================
-
-// page builds the main page layout
-func (c *Controller) page(data ControllerData) hb.TagInterface {
-	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
+// pageShell builds the page shell (breadcrumbs, header, nav) and embeds
+// the Vue.js visitor activity template. No DB queries are made here —
+// all data is loaded via AJAX from the per-section endpoints.
+func (c *Controller) pageShell(r *http.Request) hb.TagInterface {
+	breadcrumbs := shared.Breadcrumbs(r, []shared.Breadcrumb{
 		{
 			Name: "Home",
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Visitor Analytics",
-			URL:  shared.UrlHome(data.Request),
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Visitor Activity",
-			URL:  shared.UrlVisitorActivity(data.Request),
+			URL:  shared.UrlVisitorActivity(r),
 		},
 	})
 
@@ -176,8 +149,8 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Class("container").
 		Child(breadcrumbs).
 		Child(hb.HR()).
-		Child(shared.AdminHeaderUI(data.Request, c.UI.HomeURL)).
+		Child(shared.AdminHeaderUI(r, c.UI.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
-		Child(CardVisitorActivity(data, c.UI))
+		Child(hb.Raw(visitorActivityHTML))
 }

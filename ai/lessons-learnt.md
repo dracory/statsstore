@@ -40,6 +40,16 @@ Prefer this over re-deriving facts. Update it when you discover new non-obvious 
 - After every mutation (add/remove/delete), `loadIps()` is called to reload data from the server and confirm the change persisted.
 - No Notiflix, no Axios, no PRG pattern — pure Vue + fetch.
 
+## Visitor activity page conventions
+- The `admin/visitor-activity/` page follows the same Vue SPA pattern: embedded `visitor_activity.html` + `visitor_activity.js`, AJAX POST for list data, `api.Respond` for JSON.
+- The AJAX handler (`handle_list_ajax.go`) returns visitor rows as JSON with all formatting computed server-side (icon classes, location string, session label, duration, system summary). The Vue template just renders the pre-formatted strings — no client-side formatting logic.
+- Pagination, filters, and per-page selector are all Vue-managed (reactive refs), not URL-based. Changing page/filters calls `fetchList()` which POSTs to `list-ajax` with `page`, `per_page`, `range`, `country`, `device` in the FormData body.
+- The detail modal is a Bootstrap modal shown via `bootstrap.Modal` instance (ref to modal element), not via `data-bs-toggle` attributes. Visitor data is passed through `selectedVisitor` ref.
+- CSV export stays as GET (`action=export`) — it's a download link, not AJAX. The export handler reads filters from `req.GetString` (same as list-ajax).
+- Old server-rendered files (`card-visitor-activity.go`, `modal_visitor_detail.go`) were deleted; `helpers.go` was stripped to just `formatVisitorTimestamp` and `formatVisitDuration`. `ControllerData` was removed from `types.go`.
+- `parseFiltersFromReq(r)` in `handle_list_ajax.go` replaces the old `parseFilters(url.Values)` — uses `req.GetString` instead of `r.URL.Query().Get`.
+- HTMX and SweetAlert2 are no longer loaded — replaced by Vue reactivity and native `confirm()`.
+
 ## Behavior quirks
 - **Geo-IP enrichment is manual.** `VisitorEnhance` is NOT auto-invoked. It must be driven from a cron/goroutine, only updates rows where `country` is empty, and returns the count of fully processed (country+UA) rows. UA fields update even if geo lookup fails; country stays empty for retry.
 - Default `DefaultGeoIPResolver` calls the free ip2c.org service with a built-in **2s delay between calls** (rate limiting) and a 24h in-memory cache; localhost/private IPs return `"UN"` without a call. Swap in a custom `GeoIPResolver` for production.

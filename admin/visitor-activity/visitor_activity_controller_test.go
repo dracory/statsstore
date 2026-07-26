@@ -112,12 +112,12 @@ func TestVisitorActivityControllerHandlerSuccess(t *testing.T) {
 		t.Fatalf("unexpected title: %s", layout.title)
 	}
 
-	if len(layout.scripts) != 3 {
-		t.Fatalf("expected 3 scripts, got %d", len(layout.scripts))
+	if len(layout.scripts) != 1 {
+		t.Fatalf("expected 1 script, got %d", len(layout.scripts))
 	}
 
-	if !strings.Contains(layout.body, "Visitor Activity") {
-		t.Fatalf("expected body to contain page content, got: %s", layout.body)
+	if !strings.Contains(layout.body, "visitor-activity-app") {
+		t.Fatalf("expected body to contain Vue app div, got: %s", layout.body)
 	}
 
 	if !layout.renderCalled {
@@ -145,12 +145,12 @@ func TestVisitorActivityControllerHandlerError(t *testing.T) {
 		t.Fatalf("unexpected status: %d", rr.Code)
 	}
 
-	if len(layout.scripts) != 0 {
-		t.Fatalf("expected no scripts to be set on error, got %d", len(layout.scripts))
+	if len(layout.scripts) != 1 {
+		t.Fatalf("expected 1 script even on error (page shell still renders), got %d", len(layout.scripts))
 	}
 
-	if !strings.Contains(strings.ToLower(layout.body), "database operation failed") {
-		t.Fatalf("expected database operation failed error, got: %s", layout.body)
+	if !strings.Contains(layout.body, "visitor-activity-app") {
+		t.Fatalf("expected body to contain Vue app div, got: %s", layout.body)
 	}
 }
 
@@ -175,8 +175,8 @@ func TestVisitorActivityControllerEmptyState(t *testing.T) {
 		t.Fatalf("unexpected status: %d", rr.Code)
 	}
 
-	if !strings.Contains(layout.body, "No visitors recorded yet") {
-		t.Fatalf("expected empty state message in body, got: %s", layout.body)
+	if !strings.Contains(layout.body, "visitor-activity-app") {
+		t.Fatalf("expected body to contain Vue app div, got: %s", layout.body)
 	}
 }
 
@@ -214,12 +214,58 @@ func TestVisitorActivityControllerWithFilters(t *testing.T) {
 		t.Fatalf("unexpected status: %d", rr.Code)
 	}
 
-	if !strings.Contains(layout.body, "Country: US") {
-		t.Fatalf("expected country filter badge in body, got: %s", layout.body)
+	if !strings.Contains(layout.body, "visitor-activity-app") {
+		t.Fatalf("expected body to contain Vue app div, got: %s", layout.body)
+	}
+}
+
+func TestVisitorActivityListAjax(t *testing.T) {
+	store := newTestStore(t, true)
+
+	visitor := statsstore.NewVisitor().
+		SetID("visitor-1").
+		SetPath("/hello").
+		SetCountry("US").
+		SetCreatedAt("2023-01-02T15:04:05Z").
+		SetIpAddress("127.0.0.1").
+		SetUserDevice("Desktop").
+		SetFingerprint("fingerprint-same")
+
+	if err := store.VisitorCreate(context.Background(), visitor); err != nil {
+		t.Fatalf("failed to seed visitor: %v", err)
 	}
 
-	if !strings.Contains(layout.body, "Device: Desktop") {
-		t.Fatalf("expected device filter badge in body, got: %s", layout.body)
+	layout := &fakeLayout{renderReturn: "rendered"}
+
+	controller := New(shared.ControllerOptions{
+		Store:      store,
+		Layout:     layout,
+		HomeURL:    "https://admin.local",
+		WebsiteUrl: "https://example.com",
+	})
+
+	body := "action=list-ajax&page=1&per_page=10"
+	req := httptest.NewRequest(http.MethodPost, "/admin/visitor-activity", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+
+	controller.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d", rr.Code)
+	}
+
+	respBody := rr.Body.String()
+	if !strings.Contains(respBody, `"status":"success"`) {
+		t.Fatalf("expected success status in JSON, got: %s", respBody)
+	}
+
+	if !strings.Contains(respBody, `"visitor-1"`) {
+		t.Fatalf("expected visitor-1 in JSON, got: %s", respBody)
+	}
+
+	if !strings.Contains(respBody, `"totalCount":1`) {
+		t.Fatalf("expected totalCount 1 in JSON, got: %s", respBody)
 	}
 }
 
