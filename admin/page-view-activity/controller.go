@@ -1,21 +1,31 @@
 package pageviewactivity
 
 import (
+	_ "embed"
 	"net/http"
 	"strings"
 
+	"github.com/dracory/cdn"
 	"github.com/dracory/hb"
+	"github.com/dracory/req"
+	"github.com/dracory/statsstore"
 	"github.com/dracory/statsstore/admin/shared"
 )
 
+//go:embed page_view_activity.html
+var pageViewActivityHTML string
+
+//go:embed page_view_activity.js
+var pageViewActivityJS string
+
 // New creates a new page view activity controller.
 func New(ui ControllerOptions) http.Handler {
-	return &Controller{ui: ui}
+	return &Controller{UI: ui}
 }
 
 // Controller handles rendering the page view activity screen.
 type Controller struct {
-	ui ControllerOptions
+	UI ControllerOptions
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -25,71 +35,65 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Handler prepares the layout and returns the rendered HTML.
 func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
-	data, errorMessage := buildControllerData(r, c.ui.Store)
+	action := req.GetString(r, "action")
 
-	if action := r.URL.Query().Get("action"); action == "export" {
-		if errorMessage != "" {
-			w.WriteHeader(http.StatusInternalServerError)
-			return errorMessage
-		}
-		return c.exportCSV(w, data)
+	// AJAX endpoints for Vue.js
+	switch action {
+	case "list-ajax":
+		return c.handleListAjax(w, r)
+	case "export":
+		return c.handleExport(w, r)
 	}
 
-	c.ui.Layout.SetTitle("Page View Activity | Visitor Analytics")
+	c.UI.Layout.SetTitle("Page View Activity | Visitor Analytics")
 
-	if errorMessage != "" {
-		c.ui.Layout.SetBody(hb.Div().
-			Class("alert alert-danger").
-			Text(errorMessage).ToHTML())
-
-		return c.ui.Layout.Render(w, r)
+	scriptURLs := []string{
+		cdn.VueJs_3_5_32(),
 	}
 
 	scripts := []string{
-		`
-		if (!window.htmx) {
-			const loadHtmx = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = 'https://unpkg.com/htmx.org@1.9.6';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('HTMX loaded');
-			};
-			loadHtmx();
-		}
-		`,
-		`
-		if (!window.Swal) {
-			const loadSwal = async () => {
-				let script = document.createElement('script');
-				document.head.appendChild(script);
-				script.type = 'text/javascript';
-				script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
-				await new Promise(resolve => script.onload = resolve);
-				console.log('SweetAlert2 loaded');
-			};
-			loadSwal();
-		}
-		`,
-		`
-		document.addEventListener('DOMContentLoaded', function() {
-			var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-			tooltipTriggerList.map(function (el) {
-				return new bootstrap.Tooltip(el);
-			});
-		});
-		`,
+		pageViewActivityJS,
 	}
 
-	c.ui.Layout.SetBody(c.page(data).ToHTML())
-	c.ui.Layout.SetScripts(scripts)
+	c.UI.Layout.SetBody(c.pageShell(r).ToHTML())
+	c.UI.Layout.SetScriptURLs(scriptURLs)
+	c.UI.Layout.SetScripts(scripts)
 
-	return c.ui.Layout.Render(w, r)
+	return c.UI.Layout.Render(w, r)
 }
 
-// exportCSV generates and writes a CSV export of the current page view data.
-func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) string {
+// handleExport exports page view data as CSV
+func (c *Controller) handleExport(w http.ResponseWriter, r *http.Request) string {
+	filters := parseFiltersFromReq(r)
+	page := shared.ParseIntWithDefault(req.GetString(r, "page"), 1)
+	perPage := shared.ClampPerPage(shared.ParseIntWithDefault(req.GetString(r, "per_page"), 10))
+	offset := (page - 1) * perPage
+
+	options := statsstore.VisitorQuery().
+		SetLimit(perPage).
+		SetOffset(offset).
+		SetOrderBy(statsstore.COLUMN_CREATED_AT).
+		SetSortOrder("DESC")
+
+	if filters.Country != "" {
+		options = options.SetCountry(filters.Country)
+	}
+	if filters.From != "" {
+		options = options.SetCreatedAtGte(filters.From)
+	}
+	if filters.To != "" {
+		options = options.SetCreatedAtLte(filters.To)
+	}
+	if filters.Device != "" {
+		options = options.SetDeviceType(filters.Device)
+	}
+
+	visitors, err := c.UI.Store.VisitorList(r.Context(), options)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return err.Error()
+	}
+
 	headers := []string{
 		"Date",
 		"Time",
@@ -104,15 +108,15 @@ func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) strin
 		"User Agent",
 	}
 
-	rows := make([][]string, 0, len(data.Visitors))
-	for _, visitor := range data.Visitors {
+	rows := make([][]string, 0, len(visitors))
+	for _, visitor := range visitors {
 		date, timeStr := splitTimestamp(visitor.GetCreatedAt())
 		rows = append(rows, []string{
 			date,
 			timeStr,
 			visitor.GetPath(),
-			shared.FullPathURL(c.ui, visitor.GetPath()),
-			shared.ResolvedCountryName(c.ui, visitor.GetCountry()),
+			shared.FullPathURL(c.UI, visitor.GetPath()),
+			shared.ResolvedCountryName(c.UI, visitor.GetCountry()),
 			visitor.GetIpAddress(),
 			visitor.GetUserReferrer(),
 			visitor.GetUserDevice(),
@@ -125,25 +129,22 @@ func (c *Controller) exportCSV(w http.ResponseWriter, data ControllerData) strin
 	return shared.ExportCSV(w, shared.ExportFilename("page-view-activity"), headers, rows)
 }
 
-// ToTag renders the controller to an HTML tag (useful for embedding).
-func (c *Controller) ToTag(w http.ResponseWriter, r *http.Request) hb.TagInterface {
-	return hb.Raw(c.Handler(w, r))
-}
-
-// page constructs the main page container.
-func (c *Controller) page(data ControllerData) hb.TagInterface {
-	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
+// pageShell builds the page shell (breadcrumbs, header, nav) and embeds
+// the Vue.js page view activity template. No DB queries are made here —
+// all data is loaded via AJAX from the per-section endpoints.
+func (c *Controller) pageShell(r *http.Request) hb.TagInterface {
+	breadcrumbs := shared.Breadcrumbs(r, []shared.Breadcrumb{
 		{
 			Name: "Home",
-			URL:  c.ui.HomeURL,
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Visitor Analytics",
-			URL:  shared.UrlHome(data.Request),
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Page View Activity",
-			URL:  shared.UrlPageViewActivity(data.Request),
+			URL:  shared.UrlPageViewActivity(r),
 		},
 	})
 
@@ -155,8 +156,8 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Class("container").
 		Child(breadcrumbs).
 		Child(hb.HR()).
-		Child(shared.AdminHeaderUI(data.Request, c.ui.HomeURL)).
+		Child(shared.AdminHeaderUI(r, c.UI.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
-		Child(CardPageViewActivity(data, c.ui))
+		Child(hb.Raw(pageViewActivityHTML))
 }
