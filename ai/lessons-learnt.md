@@ -27,6 +27,19 @@ Prefer this over re-deriving facts. Update it when you discover new non-obvious 
 - **Export is NOT AJAX.** CSV export (`action=export`) stays as GET — it's a download link (`<a :href="...">`), not a fetch call.
 - **JS response envelope.** `fetchSection()` checks `data.status === 'success'` (not `=== 'error'`) and unwraps `data.data`. Never check `resp.ok` — HTTP status is always 200.
 
+## Dev workflow
+- **Use `air` for hot-reload during development.** Run `air` from `examples/admin-demo/` (has `.air.toml`). It watches `.go`, `.html`, `.js`, `.css` files and auto-rebuilds/restarts the demo server on changes. This avoids manual restarts and repeated command approvals.
+- **Chrome DevTools MCP for visual verification.** Use the `chrome-devtools` MCP server to navigate to `http://localhost:8080/admin/home`, take snapshots, inspect network requests, and verify AJAX responses. The a11y snapshot may show stale `{{ }}` Vue template tags — check actual Vue state via `evaluate_script` on `app._container._vnode.component.setupState` to confirm data is loaded.
+- **Screenshots can't be saved to subdirectories.** The `mcp3_take_screenshot` tool with `filePath` only works within workspace root, not subdirectories. Use `fullPage: true` without `filePath` to capture inline.
+
+## Settings page conventions
+- The `admin/settings/` page follows the **same Vue.js SPA pattern** as `admin/home/`: embedded `settings.html` + `settings.js`, AJAX POST endpoints via `fetch` + `FormData`, `api.Respond` for all JSON responses, JS checks `data.status === 'success'` and unwraps `data.data`.
+- Each AJAX handler is in its own file (`handle_list_ajax.go`, `handle_add_ip_ajax.go`, `handle_remove_ip_ajax.go`, `handle_delete_visitors_ajax.go`), matching the `admin/home/` convention.
+- No HTML `<form>` elements — use `<div>` with `v-model` + `@click`/`@keyup.enter` for input, all actions go through Vue + AJAX.
+- `<template v-if="loaded">` wraps all content so nothing renders in the DOM until Vue has mounted and loaded data.
+- After every mutation (add/remove/delete), `loadIps()` is called to reload data from the server and confirm the change persisted.
+- No Notiflix, no Axios, no PRG pattern — pure Vue + fetch.
+
 ## Behavior quirks
 - **Geo-IP enrichment is manual.** `VisitorEnhance` is NOT auto-invoked. It must be driven from a cron/goroutine, only updates rows where `country` is empty, and returns the count of fully processed (country+UA) rows. UA fields update even if geo lookup fails; country stays empty for retry.
 - Default `DefaultGeoIPResolver` calls the free ip2c.org service with a built-in **2s delay between calls** (rate limiting) and a 24h in-memory cache; localhost/private IPs return `"UN"` without a call. Swap in a custom `GeoIPResolver` for production.

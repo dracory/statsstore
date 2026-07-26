@@ -32,6 +32,7 @@
             const dailyError = ref('');
             const trafficError = ref('');
             const heatmapError = ref('');
+            const loaded = ref(false);
 
             const exportUrl = computed(() => {
                 return window.location.pathname + '?path=/admin/home&action=export&period=' + selectedPeriod.value;
@@ -125,6 +126,7 @@
                 fetchOverview(period);
                 fetchComparison(period);
                 fetchDashboardData(period);
+                loaded.value = true;
             }
 
             function renderChart(labels, uniqueVisits, totalVisits) {
@@ -233,6 +235,7 @@
                 trafficCards, heatmap, metrics, selectedMetric, chartCanvas,
                 loadingOverview, loadingComparison, loadingDaily, loadingTraffic, loadingHeatmap,
                 overviewError, comparisonError, dailyError, trafficError, heatmapError,
+                loaded,
                 exportUrl, visitorActivityUrl, visitorPathsUrl,
                 onPeriodChange, toggleChartType, heatmapColor
             };

@@ -1,15 +1,20 @@
 package settings
 
 import (
-	"encoding/json"
-	"fmt"
+	_ "embed"
 	"net/http"
-	"strings"
 
 	"github.com/dracory/cdn"
 	"github.com/dracory/hb"
+	"github.com/dracory/req"
 	"github.com/dracory/statsstore/admin/shared"
 )
+
+//go:embed settings.html
+var settingsHTML string
+
+//go:embed settings.js
+var settingsJS string
 
 // New creates a new settings controller
 func New(ui ControllerOptions) http.Handler {
@@ -28,165 +33,53 @@ func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Handler renders the controller output using the shared layout
 func (c *Controller) Handler(w http.ResponseWriter, r *http.Request) string {
-	action := r.URL.Query().Get("action")
+	action := req.GetString(r, "action")
 
-	// Handle POST actions (add/remove IP)
-	if r.Method == http.MethodPost {
-		return c.handlePost(w, r, action)
+	// AJAX endpoints for Vue.js
+	switch action {
+	case "list-ajax":
+		return c.handleListAjax(w, r)
+	case "add-ip-ajax":
+		return c.handleAddIpAjax(w, r)
+	case "remove-ip-ajax":
+		return c.handleRemoveIpAjax(w, r)
+	case "delete-visitors-ajax":
+		return c.handleDeleteVisitorsAjax(w, r)
 	}
-
-	// Add Notiflix and Axios for AJAX interactions
-	c.UI.Layout.SetStyleURLs([]string{cdn.Notiflix_3_2_8_CSS()})
-	c.UI.Layout.SetScriptURLs([]string{
-		cdn.Notiflix_3_2_8(),
-		"https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js",
-	})
-	c.UI.Layout.SetScripts([]string{`
-		Notiflix.Notify.init({ position: 'right-top', timeout: 4000 });
-		function deleteVisitorsByIP(ip, url) {
-			Notiflix.Confirm.show(
-				'Delete Visitor Records',
-				'Permanently delete ALL visitor records from IP ' + ip + '? This cannot be undone.',
-				'Yes, Delete',
-				'Cancel',
-				function() {
-					var formData = new FormData();
-					formData.append('ip_address', ip);
-					axios.post(url, formData)
-						.then(function(response) {
-							var data = response.data;
-							if (data.success) {
-								Notiflix.Notify.success(data.message);
-								setTimeout(function() { window.location.reload(); }, 1500);
-							} else {
-								Notiflix.Notify.failure(data.message);
-							}
-						})
-						.catch(function(error) {
-							var msg = error.response && error.response.data && error.response.data.message
-								? error.response.data.message : 'Request failed';
-							Notiflix.Notify.failure(msg);
-						});
-				}
-			);
-		}
-	`})
 
 	c.UI.Layout.SetTitle("Settings | Visitor Analytics")
 
-	data, err := c.prepareData(r)
-
-	if err != nil {
-		c.UI.Layout.SetBody(hb.Div().
-			Class("alert alert-danger").
-			Text(err.Error()).ToHTML())
-		return c.UI.Layout.Render(w, r)
+	scriptURLs := []string{
+		cdn.VueJs_3_5_32(),
 	}
 
-	c.UI.Layout.SetBody(c.page(data).ToHTML())
+	scripts := []string{
+		settingsJS,
+	}
+
+	c.UI.Layout.SetBody(c.pageShell(r).ToHTML())
+	c.UI.Layout.SetScriptURLs(scriptURLs)
+	c.UI.Layout.SetScripts(scripts)
+
 	return c.UI.Layout.Render(w, r)
 }
 
-// handlePost processes form submissions for adding/removing excluded IPs
-func (c *Controller) handlePost(w http.ResponseWriter, r *http.Request, action string) string {
-	if err := r.ParseForm(); err != nil {
-		if action == "delete_visitors_by_ip" {
-			return c.jsonError(w, "Failed to parse form: "+err.Error())
-		}
-		c.UI.Layout.SetTitle("Settings | Visitor Analytics")
-		c.UI.Layout.SetBody(hb.Div().
-			Class("alert alert-danger").
-			Text("Failed to parse form: " + err.Error()).ToHTML())
-		return c.UI.Layout.Render(w, r)
-	}
-
-	var actionError string
-
-	switch action {
-	case "add_ip":
-		ip := strings.TrimSpace(r.FormValue("ip_address"))
-		if ip == "" {
-			actionError = "IP address cannot be empty"
-		} else if err := c.UI.Store.ExcludedIPAdd(r.Context(), ip); err != nil {
-			actionError = err.Error()
-		}
-
-	case "remove_ip":
-		ip := strings.TrimSpace(r.FormValue("ip_address"))
-		if ip == "" {
-			actionError = "IP address cannot be empty"
-		} else if err := c.UI.Store.ExcludedIPRemove(r.Context(), ip); err != nil {
-			actionError = err.Error()
-		}
-
-	case "delete_visitors_by_ip":
-		ip := strings.TrimSpace(r.FormValue("ip_address"))
-		if ip == "" {
-			return c.jsonError(w, "IP address cannot be empty")
-		}
-		count, err := c.UI.Store.VisitorDeleteByIP(r.Context(), ip)
-		if err != nil {
-			return c.jsonError(w, err.Error())
-		}
-		return c.jsonSuccess(w, fmt.Sprintf("Deleted %d visitor record(s) for IP %s", count, ip))
-	}
-
-	// Redirect back to settings page (PRG pattern)
-	redirectURL := shared.UrlSettings(r)
-	if actionError != "" {
-		redirectURL = shared.UrlSettings(r, map[string]string{"error": actionError})
-	}
-
-	w.Header().Set("Location", redirectURL)
-	w.WriteHeader(http.StatusSeeOther)
-	return ""
-}
-
-// jsonSuccess writes a JSON success response
-func (c *Controller) jsonSuccess(w http.ResponseWriter, message string) string {
-	w.Header().Set("Content-Type", "application/json")
-	resp, _ := json.Marshal(map[string]any{"success": true, "message": message})
-	return string(resp)
-}
-
-// jsonError writes a JSON error response
-func (c *Controller) jsonError(w http.ResponseWriter, message string) string {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
-	resp, _ := json.Marshal(map[string]any{"success": false, "message": message})
-	return string(resp)
-}
-
-// prepareData loads the current excluded IPs list
-func (c *Controller) prepareData(r *http.Request) (ControllerData, error) {
-	data := ControllerData{
-		Request: r,
-	}
-
-	ips, err := c.UI.Store.ExcludedIPList(r.Context())
-	if err != nil {
-		return data, err
-	}
-
-	data.ExcludedIPs = ips
-	data.ErrorMessage = r.URL.Query().Get("error")
-
-	return data, nil
-}
-
-// page builds the main page layout
-func (c *Controller) page(data ControllerData) hb.TagInterface {
-	breadcrumbs := shared.Breadcrumbs(data.Request, []shared.Breadcrumb{
+// pageShell builds the page shell (breadcrumbs, header, nav) and embeds
+// the Vue.js settings template from settings.html. No DB queries are made here —
+// all data is loaded via AJAX from the per-section endpoints.
+func (c *Controller) pageShell(r *http.Request) hb.TagInterface {
+	breadcrumbs := shared.Breadcrumbs(r, []shared.Breadcrumb{
 		{
 			Name: "Home",
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Visitor Analytics",
-			URL:  shared.UrlHome(data.Request),
+			URL:  shared.UrlHome(r),
 		},
 		{
 			Name: "Settings",
-			URL:  shared.UrlSettings(data.Request),
+			URL:  shared.UrlSettings(r),
 		},
 	})
 
@@ -198,124 +91,8 @@ func (c *Controller) page(data ControllerData) hb.TagInterface {
 		Class("container").
 		Child(breadcrumbs).
 		Child(hb.HR()).
-		Child(shared.AdminHeaderUI(data.Request, c.UI.HomeURL)).
+		Child(shared.AdminHeaderUI(r, c.UI.HomeURL)).
 		Child(hb.HR()).
 		Child(title).
-		Child(c.excludedIPsCard(data))
-}
-
-// excludedIPsCard renders the excluded IPs management card
-func (c *Controller) excludedIPsCard(data ControllerData) hb.TagInterface {
-	// Error alert
-	var errorAlert hb.TagInterface
-	if data.ErrorMessage != "" {
-		errorAlert = hb.Div().
-			Class("alert alert-danger alert-dismissible fade show").
-			Attr("role", "alert").
-			Child(hb.Text(data.ErrorMessage)).
-			Child(hb.Button().
-				Class("btn-close").
-				Attr("type", "button").
-				Attr("data-bs-dismiss", "alert").
-				Attr("aria-label", "Close"))
-	}
-
-	// Add IP form
-	addForm := hb.Form().
-		Class("d-flex gap-2").
-		Attr("method", "POST").
-		Attr("action", shared.UrlSettings(data.Request, map[string]string{"action": "add_ip"})).
-		Child(hb.Input().
-			Class("form-control").
-			Attr("type", "text").
-			Attr("name", "ip_address").
-			Attr("placeholder", "e.g. 192.168.1.1").
-			Attr("required", "required")).
-		Child(hb.Button().
-			Class("btn btn-primary").
-			Attr("type", "submit").
-			HTML("<i class=\"bi bi-plus-circle\"></i> Add IP"))
-
-	// Current excluded IPs table
-	var tableBody hb.TagInterface
-	if len(data.ExcludedIPs) == 0 {
-		tableBody = hb.TBody().
-			Child(hb.TR().
-				Child(hb.TD().
-					Class("text-center text-muted py-3").
-					Attr("colspan", "3").
-					Text("No excluded IPs. Add one above.")))
-	} else {
-		tbody := hb.TBody()
-		for _, ip := range data.ExcludedIPs {
-			// Delete visitors by IP form
-			deleteVisitorsBtn := hb.Button().
-				Class("btn btn-sm btn-outline-danger").
-				Attr("type", "button").
-				Attr("title", "Delete all visitor records from this IP").
-				Attr("onclick", fmt.Sprintf("deleteVisitorsByIP('%s', '%s')", ip, shared.UrlSettings(data.Request, map[string]string{"action": "delete_visitors_by_ip"}))).
-				HTML("<i class=\"bi bi-trash\"></i> Delete Stats")
-
-			// Remove from excluded list form
-			removeForm := hb.Form().
-				Class("d-inline").
-				Attr("method", "POST").
-				Attr("action", shared.UrlSettings(data.Request, map[string]string{"action": "remove_ip"})).
-				Child(hb.Input().
-					Attr("type", "hidden").
-					Attr("name", "ip_address").
-					Attr("value", ip)).
-				Child(hb.Button().
-					Class("btn btn-sm btn-outline-secondary").
-					Attr("type", "submit").
-					Attr("title", "Remove from exclusion list").
-					HTML("<i class=\"bi bi-x-circle\"></i> Stop Excluding"))
-
-			tbody = tbody.Child(hb.TR().
-				Child(hb.TD().
-					Class("align-middle font-monospace").
-					Text(ip)).
-				Child(hb.TD().
-					Class("align-middle text-nowrap").
-					Child(deleteVisitorsBtn)).
-				Child(hb.TD().
-					Class("align-middle text-nowrap").
-					Child(removeForm)))
-		}
-		tableBody = tbody
-	}
-
-	table := hb.Table().
-		Class("table table-striped table-hover mb-0").
-		Child(hb.Thead().
-			Child(hb.TR().
-				Child(hb.TH().Class("w-50").Text("IP Address")).
-				Child(hb.TH().Class("text-center").Text("Delete Stats")).
-				Child(hb.TH().Class("text-center").Text("Stop Excluding")))).
-		Child(tableBody)
-
-	cardBody := hb.Div().Class("card-body")
-
-	if errorAlert != nil {
-		cardBody = cardBody.Child(errorAlert)
-	}
-
-	cardBody = cardBody.
-		Child(hb.P().
-			Class("text-muted small mb-3").
-			Text("IP addresses in this list are excluded from visitor tracking. New visits from these IPs will not be recorded. You can also permanently delete existing visitor records for a given IP.")).
-		Child(addForm).
-		Child(hb.HR().Class("my-3")).
-		Child(hb.Div().
-			Class("table-responsive").
-			Child(table))
-
-	return hb.Div().
-		Class("card shadow-sm mb-4").
-		Child(hb.Div().
-			Class("card-header").
-			Child(hb.Heading4().
-				Class("card-title mb-0").
-				HTML("<i class=\"bi bi-shield-exclamation\"></i> Excluded IP Addresses"))).
-		Child(cardBody)
+		Child(hb.Raw(settingsHTML))
 }

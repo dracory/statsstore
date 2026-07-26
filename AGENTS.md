@@ -18,6 +18,9 @@ It is a **library**, not a standalone service: consumers embed `admin.New(...)` 
 ## Architecture / package boundaries
 - Root package `statsstore` — core library: `Store` (`store*.go`), `Visitor` (`visitor*.go`), geo-IP enrichment (`geo_ip.go`), bot filtering (`bot_filter.go`). Entrypoint: `NewStore(NewStoreOptions{...})`.
 - `admin/` — framework-agnostic admin dashboard. `admin.New(options)` returns an `http.Handler`. The dashboard UI is a **Vue.js SPA embedded as `admin/home/home.html` + `home.js`**; there is NO separate JS/frontend build step.
+- `admin/home/` — dashboard home page with per-section AJAX endpoints (`overview-ajax`, `comparison-ajax`, `dashboard-data-ajax`, `live-ajax`, `export`).
+- `admin/settings/` — settings page controller.
+- `admin/visitor-activity/`, `admin/visitor-paths/`, `admin/page-view-activity/` — additional admin pages.
 - `examples/admin-demo/` — a self-contained demo app wiring the store + admin together; use it to exercise the library end-to-end.
 - `docs/` — design notes and proposals (some are aspirational; `docs/overview.md` references goqu/`sb` builders that are NOT in the current `go.mod`, so trust code over those docs).
 
