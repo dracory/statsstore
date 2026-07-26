@@ -104,7 +104,7 @@ func (c *Controller) handleListAjax(w http.ResponseWriter, r *http.Request) stri
 			ID:          v.GetID(),
 			CreatedAt:   v.GetCreatedAt(),
 			VisitTime:   formatVisitorTimestamp(v.GetCreatedAt()),
-			Path:        v.GetPath(),
+			Path:        shared.StripMethodPrefix(v.GetPath()),
 			Country:     v.GetCountry(),
 			CountryCode: strings.ToUpper(strings.TrimSpace(v.GetCountry())),
 			CountryName: shared.ResolvedCountryName(c.UI, v.GetCountry()),

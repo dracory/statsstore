@@ -108,7 +108,7 @@ func (c *visitorPathsController) handleListAjax(w http.ResponseWriter, r *http.R
 	for _, v := range visitors {
 		pj := pathJSON{
 			ID:           v.GetID(),
-			Path:         v.GetPath(),
+			Path:         shared.StripMethodPrefix(v.GetPath()),
 			AbsoluteURL:  shared.FullPathURL(c.ui, v.GetPath()),
 			VisitTime:    shared.FormatTimestamp(v.GetCreatedAt()),
 			Country:      v.GetCountry(),
@@ -133,7 +133,7 @@ func (c *visitorPathsController) handleListAjax(w http.ResponseWriter, r *http.R
 		}
 		pj.BrowserLabel = browser
 
-		drillParams := map[string]string{"path": v.GetPath(), "page": "1"}
+		drillParams := map[string]string{"page": "1"}
 		pj.DrillDownURL = shared.UrlVisitorActivity(r, drillParams)
 
 		pathList = append(pathList, pj)

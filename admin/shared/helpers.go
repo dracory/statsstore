@@ -178,12 +178,23 @@ func FormatLocation(ui ControllerOptions, visitor statsstore.VisitorInterface) s
 
 // == URL HELPERS ===============================================================
 
+// StripMethodPrefix removes any "[METHOD] " prefix from a path string.
+// Some consumers store paths like "[GET] /shop/product/1" — this returns "/shop/product/1".
+func StripMethodPrefix(path string) string {
+	if idx := strings.Index(path, "] "); idx >= 0 && strings.HasPrefix(path, "[") {
+		return strings.TrimSpace(path[idx+2:])
+	}
+	return path
+}
+
 // FullPathURL builds an absolute URL from a website base URL and a path.
 func FullPathURL(ui ControllerOptions, path string) string {
 	base := ui.WebsiteUrl
 	if base == "" {
 		return path
 	}
+
+	path = StripMethodPrefix(path)
 
 	u, err := url.Parse(base)
 	if err != nil {

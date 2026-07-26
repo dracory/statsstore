@@ -109,7 +109,7 @@ func (c *Controller) handleExport(w http.ResponseWriter, r *http.Request) string
 	for _, visitor := range visitors {
 		rows = append(rows, []string{
 			formatVisitorTimestamp(visitor.GetCreatedAt()),
-			visitor.GetPath(),
+			shared.StripMethodPrefix(visitor.GetPath()),
 			strings.ToUpper(visitor.GetCountry()),
 			visitor.GetIpAddress(),
 			visitor.GetUserReferrer(),

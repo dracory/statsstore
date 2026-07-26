@@ -100,7 +100,7 @@ func (c *Controller) handleListAjax(w http.ResponseWriter, r *http.Request) stri
 			ID:          v.GetID(),
 			Date:        date,
 			Time:        timeStr,
-			Path:        v.GetPath(),
+			Path:        shared.StripMethodPrefix(v.GetPath()),
 			AbsoluteURL: shared.FullPathURL(c.UI, v.GetPath()),
 			Country:     v.GetCountry(),
 			CountryCode: strings.ToUpper(strings.TrimSpace(v.GetCountry())),
@@ -140,11 +140,11 @@ func (c *Controller) handleListAjax(w http.ResponseWriter, r *http.Request) stri
 	}
 
 	api.Respond(w, r, api.SuccessWithData("success", map[string]any{
-		"pageViews":   pageViewList,
-		"page":        page,
-		"totalPages":  totalPages,
-		"pageSize":    perPage,
-		"totalCount":  totalCount,
+		"pageViews":  pageViewList,
+		"page":       page,
+		"totalPages": totalPages,
+		"pageSize":   perPage,
+		"totalCount": totalCount,
 	}))
 
 	return ""

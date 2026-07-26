@@ -114,7 +114,7 @@ func (c *Controller) handleExport(w http.ResponseWriter, r *http.Request) string
 		rows = append(rows, []string{
 			date,
 			timeStr,
-			visitor.GetPath(),
+			shared.StripMethodPrefix(visitor.GetPath()),
 			shared.FullPathURL(c.UI, visitor.GetPath()),
 			shared.ResolvedCountryName(c.UI, visitor.GetCountry()),
 			visitor.GetIpAddress(),

@@ -125,7 +125,7 @@ func (c *visitorPathsController) handleExport(w http.ResponseWriter, r *http.Req
 		absoluteURL := shared.FullPathURL(c.ui, visitor.GetPath())
 		rows = append(rows, []string{
 			shared.FormatTimestamp(visitor.GetCreatedAt()),
-			visitor.GetPath(),
+			shared.StripMethodPrefix(visitor.GetPath()),
 			absoluteURL,
 			shared.ResolvedCountryName(c.ui, visitor.GetCountry()),
 			visitor.GetIpAddress(),
