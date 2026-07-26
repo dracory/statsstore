@@ -1,50 +1,14 @@
 package home
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dracory/statsstore"
-	"github.com/dromara/carbon/v2"
 )
-
-// handleTrafficAjax returns the traffic source breakdown cards as JSON.
-// This loads visitors for the current period only.
-func (c *Controller) handleTrafficAjax(w http.ResponseWriter, r *http.Request) string {
-	w.Header().Set("Content-Type", "application/json")
-
-	periodBounds, err := c.getPeriodBounds(r)
-	if err != "" {
-		return fmt.Sprintf(`{"error":%q}`, err)
-	}
-
-	visitors, dbErr := c.ui.Store.VisitorList(r.Context(), statsstore.VisitorQuery().
-		SetCreatedAtGte(periodBounds.createdAtGte).
-		SetCreatedAtLte(periodBounds.createdAtLte))
-	if dbErr != nil {
-		return fmt.Sprintf(`{"error":%q}`, dbErr.Error())
-	}
-
-	data := ControllerData{
-		visitors: visitors,
-		ui:       c.ui,
-	}
-
-	tsd := computeTrafficSources(data)
-	trafficCards := buildTrafficCardsJSON(tsd)
-
-	result := map[string]any{
-		"trafficCards": trafficCards,
-	}
-
-	b, _ := json.Marshal(result)
-	return string(b)
-}
 
 func buildTrafficCardsJSON(tsd trafficSourcesData) []trafficCardJSON {
 	ensure := func(entries []trafficSourceEntry, label string) []trafficSourceEntry {
@@ -123,7 +87,6 @@ type trafficSourcesData struct {
 	Browsers         []trafficSourceEntry
 	Countries        []trafficSourceEntry
 	Events           []trafficSourceEntry
-	Heatmap          weeklyHeatmapData
 	Channels         []trafficSourceEntry
 	Sources          []trafficSourceEntry
 	Mediums          []trafficSourceEntry
@@ -149,6 +112,8 @@ type weeklyHeatmapData struct {
 // computeTrafficSources derives all traffic-source breakdowns from the
 // visitor list stored in ControllerData.  Every number shown in the admin
 // dashboard is computed from real records – nothing is hardcoded.
+// Visitors are iterated exactly once for all non-session-based breakdowns.
+// Session-based breakdowns (entry/exit pages) share a single session map.
 func computeTrafficSources(data ControllerData) trafficSourcesData {
 	visitors := data.visitors
 
@@ -156,6 +121,16 @@ func computeTrafficSources(data ControllerData) trafficSourcesData {
 	pageCounts := map[string]int64{}
 	browserCounts := map[string]int64{}
 	countryCounts := map[string]int64{}
+	eventCounts := map[string]int64{}
+	channelCounts := map[string]int64{}
+	sourceCounts := map[string]int64{}
+	mediumCounts := map[string]int64{}
+	campaignCounts := map[string]int64{}
+	termCounts := map[string]int64{}
+	deviceCounts := map[string]int64{}
+	osCounts := map[string]int64{}
+	languageCounts := map[string]int64{}
+	outboundCounts := map[string]int64{}
 
 	for _, v := range visitors {
 		referrer := normalizeReferrer(v.GetUserReferrer())
@@ -183,26 +158,112 @@ func computeTrafficSources(data ControllerData) trafficSourcesData {
 			}
 		}
 		countryCounts[country]++
+
+		// Events
+		if path := strings.TrimSpace(v.GetPath()); path != "" {
+			lower := strings.ToLower(path)
+			for _, prefix := range []string{"/event/", "/track/"} {
+				if strings.HasPrefix(lower, prefix) {
+					name := strings.TrimSpace(path[len(prefix):])
+					if name == "" {
+						name = "unnamed"
+					}
+					eventCounts[name]++
+					break
+				}
+			}
+		}
+
+		// Channels, Sources, Mediums
+		rawReferrer := strings.TrimSpace(v.GetUserReferrer())
+		domain := extractDomain(rawReferrer)
+		channelCounts[classifyChannel(domain)]++
+		if rawReferrer == "" {
+			sourceCounts["(Direct)"]++
+		} else {
+			if domain == "" {
+				domain = "(Direct)"
+			}
+			sourceCounts[domain]++
+		}
+		mediumCounts[classifyMedium(rawReferrer)]++
+
+		// Campaigns, Terms
+		if u := parseReferrerURL(rawReferrer); u != nil {
+			if campaign := strings.TrimSpace(u.Query().Get("utm_campaign")); campaign != "" {
+				campaignCounts[campaign]++
+			}
+			if term := strings.TrimSpace(u.Query().Get("utm_term")); term != "" {
+				termCounts[term]++
+			}
+		}
+
+		// Devices, OS, Languages
+		device := strings.TrimSpace(v.GetUserDeviceType())
+		if device == "" {
+			device = "Unknown"
+		}
+		device = strings.Title(strings.ToLower(device))
+		deviceCounts[device]++
+
+		os := strings.TrimSpace(v.GetUserOs())
+		if os == "" {
+			os = "Unknown"
+		}
+		osCounts[os]++
+
+		if lang := strings.TrimSpace(v.GetUserAcceptLanguage()); lang != "" {
+			parts := strings.Split(lang, ",")
+			primary := strings.TrimSpace(parts[0])
+			if idx := strings.Index(primary, ";"); idx > 0 {
+				primary = primary[:idx]
+			}
+			if idx := strings.Index(primary, "-"); idx > 0 {
+				primary = strings.ToUpper(primary[:idx])
+			} else {
+				primary = strings.ToUpper(primary)
+			}
+			if primary != "" {
+				languageCounts[primary]++
+			}
+		}
+
+		// Outbound links
+		rawPath := v.GetPath()
+		if rawPath != "" && rawPath != "/" {
+			lower := strings.ToLower(rawPath)
+			if strings.HasPrefix(lower, "/outbound/") || strings.HasPrefix(lower, "/out/") {
+				name := strings.TrimSpace(rawPath[strings.Index(lower, "/")+1:])
+				name = strings.TrimPrefix(name, "outbound/")
+				name = strings.TrimPrefix(name, "out/")
+				if name == "" {
+					name = "unnamed"
+				}
+				outboundCounts[name]++
+			}
+		}
 	}
+
+	// Session-based: entry + exit pages from a single session map
+	entryCounts, exitCounts := computeEntryExitPagesSinglePass(visitors)
 
 	return trafficSourcesData{
 		Referrers:        topEntries(referrerCounts, 10),
 		Pages:            topEntries(pageCounts, 10),
 		Browsers:         topEntries(browserCounts, 10),
 		Countries:        topEntries(countryCounts, 10),
-		Events:           computeEvents(visitors),
-		Heatmap:          computeHeatmap(visitors),
-		Channels:         computeChannels(visitors),
-		Sources:          computeSources(visitors),
-		Mediums:          computeMediums(visitors),
-		Campaigns:        computeCampaigns(visitors),
-		Terms:            computeTerms(visitors),
-		EntryPages:       computeEntryExitPages(visitors, true),
-		ExitPages:        computeEntryExitPages(visitors, false),
-		Devices:          computeDevices(visitors),
-		OperatingSystems: computeOperatingSystems(visitors),
-		Languages:        computeLanguages(visitors),
-		OutboundLinks:    computeOutboundLinks(visitors),
+		Events:           topEntries(eventCounts, 10),
+		Channels:         topEntries(channelCounts, 10),
+		Sources:          topEntries(sourceCounts, 10),
+		Mediums:          topEntries(mediumCounts, 10),
+		Campaigns:        topEntries(campaignCounts, 10),
+		Terms:            topEntries(termCounts, 10),
+		EntryPages:       topEntries(entryCounts, 10),
+		ExitPages:        topEntries(exitCounts, 10),
+		Devices:          topEntries(deviceCounts, 10),
+		OperatingSystems: topEntries(osCounts, 10),
+		Languages:        topEntries(languageCounts, 10),
+		OutboundLinks:    topEntries(outboundCounts, 10),
 	}
 }
 
@@ -257,38 +318,11 @@ func formatDecimal(f float64) string {
 }
 
 func formatInt(n int64) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	digits := []byte{}
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	if neg {
-		digits = append([]byte{'-'}, digits...)
-	}
-	return string(digits)
+	return strconv.FormatInt(n, 10)
 }
 
 func formatFloat(f float64) string {
-	// Simple float formatting with 1 decimal place
-	s := formatInt(int64(f))
-	remainder := f - float64(int64(f))
-	if remainder < 0 {
-		remainder = -remainder
-	}
-	decDigit := int(remainder*10 + 0.5)
-	if decDigit == 10 {
-		decDigit = 0
-		// Round up the integer part
-		s = formatInt(int64(f) + 1)
-	}
-	return s + "." + string(byte('0'+decDigit))
+	return strconv.FormatFloat(f, 'f', 1, 64)
 }
 
 // normalizeReferrer extracts the domain from a referrer URL and strips
@@ -307,35 +341,6 @@ func normalizeReferrer(referrer string) string {
 		referrer = referrer[:idx]
 	}
 	return referrer
-}
-
-// computeEvents extracts custom event labels from visitor paths that look
-// like event endpoints (e.g. /event/signup).  Visitors without an event
-// pattern are ignored.
-func computeEvents(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	eventCounts := map[string]int64{}
-	for _, v := range visitors {
-		path := strings.TrimSpace(v.GetPath())
-		if path == "" {
-			continue
-		}
-		// Detect event-style paths: /event/<name> or /track/<name>
-		lower := strings.ToLower(path)
-		for _, prefix := range []string{"/event/", "/track/"} {
-			if strings.HasPrefix(lower, prefix) {
-				name := strings.TrimSpace(path[len(prefix):])
-				if name == "" {
-					name = "unnamed"
-				}
-				eventCounts[name]++
-				break
-			}
-		}
-	}
-	if len(eventCounts) == 0 {
-		return []trafficSourceEntry{}
-	}
-	return topEntries(eventCounts, 10)
 }
 
 // computeHeatmap builds the weekly trends heatmap from visitor timestamps.
@@ -607,74 +612,9 @@ func classifyMedium(referrer string) string {
 	return "referral"
 }
 
-func computeChannels(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		referrer := strings.TrimSpace(v.GetUserReferrer())
-		domain := extractDomain(referrer)
-		counts[classifyChannel(domain)]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeSources(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		referrer := strings.TrimSpace(v.GetUserReferrer())
-		if referrer == "" {
-			counts["(Direct)"]++
-			continue
-		}
-		domain := extractDomain(referrer)
-		if domain == "" {
-			domain = "(Direct)"
-		}
-		counts[domain]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeMediums(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		counts[classifyMedium(v.GetUserReferrer())]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeCampaigns(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		u := parseReferrerURL(v.GetUserReferrer())
-		if u == nil {
-			continue
-		}
-		campaign := strings.TrimSpace(u.Query().Get("utm_campaign"))
-		if campaign == "" {
-			continue
-		}
-		counts[campaign]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeTerms(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		u := parseReferrerURL(v.GetUserReferrer())
-		if u == nil {
-			continue
-		}
-		term := strings.TrimSpace(u.Query().Get("utm_term"))
-		if term == "" {
-			continue
-		}
-		counts[term]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeEntryExitPages(visitors []statsstore.VisitorInterface, entry bool) []trafficSourceEntry {
+// computeEntryExitPagesSinglePass builds a session map once and extracts
+// both entry and exit page counts from it.
+func computeEntryExitPagesSinglePass(visitors []statsstore.VisitorInterface) (entryCounts, exitCounts map[string]int64) {
 	sessions := map[string][]statsstore.VisitorInterface{}
 	for _, v := range visitors {
 		key := strings.TrimSpace(v.GetFingerprint())
@@ -687,7 +627,8 @@ func computeEntryExitPages(visitors []statsstore.VisitorInterface, entry bool) [
 		sessions[key] = append(sessions[key], v)
 	}
 
-	counts := map[string]int64{}
+	entryCounts = map[string]int64{}
+	exitCounts = map[string]int64{}
 	for _, sessionVisitors := range sessions {
 		if len(sessionVisitors) == 0 {
 			continue
@@ -700,91 +641,16 @@ func computeEntryExitPages(visitors []statsstore.VisitorInterface, entry bool) [
 			}
 			return ci.StdTime().Before(cj.StdTime())
 		})
-		var page string
-		if entry {
-			page = sessionVisitors[0].GetPath()
-		} else {
-			page = sessionVisitors[len(sessionVisitors)-1].GetPath()
+		entryPage := sessionVisitors[0].GetPath()
+		exitPage := sessionVisitors[len(sessionVisitors)-1].GetPath()
+		if entryPage == "" {
+			entryPage = "/"
 		}
-		if page == "" {
-			page = "/"
+		if exitPage == "" {
+			exitPage = "/"
 		}
-		counts[page]++
+		entryCounts[entryPage]++
+		exitCounts[exitPage]++
 	}
-	return topEntries(counts, 10)
+	return entryCounts, exitCounts
 }
-
-func computeDevices(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		device := strings.TrimSpace(v.GetUserDeviceType())
-		if device == "" {
-			device = "Unknown"
-		}
-		device = strings.Title(strings.ToLower(device))
-		counts[device]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeOperatingSystems(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		os := strings.TrimSpace(v.GetUserOs())
-		if os == "" {
-			os = "Unknown"
-		}
-		counts[os]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeLanguages(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		lang := strings.TrimSpace(v.GetUserAcceptLanguage())
-		if lang == "" {
-			continue
-		}
-		parts := strings.Split(lang, ",")
-		primary := strings.TrimSpace(parts[0])
-		if idx := strings.Index(primary, ";"); idx > 0 {
-			primary = primary[:idx]
-		}
-		if idx := strings.Index(primary, "-"); idx > 0 {
-			primary = strings.ToUpper(primary[:idx])
-		} else {
-			primary = strings.ToUpper(primary)
-		}
-		if primary == "" {
-			continue
-		}
-		counts[primary]++
-	}
-	return topEntries(counts, 10)
-}
-
-func computeOutboundLinks(visitors []statsstore.VisitorInterface) []trafficSourceEntry {
-	counts := map[string]int64{}
-	for _, v := range visitors {
-		path := strings.TrimSpace(v.GetPath())
-		if path == "" {
-			continue
-		}
-		lower := strings.ToLower(path)
-		if strings.HasPrefix(lower, "/outbound/") || strings.HasPrefix(lower, "/out/") {
-			name := strings.TrimSpace(path[strings.Index(lower, "/")+1:])
-			name = strings.TrimPrefix(name, "outbound/")
-			name = strings.TrimPrefix(name, "out/")
-			if name == "" {
-				name = "unnamed"
-			}
-			counts[name]++
-		}
-	}
-	return topEntries(counts, 10)
-}
-
-// carbonNow returns the current carbon time – kept as a convenience to
-// avoid importing carbon in files that don't already use it.
-var _ = carbon.Now

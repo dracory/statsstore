@@ -48,12 +48,8 @@ func (c *Controller) Handle(w http.ResponseWriter, r *http.Request) string {
 		return c.handleOverviewAjax(w, r)
 	case "comparison-ajax":
 		return c.handleComparisonAjax(w, r)
-	case "daily-ajax":
-		return c.handleDailyAjax(w, r)
-	case "traffic-ajax":
-		return c.handleTrafficAjax(w, r)
-	case "heatmap-ajax":
-		return c.handleHeatmapAjax(w, r)
+	case "dashboard-data-ajax":
+		return c.handleDashboardDataAjax(w, r)
 	case "live-ajax":
 		return c.handleLiveAjax(w, r)
 	case "export":

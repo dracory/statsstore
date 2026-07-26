@@ -9,9 +9,11 @@ import (
 	"github.com/samber/lo"
 )
 
-// handleDailyAjax returns the daily stats table + chart data as JSON.
-// This loads visitors for the current period only.
-func (c *Controller) handleDailyAjax(w http.ResponseWriter, r *http.Request) string {
+// handleDashboardDataAjax returns daily stats, traffic cards, and heatmap
+// in a single response. This eliminates 2 duplicate DB round-trips that
+// occurred when daily, traffic, and heatmap endpoints each independently
+// queried VisitorList with the same period bounds.
+func (c *Controller) handleDashboardDataAjax(w http.ResponseWriter, r *http.Request) string {
 	w.Header().Set("Content-Type", "application/json")
 
 	periodBounds, err := c.getPeriodBounds(r)
@@ -26,8 +28,8 @@ func (c *Controller) handleDailyAjax(w http.ResponseWriter, r *http.Request) str
 		return fmt.Sprintf(`{"error":%q}`, dbErr.Error())
 	}
 
+	// Daily stats
 	currentStats := computePeriodStats(visitors, periodBounds.dateRange)
-
 	daily := make([]dailyStatJSON, 0, len(currentStats.dates))
 	for i, date := range currentStats.dates {
 		daily = append(daily, dailyStatJSON{
@@ -39,6 +41,17 @@ func (c *Controller) handleDailyAjax(w http.ResponseWriter, r *http.Request) str
 		})
 	}
 
+	// Traffic cards
+	data := ControllerData{
+		visitors: visitors,
+		ui:       c.ui,
+	}
+	tsd := computeTrafficSources(data)
+	trafficCards := buildTrafficCardsJSON(tsd)
+
+	// Heatmap
+	hm := computeHeatmap(visitors)
+
 	result := map[string]any{
 		"dailyStats":        daily,
 		"chartLabels":       currentStats.dates,
@@ -49,6 +62,12 @@ func (c *Controller) handleDailyAjax(w http.ResponseWriter, r *http.Request) str
 			UniqueVisits: lo.Sum(currentStats.uniqueVisits),
 			FirstVisits:  lo.Sum(currentStats.firstVisits),
 			ReturnVisits: lo.Sum(currentStats.returnVisits),
+		},
+		"trafficCards": trafficCards,
+		"heatmap": heatmapJSON{
+			Days:        hm.Days,
+			Slots:       hm.Slots,
+			Intensities: hm.Intensities,
 		},
 	}
 

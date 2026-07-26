@@ -91,55 +91,37 @@
                 }
             }
 
-            async function fetchDaily(period) {
+            async function fetchDashboardData(period) {
                 loadingDaily.value = true;
+                loadingTraffic.value = true;
+                loadingHeatmap.value = true;
                 dailyError.value = '';
+                trafficError.value = '';
+                heatmapError.value = '';
                 try {
-                    const data = await fetchSection('daily-ajax', period);
+                    const data = await fetchSection('dashboard-data-ajax', period);
                     dailyStats.value = data.dailyStats || [];
                     totals.value = data.totals || {};
                     await nextTick();
                     renderChart(data.chartLabels || [], data.chartUniqueVisits || [], data.chartTotalVisits || []);
+                    trafficCards.value = (data.trafficCards || []).map(c => reactive({ ...c, activeTab: 0 }));
+                    heatmap.value = data.heatmap || { days: [], slots: [], intensities: [] };
                 } catch (e) {
                     dailyError.value = e.message;
-                } finally {
-                    loadingDaily.value = false;
-                }
-            }
-
-            async function fetchTraffic(period) {
-                loadingTraffic.value = true;
-                trafficError.value = '';
-                try {
-                    const data = await fetchSection('traffic-ajax', period);
-                    trafficCards.value = (data.trafficCards || []).map(c => reactive({ ...c, activeTab: 0 }));
-                } catch (e) {
                     trafficError.value = e.message;
-                } finally {
-                    loadingTraffic.value = false;
-                }
-            }
-
-            async function fetchHeatmap(period) {
-                loadingHeatmap.value = true;
-                heatmapError.value = '';
-                try {
-                    const data = await fetchSection('heatmap-ajax', period);
-                    heatmap.value = data || { days: [], slots: [], intensities: [] };
-                } catch (e) {
                     heatmapError.value = e.message;
                 } finally {
+                    loadingDaily.value = false;
+                    loadingTraffic.value = false;
                     loadingHeatmap.value = false;
                 }
             }
 
             function fetchAll(period) {
-                // Fire all requests in parallel — each section loads independently
+                // Fire independent requests in parallel
                 fetchOverview(period);
                 fetchComparison(period);
-                fetchDaily(period);
-                fetchTraffic(period);
-                fetchHeatmap(period);
+                fetchDashboardData(period);
             }
 
             function renderChart(labels, uniqueVisits, totalVisits) {
