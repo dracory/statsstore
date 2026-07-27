@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Visitor Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+    <link href="shared.css" rel="stylesheet">
+</head>
+<body>
+<div id="app" v-cloak>
+    <div class="container py-4">
+        <!-- Nav -->
+        <nav class="nav nav-pills nav-fill flex-column flex-sm-row gap-2 mb-4">
+            <a v-for="item in navItems" :key="item.href"
+               class="nav-link fw-semibold text-center"
+               :class="{ active: item.href === currentPage }"
+               :href="item.href">
+                <i :class="'bi ' + item.icon" class="me-1"></i>{{ item.title }}
+            </a>
+        </nav>
+
+        <h1 class="mt-3 mb-4 text-primary">Visitor Analytics Dashboard</h1>
+
+        <!-- Navigation Cards -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header"><h4 class="card-title mb-0">Navigation</h4></div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3" v-for="link in navLinks" :key="link.href">
+                        <a :href="link.href" class="text-decoration-none">
+                            <div class="card h-100 shadow-sm border-0">
+                                <div class="card-body d-flex align-items-center gap-3">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center stat-icon"
+                                         :class="'text-' + link.color + ' bg-' + link.color + '-subtle'">
+                                        <i :class="'bi ' + link.icon" class="fs-5"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-1">{{ link.title }}</h6>
+                                        <small class="text-muted">{{ link.desc }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header d-flex flex-column flex-xl-row gap-3 align-items-xl-center justify-content-between">
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-3 w-100">
+                    <h4 class="card-title mb-0 flex-grow-1 text-uppercase fw-semibold letter-spacing-1">Stats Summary</h4>
+                    <div class="d-inline-flex align-items-center gap-2 ms-lg-auto">
+                        <label class="form-label mb-0 text-muted small">Period</label>
+                        <select class="form-select form-select-sm" v-model="selectedPeriod" @change="onPeriodChange">
+                            <option v-for="opt in periodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Export</button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">Export to CSV</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Stat Cards -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-6 g-4 text-center">
+                    <div class="col">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center gap-3 py-4">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center text-danger bg-danger-subtle stat-icon">
+                                    <i class="bi bi-broadcast fs-3"></i>
+                                </div>
+                                <small class="text-uppercase text-muted fw-semibold letter-spacing-1">Live Visitors</small>
+                                <h3 class="mb-0 fw-bold">{{ liveCount }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col" v-for="card in statCards" :key="card.title">
+                        <div class="card h-100 shadow-sm border-0">
+                            <div class="card-body d-flex flex-column align-items-center justify-content-center gap-3 py-4">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center stat-icon"
+                                     :class="'text-' + card.color + ' bg-' + card.color + '-subtle'">
+                                    <i :class="'bi ' + card.icon" class="fs-3"></i>
+                                </div>
+                                <small class="text-uppercase text-muted fw-semibold letter-spacing-1">{{ card.title }}</small>
+                                <h3 class="mb-0 fw-bold">{{ card.value }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Period Comparison -->
+                <h5 class="mb-3">Period Comparison</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Metric</th>
+                                <th class="text-end">Current Period</th>
+                                <th class="text-end">Previous Period</th>
+                                <th class="text-end">Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in comparisonRows" :key="row.label">
+                                <td>{{ row.label }}</td>
+                                <td class="text-end">{{ row.current }}</td>
+                                <td class="text-end">{{ row.previous }}</td>
+                                <td class="text-end">
+                                    <span v-if="row.change > 0" :class="'badge ' + (row.inverted ? 'bg-danger' : 'bg-success')">
+                                        <i class="bi bi-arrow-up"></i> {{ row.change.toFixed(1) }}%
+                                    </span>
+                                    <span v-else-if="row.change < 0" :class="'badge ' + (row.inverted ? 'bg-success' : 'bg-danger')">
+                                        <i class="bi bi-arrow-down"></i> {{ Math.abs(row.change).toFixed(1) }}%
+                                    </span>
+                                    <span v-else class="badge bg-light text-dark">0.0%</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <small class="text-muted">Comparing against previous week.</small>
+
+                <hr class="my-4">
+
+                <!-- Chart -->
+                <div class="chart-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Visitor Statistics</h5>
+                        <button class="btn btn-sm btn-outline-primary" type="button" @click="toggleChartType">
+                            <i :class="chartType === 'bar' ? 'bi bi-graph-up' : 'bi bi-bar-chart'" class="me-1"></i>
+                            Switch to {{ chartType === 'bar' ? 'Line' : 'Bar' }}
+                        </button>
+                    </div>
+                    <canvas ref="chartCanvas" height="350"></canvas>
+                </div>
+
+                <hr class="my-4">
+
+                <!-- Daily Stats Table -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th class="text-end">Page Views</th>
+                                <th class="text-end">Unique Visits</th>
+                                <th class="text-end">First Time Visits</th>
+                                <th class="text-end">Returning Visits</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(row, i) in dailyStats" :key="i">
+                                <td>{{ row.date }}</td>
+                                <td class="text-end">{{ row.totalVisits }}</td>
+                                <td class="text-end">{{ row.uniqueVisits }}</td>
+                                <td class="text-end">{{ row.firstVisits }}</td>
+                                <td class="text-end">{{ row.returnVisits }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <th>Total</th>
+                                <th class="text-end">{{ totals.totalVisits }}</th>
+                                <th class="text-end">{{ totals.uniqueVisits }}</th>
+                                <th class="text-end">{{ totals.firstVisits }}</th>
+                                <th class="text-end">{{ totals.returnVisits }}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Traffic Source Cards -->
+        <div class="row row-cols-1 row-cols-lg-2 g-4">
+            <div class="col" v-for="card in trafficCards" :key="card.title">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-transparent border-bottom-0">
+                        <span class="fw-semibold text-uppercase small text-muted letter-spacing-1">{{ card.title }}</span>
+                    </div>
+                    <div class="card-header pt-0 bg-transparent border-bottom-0 pb-0">
+                        <ul class="nav nav-tabs card-header-tabs small overflow-auto flex-nowrap">
+                            <li class="nav-item" v-for="(tab, ti) in card.tabs" :key="tab.label">
+                                <button class="nav-link text-nowrap" :class="{ active: card.activeTab === ti }" @click="card.activeTab = ti">{{ tab.label }}</button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>{{ card.tabs[card.activeTab].label }}</th>
+                                        <th class="text-end">{{ card.valueLabel }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(entry, ei) in card.tabs[card.activeTab].entries" :key="ei">
+                                        <td class="fw-medium">{{ entry.label }}</td>
+                                        <td class="text-end">{{ entry.sessions }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Trends Heatmap -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-transparent border-bottom-0">
+                        <span class="fw-semibold text-uppercase small text-muted letter-spacing-1">Weekly Trends</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-borderless align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-muted small fw-normal"></th>
+                                        <th v-for="day in heatmap.days" :key="day" class="text-muted small fw-normal text-center">{{ day }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(slot, si) in heatmap.slots" :key="slot">
+                                        <th class="text-muted small fw-normal text-nowrap">{{ slot }}</th>
+                                        <td v-for="(day, di) in heatmap.days" :key="di" class="p-1">
+                                            <div class="heatmap-cell" :style="{ backgroundColor: heatmapColor(heatmap.intensities[si][di]) }"></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.32/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="shared.js"></script>
+<script>
+(function() {
+    const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            const navItems = SS.navItems;
+            const currentPage = 'index.html';
+            const navLinks = [
+                { href: 'visitor-activity.html', title: 'Visitor Activity', desc: 'Track visitor interactions', icon: 'bi-activity', color: 'primary' },
+                { href: 'visitor-paths.html', title: 'Visitor Paths', desc: 'Analyze visitor navigation paths', icon: 'bi-signpost-split', color: 'info' },
+            ];
+
+            const selectedPeriod = ref('this-week');
+            const periodOptions = SS.periodOptions;
+            const liveCount = ref(42);
+            const statCards = ref(SS.statCards);
+            const comparisonRows = ref(SS.comparisonRows);
+            const dailyStats = ref(SS.dailyStats);
+            const totals = computed(() => SS.totals());
+            const trafficCards = ref(SS.trafficCards.map(c => reactive({ ...c, activeTab: 0 })));
+            const heatmap = ref(SS.heatmap);
+            const chartCanvas = ref(null);
+            let chartInstance = null;
+            const chartType = ref('bar');
+
+            function renderChart() {
+                if (!chartCanvas.value || !window.Chart) return;
+                if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+                const ctx = chartCanvas.value.getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: chartType.value,
+                    data: {
+                        labels: SS.chartLabels,
+                        datasets: [
+                            {
+                                label: 'Unique Visitors',
+                                backgroundColor: chartType.value === 'line' ? 'rgb(59, 130, 246)' : 'rgba(59, 130, 246, 0.5)',
+                                borderColor: 'rgb(59, 130, 246)',
+                                borderWidth: 2,
+                                borderRadius: 4,
+                                data: SS.chartUniqueVisits,
+                                pointRadius: chartType.value === 'line' ? 4 : 0,
+                                tension: 0.2
+                            },
+                            {
+                                label: 'Total Visitors',
+                                backgroundColor: chartType.value === 'line' ? 'rgb(16, 185, 129)' : 'rgba(16, 185, 129, 0.5)',
+                                borderColor: 'rgb(16, 185, 129)',
+                                borderWidth: 2,
+                                borderRadius: 4,
+                                data: SS.chartTotalVisits,
+                                pointRadius: chartType.value === 'line' ? 4 : 0,
+                                tension: 0.2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { usePointStyle: true, padding: 20 } },
+                            tooltip: { mode: 'index', intersect: false }
+                        },
+                        scales: {
+                            y: { beginAtZero: true },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            function toggleChartType() {
+                chartType.value = chartType.value === 'bar' ? 'line' : 'bar';
+                renderChart();
+            }
+
+            function onPeriodChange() {
+                // In a real app, this would re-fetch data
+            }
+
+            onMounted(() => {
+                nextTick(() => renderChart());
+            });
+
+            return {
+                navItems, currentPage, navLinks,
+                selectedPeriod, periodOptions, liveCount,
+                statCards, comparisonRows, dailyStats, totals,
+                trafficCards, heatmap, chartCanvas, chartType,
+                toggleChartType, onPeriodChange, heatmapColor: SS.heatmapColor,
+            };
+        }
+    }).mount('#app');
+})();
+</script>
+</body>
+</html>

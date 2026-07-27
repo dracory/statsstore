@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Paths | Visitor Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+    <link href="shared.css" rel="stylesheet">
+</head>
+<body>
+<div id="app" v-cloak>
+    <div class="container py-4">
+        <!-- Nav -->
+        <nav class="nav nav-pills nav-fill flex-column flex-sm-row gap-2 mb-4">
+            <a v-for="item in navItems" :key="item.href"
+               class="nav-link fw-semibold text-center"
+               :class="{ active: item.href === currentPage }"
+               :href="item.href">
+                <i :class="'bi ' + item.icon" class="me-1"></i>{{ item.title }}
+            </a>
+        </nav>
+
+        <h1 class="mt-3 mb-4 text-primary">Visitor Paths</h1>
+
+        <!-- Summary Cards -->
+        <div class="row row-cols-1 row-cols-sm-3 g-4 mb-4">
+            <div class="col">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center text-primary bg-primary-subtle stat-icon">
+                            <i class="bi bi-signpost-2 fs-3"></i>
+                        </div>
+                        <div>
+                            <small class="text-uppercase text-muted fw-semibold">Total Paths</small>
+                            <h3 class="mb-0 fw-bold">{{ paths.length }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center text-success bg-success-subtle stat-icon">
+                            <i class="bi bi-eye fs-3"></i>
+                        </div>
+                        <div>
+                            <small class="text-uppercase text-muted fw-semibold">Total Views</small>
+                            <h3 class="mb-0 fw-bold">{{ totalViews }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center text-info bg-info-subtle stat-icon">
+                            <i class="bi bi-people fs-3"></i>
+                        </div>
+                        <div>
+                            <small class="text-uppercase text-muted fw-semibold">Unique Visitors</small>
+                            <h3 class="mb-0 fw-bold">{{ totalUnique }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paths Table -->
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0">Path Analysis</h4>
+                <a href="#" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-download me-1"></i>Export CSV
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Path</th>
+                                <th class="text-end">Visits</th>
+                                <th class="text-end">Unique Visitors</th>
+                                <th class="text-end">Avg. Duration</th>
+                                <th>Device</th>
+                                <th class="text-center">Sessions</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="p in paths" :key="p.id">
+                                <td><code>{{ p.path }}</code></td>
+                                <td class="text-end">{{ p.visits.toLocaleString() }}</td>
+                                <td class="text-end">{{ p.uniqueVisitors.toLocaleString() }}</td>
+                                <td class="text-end">{{ p.avgDuration }}</td>
+                                <td><span class="badge" :class="deviceBadgeClass(p.device)">{{ p.device }}</span></td>
+                                <td class="text-center">{{ p.sessions }}</td>
+                                <td>
+                                    <a href="visitor-activity.html" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> View Session
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.32/dist/vue.global.prod.js"></script>
+<script src="shared.js"></script>
+<script>
+(function() {
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+        setup() {
+            const navItems = SS.navItems;
+            const currentPage = 'visitor-paths.html';
+            const paths = ref(SS.visitorPaths);
+            const totalViews = computed(() => paths.value.reduce((s, p) => s + p.visits, 0).toLocaleString());
+            const totalUnique = computed(() => paths.value.reduce((s, p) => s + p.uniqueVisitors, 0).toLocaleString());
+
+            function deviceBadgeClass(device) {
+                return SS.deviceBadgeClass(device);
+            }
+
+            return { navItems, currentPage, paths, totalViews, totalUnique, deviceBadgeClass };
+        }
+    }).mount('#app');
+})();
+</script>
+</body>
+</html>

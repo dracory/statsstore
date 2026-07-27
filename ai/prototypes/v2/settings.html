@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Visitor Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+    <link href="shared.css" rel="stylesheet">
+</head>
+<body>
+<div id="app" v-cloak>
+    <!-- Sidebar -->
+    <div class="ss-sidebar" :class="{ open: sidebarOpen }">
+        <a href="index.html" class="ss-sidebar-brand"><i class="bi bi-bar-chart-line-fill"></i> StatsStore</a>
+        <nav class="ss-sidebar-nav">
+            <a v-for="item in navItems" :key="item.href" class="ss-sidebar-link" :class="{ active: item.href === currentPage }" :href="item.href">
+                <i :class="'bi ' + item.icon"></i>{{ item.title }}
+            </a>
+        </nav>
+        <div class="ss-sidebar-footer">AGPL-3.0 &middot; v2 prototype</div>
+    </div>
+    <div class="ss-sidebar-backdrop" :class="{ open: sidebarOpen }" @click="sidebarOpen = false"></div>
+
+    <!-- Main -->
+    <div class="ss-main">
+        <div class="ss-topbar">
+            <button class="ss-sidebar-toggle" @click="sidebarOpen = !sidebarOpen"><i class="bi bi-list"></i></button>
+            <div class="d-flex flex-column">
+                <p class="ss-breadcrumb"><a href="index.html">Home</a> / Settings</p>
+                <h2 class="ss-topbar-title">Settings</h2>
+            </div>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <button class="ss-theme-toggle" @click="toggleTheme"><i :class="'bi ' + themeIcon"></i></button>
+            </div>
+        </div>
+
+        <div class="ss-content">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <!-- Blocked IPs -->
+                    <div class="ss-card mb-0">
+                        <div class="ss-card-header">
+                            <h3 class="ss-card-title"><i class="bi bi-shield-lock me-2"></i>Blocked IP Addresses</h3>
+                            <span class="badge bg-secondary">{{ blockedIps.length }}</span>
+                        </div>
+                        <div class="ss-card-body">
+                            <div class="input-group input-group-sm mb-3">
+                                <input type="text" class="form-control" :class="{ 'is-invalid': ipError }"
+                                       placeholder="Enter IP address (e.g. 192.168.1.1)"
+                                       v-model="newIp" @keyup.enter="addIp" @input="ipError = ''">
+                                <button class="btn btn-sm btn-primary" @click="addIp">
+                                    <i class="bi bi-plus-circle me-1"></i>Add
+                                </button>
+                                <div v-if="ipError" class="invalid-feedback d-block">{{ ipError }}</div>
+                            </div>
+                            <div v-if="blockedIps.length === 0" class="ss-empty">
+                                <i class="bi bi-shield-check"></i>
+                                <p>No blocked IPs. All traffic is allowed.</p>
+                            </div>
+                            <div v-else class="table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>IP Address</th>
+                                            <th>Added</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(item, i) in blockedIps" :key="i">
+                                            <td><code>{{ item.ip }}</code></td>
+                                            <td><small class="text-muted">{{ item.addedAt }}</small></td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-danger" @click="removeIp(i)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <!-- Geo-IP -->
+                    <div class="ss-card mb-4">
+                        <div class="ss-card-header">
+                            <h3 class="ss-card-title"><i class="bi bi-globe-americas me-2"></i>Geo-IP Enrichment</h3>
+                        </div>
+                        <div class="ss-card-body">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="geoEnabled" v-model="geoEnabled" @change="toggleGeo">
+                                <label class="form-check-label" for="geoEnabled">Enable Geo-IP enrichment</label>
+                            </div>
+                            <small class="text-muted d-block">
+                                When enabled, visitor records with empty country fields will be enriched
+                                using the configured Geo-IP resolver. Runs as a background task.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Data Management -->
+                    <div class="ss-card mb-0">
+                        <div class="ss-card-header">
+                            <h3 class="ss-card-title"><i class="bi bi-database me-2"></i>Data Management</h3>
+                        </div>
+                        <div class="ss-card-body">
+                            <p class="text-muted small mb-3">Delete visitor data. This action cannot be undone.</p>
+                            <div class="d-flex flex-column gap-2">
+                                <button class="btn btn-outline-danger btn-sm text-start" @click="confirmDelete('all')">
+                                    <i class="bi bi-trash me-2"></i>Delete All Visitors
+                                    <span class="text-muted ms-2">— removes every record</span>
+                                </button>
+                                <button class="btn btn-outline-warning btn-sm text-start" @click="confirmDelete('bots')">
+                                    <i class="bi bi-robot me-2"></i>Delete Bot Visitors
+                                    <span class="text-muted ms-2">— removes bot-flagged records only</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="modal fade" ref="confirmModalEl" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to <strong>{{ pendingDelete === 'all' ? 'delete ALL visitors' : 'delete bot visitors only' }}</strong>?</p>
+                    <p class="text-danger small mb-0"><i class="bi bi-warning me-1"></i>This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" @click="executeDelete">
+                        <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.32/dist/vue.global.prod.js"></script>
+<script src="shared.js"></script>
+<script>
+(function() {
+    const { createApp, ref } = Vue;
+
+    createApp({
+        setup() {
+            const navItems = SS.navItems;
+            const currentPage = 'settings.html';
+            const sidebarOpen = ref(false);
+            const themeIcon = ref(SS.getThemeIcon());
+            const blockedIps = ref([...SS.blockedIps]);
+            const newIp = ref('');
+            const ipError = ref('');
+            const geoEnabled = ref(true);
+            const pendingDelete = ref(null);
+            const confirmModalEl = ref(null);
+            let confirmModal = null;
+
+            function addIp() {
+                const ip = newIp.value.trim();
+                if (!ip) { ipError.value = 'IP address is required'; return; }
+                if (!SS.isValidIp(ip)) { ipError.value = 'Invalid IP address format'; return; }
+                if (blockedIps.value.some(b => b.ip === ip)) { ipError.value = 'This IP is already blocked'; return; }
+                blockedIps.value.push({ ip, addedAt: new Date().toISOString().replace('T', ' ').substring(0, 19) });
+                newIp.value = '';
+                SS.toast(ip + ' has been blocked', 'success');
+            }
+
+            function removeIp(index) {
+                const removed = blockedIps.value.splice(index, 1)[0];
+                SS.toast(removed.ip + ' has been unblocked', 'info');
+            }
+
+            function toggleGeo() {
+                SS.toast('Geo-IP enrichment ' + (geoEnabled.value ? 'enabled' : 'disabled'), geoEnabled.value ? 'success' : 'warning');
+            }
+
+            function confirmDelete(type) {
+                pendingDelete.value = type;
+                if (!confirmModal && confirmModalEl.value) confirmModal = new bootstrap.Modal(confirmModalEl.value);
+                if (confirmModal) confirmModal.show();
+            }
+
+            function executeDelete() {
+                if (confirmModal) confirmModal.hide();
+                const msg = pendingDelete.value === 'all' ? 'All visitors deleted' : 'Bot visitors deleted';
+                SS.toast(msg, 'success');
+                pendingDelete.value = null;
+            }
+
+            function toggleTheme() { SS.toggleTheme(); themeIcon.value = SS.getThemeIcon(); }
+
+            return {
+                navItems, currentPage, sidebarOpen, themeIcon,
+                blockedIps, newIp, ipError, geoEnabled,
+                pendingDelete, confirmModalEl,
+                addIp, removeIp, toggleGeo, confirmDelete, executeDelete, toggleTheme,
+            };
+        }
+    }).mount('#app');
+})();
+</script>
+</body>
+</html>

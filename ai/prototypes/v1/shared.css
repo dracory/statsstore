@@ -1,0 +1,42 @@
+:root {
+    --ss-primary: #3b82f6;
+    --ss-bg: #f8f9fa;
+    --ss-card-border: rgba(0,0,0,0.08);
+}
+
+body {
+    background-color: var(--ss-bg);
+}
+
+[v-cloak] { display: none; }
+
+.letter-spacing-1 { letter-spacing: 0.05em; }
+
+.nav-link.active {
+    background-color: var(--ss-primary) !important;
+    color: #fff !important;
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+}
+
+.chart-container {
+    position: relative;
+    height: 350px;
+}
+
+.heatmap-cell {
+    height: 26px;
+    border-radius: 0.25rem;
+}
+
+.table-hover tbody tr { cursor: pointer; }
+
+.loading-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}

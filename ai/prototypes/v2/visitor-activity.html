@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visitor Activity | Visitor Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+    <link href="shared.css" rel="stylesheet">
+</head>
+<body>
+<div id="app" v-cloak>
+    <!-- Sidebar -->
+    <div class="ss-sidebar" :class="{ open: sidebarOpen }">
+        <a href="index.html" class="ss-sidebar-brand"><i class="bi bi-bar-chart-line-fill"></i> StatsStore</a>
+        <nav class="ss-sidebar-nav">
+            <a v-for="item in navItems" :key="item.href" class="ss-sidebar-link" :class="{ active: item.href === currentPage }" :href="item.href">
+                <i :class="'bi ' + item.icon"></i>{{ item.title }}
+            </a>
+        </nav>
+        <div class="ss-sidebar-footer">AGPL-3.0 &middot; v2 prototype</div>
+    </div>
+    <div class="ss-sidebar-backdrop" :class="{ open: sidebarOpen }" @click="sidebarOpen = false"></div>
+
+    <!-- Main -->
+    <div class="ss-main">
+        <div class="ss-topbar">
+            <button class="ss-sidebar-toggle" @click="sidebarOpen = !sidebarOpen"><i class="bi bi-list"></i></button>
+            <div class="d-flex flex-column">
+                <p class="ss-breadcrumb"><a href="index.html">Home</a> / Visitor Activity</p>
+                <h2 class="ss-topbar-title">Visitor Activity</h2>
+            </div>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <button class="ss-theme-toggle" @click="toggleTheme"><i :class="'bi ' + themeIcon"></i></button>
+            </div>
+        </div>
+
+        <div class="ss-content">
+            <!-- Filters + Search -->
+            <div class="ss-card mb-4">
+                <div class="ss-card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted mb-1">Search</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" placeholder="IP, visitor ID, or path..." v-model="searchQuery" @input="page = 1">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1">Time Range</label>
+                            <select class="form-select form-select-sm" v-model="filters.range" @change="page = 1">
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="last-7-days">Last 7 Days</option>
+                                <option value="this-week">This Week</option>
+                                <option value="this-month">This Month</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1">Country</label>
+                            <select class="form-select form-select-sm" v-model="filters.country" @change="page = 1">
+                                <option value="">All Countries</option>
+                                <option value="us">United States</option>
+                                <option value="de">Germany</option>
+                                <option value="gb">United Kingdom</option>
+                                <option value="fr">France</option>
+                                <option value="ca">Canada</option>
+                                <option value="nl">Netherlands</option>
+                                <option value="au">Australia</option>
+                                <option value="es">Spain</option>
+                                <option value="it">Italy</option>
+                                <option value="se">Sweden</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1">Device</label>
+                            <select class="form-select form-select-sm" v-model="filters.device" @change="page = 1">
+                                <option value="">All Devices</option>
+                                <option value="Desktop">Desktop</option>
+                                <option value="Mobile">Mobile</option>
+                                <option value="Tablet">Tablet</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted mb-1">Per Page</label>
+                            <select class="form-select form-select-sm" v-model="perPage" @change="page = 1">
+                                <option :value="10">10</option>
+                                <option :value="25">25</option>
+                                <option :value="50">50</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="ss-card">
+                <div class="ss-card-header">
+                    <h3 class="ss-card-title">Visitors <span class="badge bg-secondary ms-1">{{ filteredVisitors.length }}</span></h3>
+                    <button class="btn btn-sm btn-outline-secondary" @click="exportCsv">
+                        <i class="bi bi-download me-1"></i>Export CSV
+                    </button>
+                </div>
+                <div class="ss-card-body ss-card-body-flush">
+                    <!-- Empty State -->
+                    <div v-if="filteredVisitors.length === 0" class="ss-empty">
+                        <i class="bi bi-inbox"></i>
+                        <p>No visitors match your filters. Try adjusting your search.</p>
+                    </div>
+
+                    <!-- Desktop Table -->
+                    <div v-else class="table-responsive ss-table-desktop">
+                        <table class="table table-hover table-sm align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Visitor ID</th>
+                                    <th>IP Address</th>
+                                    <th>Country</th>
+                                    <th>Path</th>
+                                    <th>Device</th>
+                                    <th>Browser</th>
+                                    <th>OS</th>
+                                    <th class="text-center">Sessions</th>
+                                    <th>First Seen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="v in paginatedVisitors" :key="v.id" @click="openDetail(v)" style="cursor: pointer;">
+                                    <td><code>{{ v.id }}</code></td>
+                                    <td>{{ v.ip }}</td>
+                                    <td><span :class="'fi fi-' + v.countryCode" class="me-1"></span>{{ v.country }}</td>
+                                    <td>{{ v.path }}</td>
+                                    <td><span class="badge" :class="deviceBadgeClass(v.device)">{{ v.device }}</span></td>
+                                    <td>{{ v.browser }}</td>
+                                    <td>{{ v.os }}</td>
+                                    <td class="text-center">{{ v.sessions }}</td>
+                                    <td><small class="text-muted">{{ v.createdAt }}</small></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mobile Cards -->
+                    <div class="ss-table-card p-2">
+                        <div class="ss-table-card-item" v-for="v in paginatedVisitors" :key="v.id" @click="openDetail(v)" style="cursor: pointer;">
+                            <div class="ss-table-card-row">
+                                <span class="ss-table-card-label">Visitor</span>
+                                <code>{{ v.id }}</code>
+                            </div>
+                            <div class="ss-table-card-row">
+                                <span class="ss-table-card-label">IP</span>
+                                <span>{{ v.ip }}</span>
+                            </div>
+                            <div class="ss-table-card-row">
+                                <span class="ss-table-card-label">Country</span>
+                                <span><span :class="'fi fi-' + v.countryCode" class="me-1"></span>{{ v.country }}</span>
+                            </div>
+                            <div class="ss-table-card-row">
+                                <span class="ss-table-card-label">Path</span>
+                                <span>{{ v.path }}</span>
+                            </div>
+                            <div class="ss-table-card-row">
+                                <span class="ss-table-card-label">Device</span>
+                                <span class="badge" :class="deviceBadgeClass(v.device)">{{ v.device }}</span>
+                            </div>
+                            <div class="ss-table-card-row">
+                                <span class="ss-table-card-label">Sessions</span>
+                                <span>{{ v.sessions }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Pagination -->
+                <div v-if="filteredVisitors.length > 0" class="ss-card-header border-top">
+                    <small class="text-muted">
+                        Showing {{ (page - 1) * perPage + 1 }}–{{ Math.min(page * perPage, filteredVisitors.length) }} of {{ filteredVisitors.length }}
+                    </small>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" :disabled="page === 1" @click="page--"><i class="bi bi-chevron-left"></i></button>
+                        <button v-for="p in totalPages" :key="p" class="btn" :class="p === page ? 'btn-primary' : 'btn-outline-secondary'" @click="page = p">{{ p }}</button>
+                        <button class="btn btn-outline-secondary" :disabled="page >= totalPages" @click="page++"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal fade" ref="modalEl" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" v-if="selectedVisitor">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person me-2"></i>Visitor {{ selectedVisitor.id }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4 text-muted">IP Address</dt>
+                                <dd class="col-sm-8"><code>{{ selectedVisitor.ip }}</code></dd>
+                                <dt class="col-sm-4 text-muted">Country</dt>
+                                <dd class="col-sm-8"><span :class="'fi fi-' + selectedVisitor.countryCode" class="me-1"></span>{{ selectedVisitor.country }}</dd>
+                                <dt class="col-sm-4 text-muted">Device</dt>
+                                <dd class="col-sm-8"><span class="badge" :class="deviceBadgeClass(selectedVisitor.device)">{{ selectedVisitor.device }}</span></dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4 text-muted">Browser</dt>
+                                <dd class="col-sm-8">{{ selectedVisitor.browser }}</dd>
+                                <dt class="col-sm-4 text-muted">OS</dt>
+                                <dd class="col-sm-8">{{ selectedVisitor.os }}</dd>
+                                <dt class="col-sm-4 text-muted">Sessions</dt>
+                                <dd class="col-sm-8">{{ selectedVisitor.sessions }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6 class="text-muted mb-3">Session Timeline</h6>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="d-flex align-items-center gap-3 p-2 border rounded">
+                            <i class="bi bi-box-arrow-in-right text-primary"></i>
+                            <div class="flex-fill">
+                                <div><code>{{ selectedVisitor.path }}</code></div>
+                                <small class="text-muted">{{ selectedVisitor.createdAt }}</small>
+                            </div>
+                            <span class="badge bg-light text-dark">Entry</span>
+                        </div>
+                        <div v-for="s in selectedVisitor.sessions - 1" :key="s" class="d-flex align-items-center gap-3 p-2 border rounded">
+                            <i class="bi bi-arrow-repeat text-muted"></i>
+                            <div class="flex-fill">
+                                <div><code>{{ selectedVisitor.path }}</code></div>
+                                <small class="text-muted">Return visit #{{ s }}</small>
+                            </div>
+                            <span class="badge bg-light text-dark">Return</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.32/dist/vue.global.prod.js"></script>
+<script src="shared.js"></script>
+<script>
+(function() {
+    const { createApp, ref, reactive, computed } = Vue;
+
+    createApp({
+        setup() {
+            const navItems = SS.navItems;
+            const currentPage = 'visitor-activity.html';
+            const sidebarOpen = ref(false);
+            const themeIcon = ref(SS.getThemeIcon());
+            const searchQuery = ref('');
+            const filters = reactive({ range: 'today', country: '', device: '' });
+            const page = ref(1);
+            const perPage = ref(10);
+            const selectedVisitor = ref(null);
+            const modalEl = ref(null);
+            let modalInstance = null;
+
+            const filteredVisitors = computed(() => {
+                const q = searchQuery.value.toLowerCase().trim();
+                return SS.visitors.filter(v => {
+                    if (filters.country && v.countryCode !== filters.country) return false;
+                    if (filters.device && v.device !== filters.device) return false;
+                    if (q && !v.id.toLowerCase().includes(q) && !v.ip.includes(q) && !v.path.toLowerCase().includes(q)) return false;
+                    return true;
+                });
+            });
+
+            const totalPages = computed(() => Math.max(1, Math.ceil(filteredVisitors.value.length / perPage.value)));
+
+            const paginatedVisitors = computed(() => {
+                const start = (page.value - 1) * perPage.value;
+                return filteredVisitors.value.slice(start, start + perPage.value);
+            });
+
+            function openDetail(v) {
+                selectedVisitor.value = v;
+                if (!modalInstance && modalEl.value) modalInstance = new bootstrap.Modal(modalEl.value);
+                if (modalInstance) modalInstance.show();
+            }
+
+            function toggleTheme() { SS.toggleTheme(); themeIcon.value = SS.getThemeIcon(); }
+            function deviceBadgeClass(d) { return SS.deviceBadgeClass(d); }
+            function exportCsv() { SS.toast('CSV export started (mock)', 'success'); }
+
+            return {
+                navItems, currentPage, sidebarOpen, themeIcon,
+                searchQuery, filters, page, perPage,
+                filteredVisitors, totalPages, paginatedVisitors,
+                selectedVisitor, modalEl, openDetail, toggleTheme, deviceBadgeClass, exportCsv,
+            };
+        }
+    }).mount('#app');
+})();
+</script>
+</body>
+</html>

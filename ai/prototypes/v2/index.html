@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Visitor Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" rel="stylesheet">
+    <link href="shared.css" rel="stylesheet">
+</head>
+<body>
+<div id="app" v-cloak>
+    <!-- Sidebar -->
+    <div class="ss-sidebar" :class="{ open: sidebarOpen }">
+        <a href="index.html" class="ss-sidebar-brand">
+            <i class="bi bi-bar-chart-line-fill"></i> StatsStore
+        </a>
+        <nav class="ss-sidebar-nav">
+            <a v-for="item in navItems" :key="item.href"
+               class="ss-sidebar-link" :class="{ active: item.href === currentPage }"
+               :href="item.href">
+                <i :class="'bi ' + item.icon"></i>{{ item.title }}
+            </a>
+        </nav>
+        <div class="ss-sidebar-footer">AGPL-3.0 &middot; v2 prototype</div>
+    </div>
+    <div class="ss-sidebar-backdrop" :class="{ open: sidebarOpen }" @click="sidebarOpen = false"></div>
+
+    <!-- Main -->
+    <div class="ss-main">
+        <!-- Topbar -->
+        <div class="ss-topbar">
+            <button class="ss-sidebar-toggle" @click="sidebarOpen = !sidebarOpen">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="d-flex flex-column">
+                <p class="ss-breadcrumb"><a href="index.html">Home</a> / Dashboard</p>
+                <h2 class="ss-topbar-title">Dashboard</h2>
+            </div>
+            <div class="d-flex align-items-center gap-2 ms-auto">
+                <select class="form-select form-select-sm" v-model="selectedPeriod" @change="onPeriodChange" style="width: auto;">
+                    <option v-for="opt in periodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <button class="ss-theme-toggle" @click="toggleTheme" :title="themeIcon === 'bi-sun' ? 'Switch to light' : 'Switch to dark'">
+                    <i :class="'bi ' + themeIcon"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="ss-content">
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">
+                        <i class="bi bi-grid me-1"></i>Overview
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: activeTab === 'trends' }" @click="activeTab = 'trends'">
+                        <i class="bi bi-graph-up me-1"></i>Trends
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" :class="{ active: activeTab === 'traffic' }" @click="activeTab = 'traffic'">
+                        <i class="bi bi-globe me-1"></i>Traffic Sources
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Overview Tab -->
+            <div v-show="activeTab === 'overview'">
+                <!-- Stat Cards -->
+                <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3 mb-4">
+                    <div class="col">
+                        <div class="ss-card">
+                            <div class="ss-card-body ss-stat">
+                                <div class="ss-stat-icon text-danger bg-danger-subtle">
+                                    <i class="bi bi-broadcast"></i>
+                                </div>
+                                <div>
+                                    <p class="ss-stat-label">Live Visitors</p>
+                                    <p class="ss-stat-value">{{ liveCount }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col" v-for="card in statCards.slice(0, 3)" :key="card.title">
+                        <div class="ss-card">
+                            <div class="ss-card-body ss-stat">
+                                <div class="ss-stat-icon" :class="'text-' + card.color + ' bg-' + card.color + '-subtle'">
+                                    <i :class="'bi ' + card.icon"></i>
+                                </div>
+                                <div>
+                                    <p class="ss-stat-label">{{ card.title }}</p>
+                                    <p class="ss-stat-value">{{ card.value }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Period Comparison -->
+                <div class="ss-card">
+                    <div class="ss-card-header">
+                        <h3 class="ss-card-title">Period Comparison</h3>
+                        <small class="text-muted">vs previous week</small>
+                    </div>
+                    <div class="ss-card-body ss-card-body-flush">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th class="text-end">Current</th>
+                                        <th class="text-end">Previous</th>
+                                        <th class="text-end">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="row in comparisonRows" :key="row.label">
+                                        <td>{{ row.label }}</td>
+                                        <td class="text-end">{{ row.current }}</td>
+                                        <td class="text-end">{{ row.previous }}</td>
+                                        <td class="text-end">
+                                            <span v-if="row.change > 0" :class="'badge ' + (row.inverted ? 'bg-danger' : 'bg-success')">
+                                                <i class="bi bi-arrow-up"></i> {{ row.change.toFixed(1) }}%
+                                            </span>
+                                            <span v-else-if="row.change < 0" :class="'badge ' + (row.inverted ? 'bg-success' : 'bg-danger')">
+                                                <i class="bi bi-arrow-down"></i> {{ Math.abs(row.change).toFixed(1) }}%
+                                            </span>
+                                            <span v-else class="badge bg-light text-dark">0.0%</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trends Tab -->
+            <div v-show="activeTab === 'trends'">
+                <!-- Chart -->
+                <div class="ss-card mb-4">
+                    <div class="ss-card-header">
+                        <h3 class="ss-card-title">Visitor Statistics</h3>
+                        <button class="btn btn-sm btn-outline-primary" @click="toggleChartType">
+                            <i :class="chartType === 'bar' ? 'bi bi-graph-up' : 'bi bi-bar-chart'" class="me-1"></i>
+                            {{ chartType === 'bar' ? 'Line' : 'Bar' }}
+                        </button>
+                    </div>
+                    <div class="ss-card-body">
+                        <div class="ss-chart-container">
+                            <canvas ref="chartCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Stats Table -->
+                <div class="ss-card">
+                    <div class="ss-card-header">
+                        <h3 class="ss-card-title">Daily Breakdown</h3>
+                        <button class="btn btn-sm btn-outline-secondary" @click="exportCsv">
+                            <i class="bi bi-download me-1"></i>Export CSV
+                        </button>
+                    </div>
+                    <div class="ss-card-body ss-card-body-flush">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover table-sm mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th class="text-end">Page Views</th>
+                                        <th class="text-end">Unique Visits</th>
+                                        <th class="text-end">First Time</th>
+                                        <th class="text-end">Returning</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(row, i) in dailyStats" :key="i">
+                                        <td>{{ row.date }}</td>
+                                        <td class="text-end">{{ row.totalVisits.toLocaleString() }}</td>
+                                        <td class="text-end">{{ row.uniqueVisits.toLocaleString() }}</td>
+                                        <td class="text-end">{{ row.firstVisits.toLocaleString() }}</td>
+                                        <td class="text-end">{{ row.returnVisits.toLocaleString() }}</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <th>Total</th>
+                                        <th class="text-end">{{ totals.totalVisits.toLocaleString() }}</th>
+                                        <th class="text-end">{{ totals.uniqueVisits.toLocaleString() }}</th>
+                                        <th class="text-end">{{ totals.firstVisits.toLocaleString() }}</th>
+                                        <th class="text-end">{{ totals.returnVisits.toLocaleString() }}</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Traffic Tab -->
+            <div v-show="activeTab === 'traffic'">
+                <!-- Traffic Cards -->
+                <div class="row row-cols-1 row-cols-lg-2 g-3 mb-4">
+                    <div class="col" v-for="card in trafficCards" :key="card.title">
+                        <div class="ss-card h-100 mb-0">
+                            <div class="ss-card-header">
+                                <h3 class="ss-card-title">{{ card.title }}</h3>
+                                <ul class="nav nav-tabs card-header-tabs mb-0">
+                                    <li class="nav-item" v-for="(tab, ti) in card.tabs" :key="tab.label">
+                                        <button class="nav-link py-1" :class="{ active: card.activeTab === ti }" @click="card.activeTab = ti">{{ tab.label }}</button>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="ss-card-body ss-card-body-flush">
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-sm mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>{{ card.tabs[card.activeTab].label }}</th>
+                                                <th class="text-end">{{ card.valueLabel }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(entry, ei) in card.tabs[card.activeTab].entries" :key="ei">
+                                                <td>{{ entry.label }}</td>
+                                                <td class="text-end">{{ entry.sessions.toLocaleString() }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Heatmap -->
+                <div class="ss-card">
+                    <div class="ss-card-header">
+                        <h3 class="ss-card-title">Weekly Activity Heatmap</h3>
+                        <div class="ss-heatmap-legend">
+                            <span>Less</span>
+                            <div class="ss-heatmap-legend-cell" v-for="l in 5" :key="l" :style="{ backgroundColor: heatmapColor(l - 1) }"></div>
+                            <span>More</span>
+                        </div>
+                    </div>
+                    <div class="ss-card-body ss-card-body-flush">
+                        <div class="table-responsive">
+                            <table class="table table-borderless align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-muted small fw-normal"></th>
+                                        <th v-for="day in heatmap.days" :key="day" class="text-muted small fw-normal text-center">{{ day }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(slot, si) in heatmap.slots" :key="slot">
+                                        <th class="text-muted small fw-normal text-nowrap">{{ slot }}</th>
+                                        <td v-for="(day, di) in heatmap.days" :key="di" class="p-1">
+                                            <div class="ss-heatmap-cell"
+                                                 :style="{ backgroundColor: heatmapColor(heatmap.intensities[si][di]) }"
+                                                 :title="slot + ' ' + day + ' — Level: ' + heatmap.intensities[si][di]"></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.32/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="shared.js"></script>
+<script>
+(function() {
+    const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            const navItems = SS.navItems;
+            const currentPage = 'index.html';
+            const sidebarOpen = ref(false);
+            const themeIcon = ref(SS.getThemeIcon());
+            const activeTab = ref('overview');
+            const selectedPeriod = ref('this-week');
+            const periodOptions = SS.periodOptions;
+            const liveCount = ref(42);
+            const statCards = ref(SS.statCards);
+            const comparisonRows = ref(SS.comparisonRows);
+            const dailyStats = ref(SS.dailyStats);
+            const totals = computed(() => SS.totals());
+            const trafficCards = ref(SS.trafficCards.map(c => reactive({ ...c, activeTab: 0 })));
+            const heatmap = ref(SS.heatmap);
+            const chartCanvas = ref(null);
+            let chartInstance = null;
+            const chartType = ref('bar');
+
+            function toggleTheme() {
+                SS.toggleTheme();
+                themeIcon.value = SS.getThemeIcon();
+                if (chartInstance) renderChart();
+            }
+
+            function renderChart() {
+                if (!chartCanvas.value || !window.Chart) return;
+                if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
+                const textColor = isDark ? '#94a3b8' : '#64748b';
+                const ctx = chartCanvas.value.getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: chartType.value,
+                    data: {
+                        labels: SS.chartLabels,
+                        datasets: [
+                            { label: 'Unique Visitors', backgroundColor: chartType.value === 'line' ? 'rgb(59,130,246)' : 'rgba(59,130,246,0.5)', borderColor: 'rgb(59,130,246)', borderWidth: 2, borderRadius: 4, data: SS.chartUniqueVisits, pointRadius: chartType.value === 'line' ? 4 : 0, tension: 0.2 },
+                            { label: 'Total Visitors', backgroundColor: chartType.value === 'line' ? 'rgb(16,185,129)' : 'rgba(16,185,129,0.5)', borderColor: 'rgb(16,185,129)', borderWidth: 2, borderRadius: 4, data: SS.chartTotalVisits, pointRadius: chartType.value === 'line' ? 4 : 0, tension: 0.2 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top', labels: { usePointStyle: true, padding: 20, color: textColor } }, tooltip: { mode: 'index', intersect: false } },
+                        scales: { y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor } }, x: { grid: { display: false }, ticks: { color: textColor } } }
+                    }
+                });
+            }
+
+            function toggleChartType() {
+                chartType.value = chartType.value === 'bar' ? 'line' : 'bar';
+                renderChart();
+            }
+
+            function onPeriodChange() {
+                SS.toast('Period updated to ' + (periodOptions.find(o => o.value === selectedPeriod.value)?.label || selectedPeriod.value), 'info');
+            }
+
+            function exportCsv() {
+                SS.toast('CSV export started (mock)', 'success');
+            }
+
+            onMounted(() => {
+                nextTick(() => renderChart());
+            });
+
+            return {
+                navItems, currentPage, sidebarOpen, themeIcon, activeTab,
+                selectedPeriod, periodOptions, liveCount,
+                statCards, comparisonRows, dailyStats, totals,
+                trafficCards, heatmap, chartCanvas, chartType,
+                toggleTheme, toggleChartType, onPeriodChange, exportCsv,
+                heatmapColor: SS.heatmapColor,
+            };
+        }
+    }).mount('#app');
+})();
+</script>
+</body>
+</html>
