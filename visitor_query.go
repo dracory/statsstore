@@ -242,14 +242,24 @@ func (q *visitorQuery) SetSoftDeletedIncluded(v bool) VisitorQueryInterface {
 }
 
 func (q *visitorQuery) HasBot() bool { return q.hasProperty("bot") }
-func (q *visitorQuery) Bot() string  { return q.properties["bot"].(string) }
+func (q *visitorQuery) Bot() string {
+	if !q.HasBot() {
+		return ""
+	}
+	return q.properties["bot"].(string)
+}
 func (q *visitorQuery) SetBot(v string) VisitorQueryInterface {
 	q.properties["bot"] = v
 	return q
 }
 
 func (q *visitorQuery) HasThreat() bool { return q.hasProperty("threat") }
-func (q *visitorQuery) Threat() string  { return q.properties["threat"].(string) }
+func (q *visitorQuery) Threat() string {
+	if !q.HasThreat() {
+		return ""
+	}
+	return q.properties["threat"].(string)
+}
 func (q *visitorQuery) SetThreat(v string) VisitorQueryInterface {
 	q.properties["threat"] = v
 	return q
