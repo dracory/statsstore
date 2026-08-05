@@ -34,6 +34,14 @@ type VisitorQueryInterface interface {
 	IDIn() []string
 	SetIDIn(idIn []string) VisitorQueryInterface
 
+	HasIPIn() bool
+	IPIn() []string
+	SetIPIn(ipIn []string) VisitorQueryInterface
+
+	HasIPNotIn() bool
+	IPNotIn() []string
+	SetIPNotIn(ipNotIn []string) VisitorQueryInterface
+
 	HasLimit() bool
 	Limit() int
 	SetLimit(limit int) VisitorQueryInterface
@@ -154,6 +162,20 @@ func (q *visitorQuery) HasIDIn() bool  { return q.hasProperty("id_in") }
 func (q *visitorQuery) IDIn() []string { return q.properties["id_in"].([]string) }
 func (q *visitorQuery) SetIDIn(v []string) VisitorQueryInterface {
 	q.properties["id_in"] = v
+	return q
+}
+
+func (q *visitorQuery) HasIPIn() bool  { return q.hasProperty("ip_in") }
+func (q *visitorQuery) IPIn() []string { return q.properties["ip_in"].([]string) }
+func (q *visitorQuery) SetIPIn(v []string) VisitorQueryInterface {
+	q.properties["ip_in"] = v
+	return q
+}
+
+func (q *visitorQuery) HasIPNotIn() bool  { return q.hasProperty("ip_not_in") }
+func (q *visitorQuery) IPNotIn() []string { return q.properties["ip_not_in"].([]string) }
+func (q *visitorQuery) SetIPNotIn(v []string) VisitorQueryInterface {
+	q.properties["ip_not_in"] = v
 	return q
 }
 

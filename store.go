@@ -645,6 +645,22 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 		q = q.WhereIn(COLUMN_ID, args)
 	}
 
+	if query.HasIPIn() && len(query.IPIn()) > 0 {
+		args := make([]any, len(query.IPIn()))
+		for i, ip := range query.IPIn() {
+			args[i] = ip
+		}
+		q = q.WhereIn(COLUMN_IP_ADDRESS, args)
+	}
+
+	if query.HasIPNotIn() && len(query.IPNotIn()) > 0 {
+		args := make([]any, len(query.IPNotIn()))
+		for i, ip := range query.IPNotIn() {
+			args[i] = ip
+		}
+		q = q.WhereNotIn(COLUMN_IP_ADDRESS, args)
+	}
+
 	if query.HasCountry() && query.Country() != "" {
 		if strings.EqualFold(query.Country(), "empty") {
 			q = q.Where(COLUMN_COUNTRY+" = ?", "")
