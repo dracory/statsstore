@@ -205,9 +205,10 @@ func (st *storeImplementation) GetDB() *sql.DB {
 
 // == BOT FILTERING ===========================================================
 
-// SetBotFilterEnabled enables or disables bot/referrer spam/data center filtering.
-// When enabled, bot/threat traffic is detected at ingestion. If botAutoTagEnabled
-// is also true, matched traffic is tagged and kept; otherwise it is dropped.
+// SetBotFilterEnabled enables or disables skipping bot/threat traffic at
+// ingestion. When enabled, requests matching bot/referrer-spam/data-center/
+// bot-path/malicious-path heuristics are silently skipped (not inserted).
+// This is independent of BotAutoTagEnabled, which controls flag computation.
 func (st *storeImplementation) SetBotFilterEnabled(enabled bool) {
 	st.botFilterEnabled = enabled
 }
@@ -257,8 +258,9 @@ func (st *storeImplementation) GetExcludedIPs() []string {
 // == VISITOR OPERATIONS =======================================================
 
 // VisitorRegister creates a visitor from an HTTP request.
-// If bot filtering is enabled, requests from known bots/crawlers, referrer spam
-// domains, or data center IP ranges are silently skipped (returns nil).
+// If BotFilterEnabled is true, bot/threat traffic is skipped (not inserted).
+// If BotAutoTagEnabled is true, bot/threat flags are computed and set on the
+// row. The two flags are independent.
 func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
 
@@ -282,13 +284,25 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		return nil
 	}
 
-	// Compute bot/threat flags when bot filtering is enabled.
-	// When botAutoTagEnabled is true, matched traffic is tagged and kept.
-	// When false (default), matched traffic is dropped at ingestion.
+	// BotFilterEnabled: detect and skip bot/threat traffic at ingestion.
+	if st.botFilterEnabled {
+		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path)
+		isThreat := IsMaliciousPath(path)
+
+		if isBot || isThreat {
+			if st.debugEnabled {
+				st.logger.Info("bot-filter: skipping bot/threat visit",
+					"user_agent", userAgent, "ip", ip, "path", path)
+			}
+			return nil
+		}
+	}
+
+	// BotAutoTagEnabled: compute and set bot/threat flags on the row.
 	botVal := VALUE_NO
 	threatVal := VALUE_NO
 
-	if st.botFilterEnabled {
+	if st.botAutoTagEnabled {
 		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path)
 		isThreat := IsMaliciousPath(path)
 
@@ -299,17 +313,8 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 			threatVal = VALUE_YES
 		}
 
-		if !st.botAutoTagEnabled && (isBot || isThreat) {
-			if st.debugEnabled {
-				st.logger.Info("bot-filter: skipping bot/threat visit",
-					"bot", botVal, "threat", threatVal,
-					"user_agent", userAgent, "ip", ip, "path", path)
-			}
-			return nil
-		}
-
 		if st.debugEnabled && (isBot || isThreat) {
-			st.logger.Info("bot-filter: tagging visit",
+			st.logger.Info("bot-tag: tagging visit",
 				"bot", botVal, "threat", threatVal,
 				"user_agent", userAgent, "ip", ip, "path", path)
 		}

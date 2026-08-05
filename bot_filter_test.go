@@ -409,6 +409,176 @@ func TestVisitorRegister_ToggleOnOff(t *testing.T) {
 	}
 }
 
+// == INTEGRATION: VisitorRegister with bot auto-tagging ======================
+
+func TestVisitorRegister_AutoTagBot(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	store.SetBotAutoTagEnabled(true)
+
+	req := httptest.NewRequest(http.MethodGet, "/test-page", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")
+
+	err = store.VisitorRegister(context.Background(), req)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Row should be inserted (not dropped) with bot='yes'.
+	count, err := store.VisitorCount(context.Background(), VisitorQuery())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 visitor (auto-tag inserts), got %d", count)
+	}
+
+	// Query for bot='yes' should find it.
+	botCount, err := store.VisitorCount(context.Background(), VisitorQuery().SetBot(VALUE_YES))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if botCount != 1 {
+		t.Fatalf("expected 1 bot visitor, got %d", botCount)
+	}
+
+	// Query for bot='no' should find 0.
+	humanCount, err := store.VisitorCount(context.Background(), VisitorQuery().SetBot(VALUE_NO))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if humanCount != 0 {
+		t.Fatalf("expected 0 human visitors, got %d", humanCount)
+	}
+}
+
+func TestVisitorRegister_AutoTagThreat(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	store.SetBotAutoTagEnabled(true)
+
+	req := httptest.NewRequest(http.MethodGet, "/.env", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+	err = store.VisitorRegister(context.Background(), req)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Row should be inserted with threat='yes'.
+	threatCount, err := store.VisitorCount(context.Background(), VisitorQuery().SetThreat(VALUE_YES))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if threatCount != 1 {
+		t.Fatalf("expected 1 threat visitor, got %d", threatCount)
+	}
+}
+
+func TestVisitorRegister_AutoTagRealBrowser(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	store.SetBotAutoTagEnabled(true)
+
+	req := httptest.NewRequest(http.MethodGet, "/test-page", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	err = store.VisitorRegister(context.Background(), req)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Real browser should be inserted with bot='no', threat='no'.
+	botCount, err := store.VisitorCount(context.Background(), VisitorQuery().SetBot(VALUE_YES))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if botCount != 0 {
+		t.Fatalf("expected 0 bot visitors for real browser, got %d", botCount)
+	}
+
+	humanCount, err := store.VisitorCount(context.Background(), VisitorQuery().SetBot(VALUE_NO))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if humanCount != 1 {
+		t.Fatalf("expected 1 human visitor, got %d", humanCount)
+	}
+}
+
+func TestVisitorRegister_AutoTagDisabled(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// BotAutoTagEnabled is false by default.
+	req := httptest.NewRequest(http.MethodGet, "/test-page", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)")
+
+	err = store.VisitorRegister(context.Background(), req)
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Row inserted, but bot flag should be 'no' (detection not run, default).
+	list, err := store.VisitorList(context.Background(), VisitorQuery().SetLimit(1))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 visitor, got %d", len(list))
+	}
+	if list[0].GetBot() != VALUE_NO {
+		t.Fatalf("expected bot='no' (auto-tag disabled, default), got %q", list[0].GetBot())
+	}
+}
+
+func TestVisitorRegister_FilterAndTagIndependent(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Both enabled: filter drops bots, tag computes flags on non-bot rows.
+	// A bot request should be dropped (filter wins for bots).
+	// A normal request should be inserted with bot='no' (tag computes).
+	store.SetBotFilterEnabled(true)
+	store.SetBotAutoTagEnabled(true)
+
+	// Bot request — should be dropped by filter.
+	botReq := httptest.NewRequest(http.MethodGet, "/page1", nil)
+	botReq.Header.Set("User-Agent", "curl/7.88.1")
+	_ = store.VisitorRegister(context.Background(), botReq)
+
+	// Normal request — should be inserted with bot='no'.
+	normalReq := httptest.NewRequest(http.MethodGet, "/page2", nil)
+	normalReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0")
+	_ = store.VisitorRegister(context.Background(), normalReq)
+
+	count, _ := store.VisitorCount(context.Background(), VisitorQuery())
+	if count != 1 {
+		t.Fatalf("expected 1 visitor (bot dropped, human kept), got %d", count)
+	}
+
+	list, _ := store.VisitorList(context.Background(), VisitorQuery().SetLimit(1))
+	if len(list) != 1 {
+		t.Fatalf("expected 1 visitor in list, got %d", len(list))
+	}
+	if list[0].GetBot() != VALUE_NO {
+		t.Fatalf("expected bot='no' for human visitor, got %q", list[0].GetBot())
+	}
+}
+
 // == IsBotPath / IsMaliciousPath TESTS ========================================
 
 func TestIsBotPath_KnownBotFiles(t *testing.T) {

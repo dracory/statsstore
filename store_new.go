@@ -17,8 +17,8 @@ type NewStoreOptions struct {
 	DB                   *sql.DB
 	AutomigrateEnabled   bool
 	DebugEnabled         bool
-	BotFilterEnabled     bool // enables bot/threat detection at ingestion; matched traffic is dropped unless BotAutoTagEnabled is true
-	BotAutoTagEnabled    bool // when true, tag matched traffic (bot='yes'/threat='yes') instead of dropping; also auto-computes flags on VisitorCreate/VisitorUpdate
+	BotFilterEnabled     bool // when true, skip bot/threat traffic at ingestion (don't insert). Independent of BotAutoTagEnabled.
+	BotAutoTagEnabled    bool // when true, compute and set bot/threat flags on inserted rows. Also auto-computes flags on VisitorCreate/VisitorUpdate.
 	ExcludedPathPrefixes []string
 	ExcludedIPs          []string
 	GeoIPResolver        GeoIPResolver // optional; enables VisitorEnhance for batch country enrichment
