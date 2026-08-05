@@ -28,7 +28,7 @@ type Controller struct {
 
 // ServeHTTP implements the http.Handler interface
 func (c *Controller) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(c.Handler(w, r)))
+	_, _ = w.Write([]byte(c.Handler(w, r)))
 }
 
 // Handler renders the controller output using the shared layout

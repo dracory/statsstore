@@ -2,6 +2,7 @@ package statsstore
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -114,6 +115,9 @@ func (r *DefaultGeoIPResolver) Resolve(ctx context.Context, ip string) (string, 
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
+	}
+	if resp == nil {
+		return "", errors.New("geo IP: nil response from HTTP client")
 	}
 
 	defer func() {

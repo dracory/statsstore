@@ -84,6 +84,9 @@ func TestExportCSVBOMStrippedFromFirstField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
+	if len(records) == 0 || len(records[0]) == 0 {
+		t.Fatalf("expected at least one record with at least one column")
+	}
 	if records[0][0] != "Col1" {
 		t.Fatalf("expected 'Col1', got %q", records[0][0])
 	}

@@ -37,7 +37,7 @@ type visitorPathsController struct {
 
 // ServeHTTP implements the http.Handler interface
 func (c *visitorPathsController) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(c.Handler(w, r)))
+	_, _ = w.Write([]byte(c.Handler(w, r)))
 }
 
 // Handler renders the controller output using the shared layout
