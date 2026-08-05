@@ -8,14 +8,22 @@ import (
 
 // == BOT USER-AGENT PATTERNS ==================================================
 
-// botUserAgentPatterns contains lowercase substrings that indicate a bot,
-// crawler, spider, or automated tool. Matching is case-insensitive.
-var botUserAgentPatterns = []string{
+// botUserAgentBroadPatterns contains lowercase substrings that indicate a bot,
+// crawler, spider, or automated tool but are short enough to cause false
+// positives if matched as plain substrings (e.g. "bot" inside "RoboBotonic").
+// These are matched with a word-boundary check: the pattern must be followed
+// by a non-alphanumeric character (or end of string).
+var botUserAgentBroadPatterns = []string{
 	"bot",
 	"crawler",
 	"spider",
 	"scraper",
 	"slurp",
+}
+
+// botUserAgentSpecificPatterns contains lowercase substrings that are specific
+// enough to be safely matched as plain case-insensitive substrings.
+var botUserAgentSpecificPatterns = []string{
 	"baidu",
 	"yandex",
 	"ahrefs",
@@ -185,18 +193,61 @@ func init() {
 // == PUBLIC FUNCTIONS =========================================================
 
 // IsBot checks whether a user-agent string matches known bot/crawler patterns.
-// Matching is case-insensitive substring matching against a curated list.
+// Broad patterns (bot, crawler, spider, scraper, slurp) are matched with a
+// word-boundary check to avoid false positives (e.g. "bot" inside a non-bot
+// word). Specific patterns (semrush, curl, googlebot, etc.) are matched as
+// plain case-insensitive substrings.
 func IsBot(userAgent string) bool {
 	if userAgent == "" {
 		return false
 	}
 	uaLower := strings.ToLower(userAgent)
-	for _, pattern := range botUserAgentPatterns {
+
+	// Check broad patterns with word-boundary matching.
+	for _, pattern := range botUserAgentBroadPatterns {
+		if matchWordBoundary(uaLower, pattern) {
+			return true
+		}
+	}
+
+	// Check specific patterns with plain substring matching.
+	for _, pattern := range botUserAgentSpecificPatterns {
 		if strings.Contains(uaLower, pattern) {
 			return true
 		}
 	}
+
 	return false
+}
+
+// matchWordBoundary reports whether s contains pattern followed by a
+// non-alphanumeric character (or end of string). This prevents false
+// positives like "bot" matching inside "RoboBotonic" or "iBot".
+func matchWordBoundary(s, pattern string) bool {
+	idx := 0
+	for {
+		pos := strings.Index(s[idx:], pattern)
+		if pos < 0 {
+			return false
+		}
+		pos += idx
+		// Check the character after the match.
+		end := pos + len(pattern)
+		if end >= len(s) {
+			return true // end of string is a valid boundary
+		}
+		next := s[end]
+		if !isAlnum(next) {
+			return true
+		}
+		// Not a boundary — keep searching after this position.
+		idx = pos + 1
+	}
+}
+
+// isAlnum reports whether b is an ASCII letter or digit.
+func isAlnum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
 
 // IsReferrerSpam checks whether a referrer URL host matches a known spam domain.
