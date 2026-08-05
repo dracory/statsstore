@@ -178,7 +178,7 @@ var dataCenterCIDRs = []string{
 	"152.70.0.0/16",
 }
 
-// parsedDataCenterCIDRs is lazily initialized from dataCenterCIDRs.
+// parsedDataCenterCIDRs is initialized from dataCenterCIDRs at package load.
 var parsedDataCenterCIDRs []netip.Prefix
 
 func init() {
@@ -188,6 +188,42 @@ func init() {
 			parsedDataCenterCIDRs = append(parsedDataCenterCIDRs, prefix)
 		}
 	}
+}
+
+// == BOT PATH PATTERNS ========================================================
+
+// botPathPatterns contains lowercase path substrings for files that
+// legitimate crawlers request but no human browser ever does. These are
+// universal across all websites regardless of tech stack.
+//
+// favicon.ico is excluded because browsers automatically request it.
+// /.well-known/ is excluded because browsers use it for legitimate
+// purposes (e.g. /.well-known/change-password for credential discovery).
+var botPathPatterns = []string{
+	"robots.txt",
+	"ads.txt",
+	"sitemap.xml",
+	"humans.txt",
+	"security.txt",
+	"bingsiteauth.xml",
+	"dnt-policy.txt",
+	"sellers.json",
+}
+
+// maliciousPathPatterns contains lowercase path substrings for endpoints
+// that are never legitimate on any properly-configured website, regardless
+// of tech stack. A single request to any of these is strong evidence of a
+// vulnerability scanner or malicious bot.
+//
+// Stack-dependent patterns (e.g. .php, .asp, wp-admin) are intentionally
+// excluded — they are malicious on some stacks but legitimate on others.
+// Consumers should add their own stack-specific patterns on top.
+var maliciousPathPatterns = []string{
+	".env",
+	".git/",
+	".svn/",
+	".htpasswd",
+	"shell.php",
 }
 
 // == PUBLIC FUNCTIONS =========================================================
@@ -220,9 +256,94 @@ func IsBot(userAgent string) bool {
 	return false
 }
 
+// BotPathPatterns returns the list of path substrings for bot-only files
+// (robots.txt, ads.txt, sitemap.xml, etc.) that legitimate crawlers request
+// but no human browser does. Consumers can use this list to drive SQL LIKE
+// scans or similar bulk queries.
+func BotPathPatterns() []string {
+	return append([]string(nil), botPathPatterns...)
+}
+
+// MaliciousPathPatterns returns the list of path substrings for endpoints
+// that are never legitimate on any properly-configured website (e.g. .env,
+// .git/, shell.php). Stack-dependent patterns like .php or wp-admin are
+// excluded — consumers should add their own based on their tech stack.
+func MaliciousPathPatterns() []string {
+	return append([]string(nil), maliciousPathPatterns...)
+}
+
+// IsBotPath reports whether a request path targets a bot-only file
+// (robots.txt, ads.txt, sitemap.xml, etc.) that no human browser requests.
+// Matching is case-insensitive. The pattern is matched as a suffix of the
+// last path segment (filename), so "/app-ads.txt" matches "ads.txt" but
+// "/ads.txt.backup" does not.
+func IsBotPath(path string) bool {
+	if path == "" {
+		return false
+	}
+	pathLower := strings.ToLower(path)
+	lastSegment := pathLastSegment(pathLower)
+	for _, pattern := range botPathPatterns {
+		if strings.HasSuffix(lastSegment, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsMaliciousPath reports whether a request path targets a universally
+// malicious endpoint (.env, .git/, .svn/, .htpasswd, shell.php) that is
+// never legitimate on any properly-configured site. A single hit is strong
+// evidence of a vulnerability scanner. Stack-dependent patterns are not
+// included — consumers should add their own.
+//
+// File patterns (e.g. .env, shell.php) are matched as a suffix of the last
+// path segment, so "/.env" matches but "/my.envfile.js" does not.
+// Directory patterns (e.g. .git/, .svn/) are matched against individual path
+// segments, so "/.git/config" matches but "/.github/workflows" does not.
+func IsMaliciousPath(path string) bool {
+	if path == "" {
+		return false
+	}
+	pathLower := strings.ToLower(path)
+	for _, pattern := range maliciousPathPatterns {
+		if strings.HasSuffix(pattern, "/") {
+			dirName := strings.TrimSuffix(pattern, "/")
+			for _, segment := range strings.Split(pathLower, "/") {
+				if segment == dirName {
+					return true
+				}
+			}
+		} else {
+			if strings.HasSuffix(pathLastSegment(pathLower), pattern) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pathLastSegment extracts the last path segment (filename) from a path.
+// Query strings and fragments are stripped first, so "/robots.txt?v=1"
+// returns "robots.txt". For example, "/courses/go" returns "go",
+// "[GET] /robots.txt" returns "robots.txt".
+func pathLastSegment(path string) string {
+	if i := strings.IndexAny(path, "?#"); i >= 0 {
+		path = path[:i]
+	}
+	idx := strings.LastIndex(path, "/")
+	if idx < 0 {
+		return path
+	}
+	return path[idx+1:]
+}
+
 // matchWordBoundary reports whether s contains pattern followed by a
 // non-alphanumeric character (or end of string). This prevents false
-// positives like "bot" matching inside "RoboBotonic" or "iBot".
+// positives like "bot" matching inside "RoboBotonic" or "ibotonic".
+// Only the after-boundary is checked; a UA like "iBot" (where "bot" is
+// at the end of the string) will match, which is acceptable since any
+// UA ending in "bot" is likely a bot.
 func matchWordBoundary(s, pattern string) bool {
 	idx := 0
 	for {

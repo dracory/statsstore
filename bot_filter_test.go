@@ -408,3 +408,165 @@ func TestVisitorRegister_ToggleOnOff(t *testing.T) {
 		t.Fatalf("expected 1 visitor with filter off, got %d", count)
 	}
 }
+
+// == IsBotPath / IsMaliciousPath TESTS ========================================
+
+func TestIsBotPath_KnownBotFiles(t *testing.T) {
+	paths := []string{
+		"/robots.txt",
+		"[GET] /robots.txt",
+		"/ads.txt",
+		"/app-ads.txt",
+		"/sitemap.xml",
+		"/humans.txt",
+		"/security.txt",
+		"/.well-known/security.txt",
+		"/BingSiteAuth.xml",
+		"/dnt-policy.txt",
+		"/sellers.json",
+	}
+
+	for _, p := range paths {
+		if !IsBotPath(p) {
+			t.Errorf("expected IsBotPath(%q) = true, got false", p)
+		}
+	}
+}
+
+func TestIsBotPath_WithQueryString(t *testing.T) {
+	paths := []string{
+		"/robots.txt?v=1",
+		"/ads.txt?nocache=123",
+		"/sitemap.xml?ts=456",
+		"[GET] /robots.txt?cb=789",
+	}
+
+	for _, p := range paths {
+		if !IsBotPath(p) {
+			t.Errorf("expected IsBotPath(%q) = true, got false", p)
+		}
+	}
+}
+
+func TestIsBotPath_NormalPages(t *testing.T) {
+	paths := []string{
+		"/courses/go",
+		"/home",
+		"/shop/product/123",
+		"/blog/post",
+		"/favicon.ico",
+		"/.well-known/change-password",
+		"",
+	}
+
+	for _, p := range paths {
+		if IsBotPath(p) {
+			t.Errorf("expected IsBotPath(%q) = false, got true", p)
+		}
+	}
+}
+
+func TestIsMaliciousPath_UniversalMalicious(t *testing.T) {
+	paths := []string{
+		"/.env",
+		"[GET] /.env",
+		"/config/.env",
+		"/.git/config",
+		"/.svn/entries",
+		"/.htpasswd",
+		"/shell.php",
+		"/uploads/shell.php",
+	}
+
+	for _, p := range paths {
+		if !IsMaliciousPath(p) {
+			t.Errorf("expected IsMaliciousPath(%q) = true, got false", p)
+		}
+	}
+}
+
+func TestIsMaliciousPath_StackDependentNotIncluded(t *testing.T) {
+	// These patterns are stack-dependent and should NOT be flagged by the
+	// library — consumers add them based on their tech stack.
+	paths := []string{
+		"/index.php",    // legitimate on a PHP site
+		"/wp-admin/",    // legitimate on a WordPress site
+		"/wp-login.php", // legitimate on a WordPress site
+		"/xmlrpc.php",   // legitimate on a WordPress site
+		"/adminer.php",  // legitimate if adminer is installed
+		"/config.php",   // legitimate on a PHP site
+		"/index.asp",    // legitimate on a classic ASP site
+		"/index.aspx",   // legitimate on an ASP.NET site
+		"/index.jsp",    // legitimate on a Java site
+		"/script.py",    // legitimate on a Python site
+		"/script.rb",    // legitimate on a Ruby site
+		"/script.cgi",   // legitimate on a CGI site
+		"/script.pl",    // legitimate on a Perl site
+	}
+
+	for _, p := range paths {
+		if IsMaliciousPath(p) {
+			t.Errorf("expected IsMaliciousPath(%q) = false (stack-dependent), got true", p)
+		}
+	}
+}
+
+func TestIsMaliciousPath_WithQueryString(t *testing.T) {
+	paths := []string{
+		"/.env?nocache=123",
+		"/.git/config?ref=heads",
+		"/shell.php?cmd=ls",
+	}
+
+	for _, p := range paths {
+		if !IsMaliciousPath(p) {
+			t.Errorf("expected IsMaliciousPath(%q) = true, got false", p)
+		}
+	}
+}
+
+func TestIsMaliciousPath_NormalPages(t *testing.T) {
+	paths := []string{
+		"/courses/go",
+		"/home",
+		"/robots.txt",          // bot file, not malicious
+		"/ads.txt",             // bot file, not malicious
+		"/my.envfile.js",       // contains .env but not a suffix of the filename
+		"/how-shell.php-works", // contains shell.php but not a suffix of the filename
+		"/.github/workflows",   // .github != .git
+		"",
+	}
+
+	for _, p := range paths {
+		if IsMaliciousPath(p) {
+			t.Errorf("expected IsMaliciousPath(%q) = false, got true", p)
+		}
+	}
+}
+
+func TestBotPathPatterns_ReturnsCopy(t *testing.T) {
+	patterns := BotPathPatterns()
+	if len(patterns) == 0 {
+		t.Fatal("expected non-empty pattern list")
+	}
+	// Mutating the returned slice should not affect the package-level var.
+	original := patterns[0]
+	patterns[0] = "mutated"
+	again := BotPathPatterns()
+	if again[0] != original {
+		t.Fatal("BotPathPatterns() should return a copy, not the internal slice")
+	}
+}
+
+func TestMaliciousPathPatterns_ReturnsCopy(t *testing.T) {
+	patterns := MaliciousPathPatterns()
+	if len(patterns) == 0 {
+		t.Fatal("expected non-empty pattern list")
+	}
+	original := patterns[0]
+	patterns[0] = "mutated"
+	again := MaliciousPathPatterns()
+	if again[0] != original {
+		t.Fatal("MaliciousPathPatterns() should return a copy, not the internal slice")
+	}
+}

@@ -83,7 +83,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 		err := st.db.Schema().Create(st.settingsTableName, func(table contractsschema.Blueprint) {
 			table.String(COLUMN_KEY, 100)
 			table.Primary(COLUMN_KEY)
-			table.Text(COLUMN_VALUE)
+			table.LongText(COLUMN_VALUE)
 			table.DateTime(COLUMN_CREATED_AT)
 			table.DateTime(COLUMN_UPDATED_AT)
 		})
