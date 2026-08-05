@@ -69,6 +69,14 @@ type VisitorQueryInterface interface {
 	HasSoftDeletedIncluded() bool
 	SoftDeletedIncluded() bool
 	SetSoftDeletedIncluded(withSoftDeleted bool) VisitorQueryInterface
+
+	HasBot() bool
+	Bot() string
+	SetBot(bot string) VisitorQueryInterface
+
+	HasThreat() bool
+	Threat() string
+	SetThreat(threat string) VisitorQueryInterface
 }
 
 // VisitorQuery is a shortcut for NewVisitorQuery.
@@ -230,5 +238,19 @@ func (q *visitorQuery) SoftDeletedIncluded() bool {
 }
 func (q *visitorQuery) SetSoftDeletedIncluded(v bool) VisitorQueryInterface {
 	q.properties["soft_deleted_included"] = v
+	return q
+}
+
+func (q *visitorQuery) HasBot() bool { return q.hasProperty("bot") }
+func (q *visitorQuery) Bot() string  { return q.properties["bot"].(string) }
+func (q *visitorQuery) SetBot(v string) VisitorQueryInterface {
+	q.properties["bot"] = v
+	return q
+}
+
+func (q *visitorQuery) HasThreat() bool { return q.hasProperty("threat") }
+func (q *visitorQuery) Threat() string  { return q.properties["threat"].(string) }
+func (q *visitorQuery) SetThreat(v string) VisitorQueryInterface {
+	q.properties["threat"] = v
 	return q
 }

@@ -17,7 +17,8 @@ type NewStoreOptions struct {
 	DB                   *sql.DB
 	AutomigrateEnabled   bool
 	DebugEnabled         bool
-	BotFilterEnabled     bool
+	BotFilterEnabled     bool // enables bot/threat detection at ingestion; matched traffic is dropped unless BotAutoTagEnabled is true
+	BotAutoTagEnabled    bool // when true, tag matched traffic (bot='yes'/threat='yes') instead of dropping; also auto-computes flags on VisitorCreate/VisitorUpdate
 	ExcludedPathPrefixes []string
 	ExcludedIPs          []string
 	GeoIPResolver        GeoIPResolver // optional; enables VisitorEnhance for batch country enrichment
@@ -52,6 +53,7 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		automigrateEnabled:   opts.AutomigrateEnabled,
 		debugEnabled:         opts.DebugEnabled,
 		botFilterEnabled:     opts.BotFilterEnabled,
+		botAutoTagEnabled:    opts.BotAutoTagEnabled,
 		excludedPathPrefixes: opts.ExcludedPathPrefixes,
 		excludedIPs:          opts.ExcludedIPs,
 		geoIPResolver:        opts.GeoIPResolver,

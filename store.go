@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ type storeImplementation struct {
 	automigrateEnabled   bool
 	debugEnabled         bool
 	botFilterEnabled     bool
+	botAutoTagEnabled    bool
 	excludedPathPrefixes []string
 	excludedIPs          []string
 	geoIPResolver        GeoIPResolver
@@ -43,6 +45,54 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 	if st.db.Schema().HasTable(st.visitorTableName) {
 		if st.debugEnabled {
 			st.logger.Info("MigrateUp: table already exists", "table", st.visitorTableName)
+		}
+
+		// Add bot/threat columns to existing tables that predate them.
+		// neat's HasColumn guards against re-adding.
+		if !st.db.Schema().HasColumn(st.visitorTableName, COLUMN_BOT) {
+			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+				table.String(COLUMN_BOT, 3).Default(VALUE_NO)
+			}); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("MigrateUp: add bot column failed", "error", err)
+				}
+				return err
+			}
+		}
+		if !st.db.Schema().HasColumn(st.visitorTableName, COLUMN_THREAT) {
+			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+				table.String(COLUMN_THREAT, 3).Default(VALUE_NO)
+			}); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("MigrateUp: add threat column failed", "error", err)
+				}
+				return err
+			}
+		}
+
+		// Add indexes on bot/threat columns for existing tables that predate them.
+		// neat generates index names as "{table}_{column}_index".
+		botIndexName := strings.ToLower(st.visitorTableName + "_" + COLUMN_BOT + "_index")
+		if !st.db.Schema().HasIndex(st.visitorTableName, botIndexName) {
+			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+				table.Index(COLUMN_BOT)
+			}); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("MigrateUp: add bot index failed", "error", err)
+				}
+				return err
+			}
+		}
+		threatIndexName := strings.ToLower(st.visitorTableName + "_" + COLUMN_THREAT + "_index")
+		if !st.db.Schema().HasIndex(st.visitorTableName, threatIndexName) {
+			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+				table.Index(COLUMN_THREAT)
+			}); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("MigrateUp: add threat index failed", "error", err)
+				}
+				return err
+			}
 		}
 	} else {
 		err := st.db.Schema().Create(st.visitorTableName, func(table contractsschema.Blueprint) {
@@ -62,6 +112,8 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.String(COLUMN_USER_BROWSER, 40)
 			table.String(COLUMN_USER_BROWSER_VERSION, 24)
 			table.String(COLUMN_USER_REFERRER, 510)
+			table.String(COLUMN_BOT, 3).Default(VALUE_NO)
+			table.String(COLUMN_THREAT, 3).Default(VALUE_NO)
 			table.DateTime(COLUMN_CREATED_AT)
 			table.DateTime(COLUMN_UPDATED_AT)
 			table.DateTime(COLUMN_SOFT_DELETED_AT)
@@ -69,6 +121,8 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.Index(COLUMN_CREATED_AT)
 			table.Index(COLUMN_IP_ADDRESS)
 			table.Index(COLUMN_FINGERPRINT)
+			table.Index(COLUMN_BOT)
+			table.Index(COLUMN_THREAT)
 		})
 
 		if err != nil {
@@ -152,6 +206,8 @@ func (st *storeImplementation) GetDB() *sql.DB {
 // == BOT FILTERING ===========================================================
 
 // SetBotFilterEnabled enables or disables bot/referrer spam/data center filtering.
+// When enabled, bot/threat traffic is detected at ingestion. If botAutoTagEnabled
+// is also true, matched traffic is tagged and kept; otherwise it is dropped.
 func (st *storeImplementation) SetBotFilterEnabled(enabled bool) {
 	st.botFilterEnabled = enabled
 }
@@ -159,6 +215,20 @@ func (st *storeImplementation) SetBotFilterEnabled(enabled bool) {
 // IsBotFilterEnabled returns whether bot filtering is currently enabled.
 func (st *storeImplementation) IsBotFilterEnabled() bool {
 	return st.botFilterEnabled
+}
+
+// SetBotAutoTagEnabled controls whether bot/threat traffic is tagged (bot='yes'/
+// threat='yes') and kept, instead of being dropped at ingestion. When true,
+// VisitorRegister tags matched rows instead of dropping them, and
+// VisitorCreate/VisitorUpdate auto-compute the flags from the visitor's own
+// fields. Defaults to false (drop behaviour).
+func (st *storeImplementation) SetBotAutoTagEnabled(enabled bool) {
+	st.botAutoTagEnabled = enabled
+}
+
+// IsBotAutoTagEnabled returns whether bot auto-tagging is currently enabled.
+func (st *storeImplementation) IsBotAutoTagEnabled() bool {
+	return st.botAutoTagEnabled
 }
 
 // SetExcludedPathPrefixes sets path prefixes that should be excluded from visitor tracking.
@@ -205,35 +275,43 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 	userAgent := r.UserAgent()
 	referrer := r.Header.Get("Referer")
 
-	for _, excludedIP := range st.excludedIPs {
-		if ip == excludedIP {
-			if st.debugEnabled {
-				st.logger.Info("ip-filter: skipping excluded IP", "ip", ip)
-			}
-			return nil
+	if slices.Contains(st.excludedIPs, ip) {
+		if st.debugEnabled {
+			st.logger.Info("ip-filter: skipping excluded IP", "ip", ip)
 		}
+		return nil
 	}
 
+	// Compute bot/threat flags when bot filtering is enabled.
+	// When botAutoTagEnabled is true, matched traffic is tagged and kept.
+	// When false (default), matched traffic is dropped at ingestion.
+	botVal := VALUE_NO
+	threatVal := VALUE_NO
+
 	if st.botFilterEnabled {
-		if IsBot(userAgent) {
+		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path)
+		isThreat := IsMaliciousPath(path)
+
+		if isBot {
+			botVal = VALUE_YES
+		}
+		if isThreat {
+			threatVal = VALUE_YES
+		}
+
+		if !st.botAutoTagEnabled && (isBot || isThreat) {
 			if st.debugEnabled {
-				st.logger.Info("bot-filter: skipping bot visit", "user_agent", userAgent)
+				st.logger.Info("bot-filter: skipping bot/threat visit",
+					"bot", botVal, "threat", threatVal,
+					"user_agent", userAgent, "ip", ip, "path", path)
 			}
 			return nil
 		}
 
-		if IsReferrerSpam(referrer) {
-			if st.debugEnabled {
-				st.logger.Info("bot-filter: skipping referrer spam visit", "referrer", referrer)
-			}
-			return nil
-		}
-
-		if IsDataCenterIP(ip) {
-			if st.debugEnabled {
-				st.logger.Info("bot-filter: skipping data center IP visit", "ip", ip)
-			}
-			return nil
+		if st.debugEnabled && (isBot || isThreat) {
+			st.logger.Info("bot-filter: tagging visit",
+				"bot", botVal, "threat", threatVal,
+				"user_agent", userAgent, "ip", ip, "path", path)
 		}
 	}
 
@@ -249,7 +327,9 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		SetUserOsVersion(uaInfo.OsVersion).
 		SetUserDevice(uaInfo.Device).
 		SetUserDeviceType(uaInfo.DeviceType).
-		SetUserReferrer(referrer)
+		SetUserReferrer(referrer).
+		SetBot(botVal).
+		SetThreat(threatVal)
 
 	return st.VisitorCreate(ctx, visitor)
 }
@@ -272,6 +352,38 @@ func (st *storeImplementation) VisitorCount(ctx context.Context, query VisitorQu
 	return count, err
 }
 
+// ensureBotThreatFlags computes and sets the bot/threat flags on the visitor
+// when they have not been explicitly set (empty string) and botAutoTagEnabled
+// is true. The flags are derived from the visitor's own user-agent, IP,
+// referrer, and path fields using the same heuristics as VisitorRegister.
+// When botAutoTagEnabled is false, flags are left as-is (empty or whatever
+// the caller set).
+func (st *storeImplementation) ensureBotThreatFlags(visitor VisitorInterface) {
+	if !st.botAutoTagEnabled {
+		return
+	}
+
+	if visitor.GetBot() == "" {
+		isBot := IsBot(visitor.GetUserAgent()) ||
+			IsReferrerSpam(visitor.GetUserReferrer()) ||
+			IsDataCenterIP(visitor.GetIpAddress()) ||
+			IsBotPath(visitor.GetPath())
+		if isBot {
+			visitor.SetBot(VALUE_YES)
+		} else {
+			visitor.SetBot(VALUE_NO)
+		}
+	}
+
+	if visitor.GetThreat() == "" {
+		if IsMaliciousPath(visitor.GetPath()) {
+			visitor.SetThreat(VALUE_YES)
+		} else {
+			visitor.SetThreat(VALUE_NO)
+		}
+	}
+}
+
 // VisitorCreate creates a new visitor.
 func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor VisitorInterface) error {
 	if visitor == nil {
@@ -282,6 +394,8 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 		visitor.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 	}
 	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
+
+	st.ensureBotThreatFlags(visitor)
 
 	row := map[string]any{
 		COLUMN_ID:                   visitor.GetID(),
@@ -299,6 +413,8 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 		COLUMN_USER_BROWSER:         visitor.GetUserBrowser(),
 		COLUMN_USER_BROWSER_VERSION: visitor.GetUserBrowserVersion(),
 		COLUMN_USER_REFERRER:        visitor.GetUserReferrer(),
+		COLUMN_BOT:                  visitor.GetBot(),
+		COLUMN_THREAT:               visitor.GetThreat(),
 		COLUMN_CREATED_AT:           visitor.GetCreatedAtCarbon().StdTime(),
 		COLUMN_UPDATED_AT:           visitor.GetUpdatedAtCarbon().StdTime(),
 		COLUMN_SOFT_DELETED_AT:      visitor.GetSoftDeletedAtCarbon().StdTime(),
@@ -385,6 +501,8 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		UserBrowser        string    `db:"user_browser"`
 		UserBrowserVersion string    `db:"user_browser_version"`
 		UserReferrer       string    `db:"user_referrer"`
+		Bot                string    `db:"bot"`
+		Threat             string    `db:"threat"`
 		CreatedAt          time.Time `db:"created_at"`
 		UpdatedAt          time.Time `db:"updated_at"`
 		SoftDeletedAt      time.Time `db:"soft_deleted_at"`
@@ -413,6 +531,8 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		v.SetUserBrowser(r.UserBrowser)
 		v.SetUserBrowserVersion(r.UserBrowserVersion)
 		v.SetUserReferrer(r.UserReferrer)
+		v.SetBot(r.Bot)
+		v.SetThreat(r.Threat)
 		v.CreatedAt.CreatedAt = r.CreatedAt
 		v.UpdatedAt.UpdatedAt = r.UpdatedAt
 		v.SoftDeletesMaxDate.SoftDeletedAt = r.SoftDeletedAt
@@ -463,6 +583,8 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 
 	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
+	st.ensureBotThreatFlags(visitor)
+
 	row := map[string]any{
 		COLUMN_PATH:                 visitor.GetPath(),
 		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
@@ -478,6 +600,8 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 		COLUMN_USER_BROWSER:         visitor.GetUserBrowser(),
 		COLUMN_USER_BROWSER_VERSION: visitor.GetUserBrowserVersion(),
 		COLUMN_USER_REFERRER:        visitor.GetUserReferrer(),
+		COLUMN_BOT:                  visitor.GetBot(),
+		COLUMN_THREAT:               visitor.GetThreat(),
 		COLUMN_UPDATED_AT:           visitor.GetUpdatedAtCarbon().StdTime(),
 		COLUMN_SOFT_DELETED_AT:      visitor.GetSoftDeletedAtCarbon().StdTime(),
 	}
@@ -681,6 +805,14 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 		} else {
 			q = q.Where(COLUMN_USER_DEVICE_TYPE+" = ?", query.DeviceType())
 		}
+	}
+
+	if query.HasBot() && query.Bot() != "" {
+		q = q.Where(COLUMN_BOT+" = ?", query.Bot())
+	}
+
+	if query.HasThreat() && query.Threat() != "" {
+		q = q.Where(COLUMN_THREAT+" = ?", query.Threat())
 	}
 
 	if query.HasCreatedAtGte() && query.CreatedAtGte() != "" {

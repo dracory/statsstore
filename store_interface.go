@@ -19,6 +19,8 @@ type StoreInterface interface {
 
 	SetBotFilterEnabled(enabled bool)
 	IsBotFilterEnabled() bool
+	SetBotAutoTagEnabled(enabled bool)
+	IsBotAutoTagEnabled() bool
 
 	SetExcludedPathPrefixes(prefixes []string)
 	GetExcludedPathPrefixes() []string

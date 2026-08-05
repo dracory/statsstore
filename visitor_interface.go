@@ -66,4 +66,10 @@ type VisitorInterface interface {
 
 	GetUserReferrer() string
 	SetUserReferrer(userReferrer string) VisitorInterface
+
+	GetBot() string
+	SetBot(bot string) VisitorInterface
+
+	GetThreat() string
+	SetThreat(threat string) VisitorInterface
 }

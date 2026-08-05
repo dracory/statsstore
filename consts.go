@@ -19,6 +19,15 @@ const (
 	COLUMN_USER_OS              = "user_os"
 	COLUMN_USER_OS_VERSION      = "user_os_version"
 	COLUMN_USER_REFERRER        = "user_referrer"
+	COLUMN_BOT                  = "bot"
+	COLUMN_THREAT               = "threat"
+)
+
+// Yes/No string values used for boolean-like columns (bot, threat).
+// Stored as VARCHAR(3) to match the existing all-string column convention.
+const (
+	VALUE_YES = "yes"
+	VALUE_NO  = "no"
 )
 
 // Default table name for key-value settings.

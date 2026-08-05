@@ -27,6 +27,8 @@ type visitorImplementation struct {
 	UserBrowserField        string `db:"user_browser"`
 	UserBrowserVersionField string `db:"user_browser_version"`
 	UserReferrerField       string `db:"user_referrer"`
+	BotField                string `db:"bot"`
+	ThreatField             string `db:"threat"`
 	orm.CreatedAt
 	orm.UpdatedAt
 	soft_delete.SoftDeletesMaxDate
@@ -107,6 +109,12 @@ func NewVisitorFromExistingData(data map[string]string) VisitorInterface {
 	}
 	if v, ok := data[COLUMN_USER_REFERRER]; ok {
 		o.SetUserReferrer(v)
+	}
+	if v, ok := data[COLUMN_BOT]; ok {
+		o.SetBot(v)
+	}
+	if v, ok := data[COLUMN_THREAT]; ok {
+		o.SetThreat(v)
 	}
 	if v, ok := data[COLUMN_CREATED_AT]; ok {
 		o.SetCreatedAt(v)
@@ -364,5 +372,27 @@ func (o *visitorImplementation) GetUserReferrer() string {
 // SetUserReferrer sets the user referrer of the visitor.
 func (o *visitorImplementation) SetUserReferrer(userReferrer string) VisitorInterface {
 	o.UserReferrerField = userReferrer
+	return o
+}
+
+// GetBot returns the bot flag of the visitor ("yes" or "no").
+func (o *visitorImplementation) GetBot() string {
+	return o.BotField
+}
+
+// SetBot sets the bot flag of the visitor.
+func (o *visitorImplementation) SetBot(bot string) VisitorInterface {
+	o.BotField = bot
+	return o
+}
+
+// GetThreat returns the threat flag of the visitor ("yes" or "no").
+func (o *visitorImplementation) GetThreat() string {
+	return o.ThreatField
+}
+
+// SetThreat sets the threat flag of the visitor.
+func (o *visitorImplementation) SetThreat(threat string) VisitorInterface {
+	o.ThreatField = threat
 	return o
 }
