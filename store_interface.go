@@ -30,6 +30,19 @@ type StoreInterface interface {
 	ExcludedIPAdd(ctx context.Context, ip string) error
 	ExcludedIPRemove(ctx context.Context, ip string) error
 
+	// SettingGet retrieves a setting value by key. Returns empty string and
+	// nil error if the key does not exist.
+	SettingGet(ctx context.Context, key string) (string, error)
+	// SettingSet stores a setting value by key, using upsert semantics.
+	SettingSet(ctx context.Context, key, value string) error
+	// SettingDelete removes a setting by key. No error if the key is absent.
+	SettingDelete(ctx context.Context, key string) error
+	// SettingHas reports whether a setting key exists.
+	SettingHas(ctx context.Context, key string) (bool, error)
+	// SettingList returns all settings as a map of key to value.
+	// Returns an empty map if the settings table does not exist or is empty.
+	SettingList(ctx context.Context) (map[string]string, error)
+
 	VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error)
 	VisitorCreate(ctx context.Context, user VisitorInterface) error
 	VisitorDelete(ctx context.Context, user VisitorInterface) error
