@@ -52,7 +52,7 @@
                     <span class="badge bg-secondary ms-1">{{ s.visit_count }} visits</span>
                 </div>
                 <div class="text-muted small">
-                    {{ s.country || '—' }}
+                    <span v-if="s.country" class="fi me-1" :class="'fi-' + s.country.toLowerCase()" :title="s.country"></span>{{ s.country || '—' }}
                     <span v-if="s.browser">· {{ s.browser }}</span>
                     <span v-if="s.os">· {{ s.os }}</span>
                     <span v-if="s.device_type">· {{ s.device_type }}</span>
