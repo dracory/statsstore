@@ -1,0 +1,139 @@
+package dashboard
+
+import (
+	"encoding/json"
+	"log/slog"
+	"net/http"
+
+	"github.com/dracory/statsstore/admin/shared"
+
+	"github.com/dracory/api"
+	"github.com/dracory/statsstore"
+)
+
+func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter, r *http.Request) string {
+	if r.Method != http.MethodPost {
+		api.Respond(w, r, api.Error("Method not allowed"))
+		return ""
+	}
+
+	store := controller.opts.Store
+	if store == nil {
+		api.Respond(w, r, api.Error("Stats store not available"))
+		return ""
+	}
+
+	var reqBody struct {
+		Period string `json:"period"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&reqBody)
+
+	if reqBody.Period == "" {
+		reqBody.Period = shared.PeriodDefault
+	}
+
+	bounds := shared.ResolvePeriod(reqBody.Period)
+	ctx := r.Context()
+
+	query := statsstore.VisitorQuery().
+		SetCreatedAtGte(bounds.From).
+		SetCreatedAtLte(bounds.To).
+		SetLimit(5000)
+
+	visitors, err := store.VisitorList(ctx, query)
+	if err != nil {
+		slog.Error("statsadmin dashboard: failed to load visitors", "error", err)
+		api.Respond(w, r, api.Error("Failed to load visitor data"))
+		return ""
+	}
+
+	// Adapt statsstore.VisitorInterface to shared.VisitorLike for aggregation.
+	like := make([]shared.VisitorLike, 0, len(visitors))
+	for _, v := range visitors {
+		like = append(like, visitorAdapter{v: v})
+	}
+
+	totalVisitors := int64(len(like))
+	uniqueIPs := countUniqueIPs(like)
+
+	topPaths := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetPath() }), 10)
+	topCountries := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetCountry() }), 10)
+	topBrowsers := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetUserBrowser() }), 10)
+	topOS := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetUserOs() }), 10)
+	topDeviceTypes := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetUserDeviceType() }), 10)
+
+	// Recent visitors (last 15, newest first — visitors are typically ordered by created_at desc).
+	recent := buildRecentVisitors(like, 15)
+
+	api.Respond(w, r, api.SuccessWithData("Dashboard loaded", map[string]any{
+		FieldTotalVisitors:  totalVisitors,
+		FieldUniqueIPs:      uniqueIPs,
+		FieldPeriod:         reqBody.Period,
+		FieldPeriodLabel:    bounds.Label,
+		FieldTopPaths:       toCountList(topPaths),
+		FieldTopCountries:   toCountList(topCountries),
+		FieldTopBrowsers:    toCountList(topBrowsers),
+		FieldTopOS:          toCountList(topOS),
+		FieldTopDeviceTypes: toCountList(topDeviceTypes),
+		FieldRecentVisitors: recent,
+	}))
+	return ""
+}
+
+// visitorAdapter wraps statsstore.VisitorInterface to satisfy shared.VisitorLike.
+type visitorAdapter struct {
+	v statsstore.VisitorInterface
+}
+
+func (a visitorAdapter) GetPath() string           { return a.v.GetPath() }
+func (a visitorAdapter) GetCountry() string        { return a.v.GetCountry() }
+func (a visitorAdapter) GetUserBrowser() string    { return a.v.GetUserBrowser() }
+func (a visitorAdapter) GetUserOs() string         { return a.v.GetUserOs() }
+func (a visitorAdapter) GetUserDeviceType() string { return a.v.GetUserDeviceType() }
+func (a visitorAdapter) GetIpAddress() string      { return a.v.GetIpAddress() }
+func (a visitorAdapter) GetCreatedAt() string      { return a.v.GetCreatedAt() }
+func (a visitorAdapter) GetBot() string            { return a.v.GetBot() }
+func (a visitorAdapter) GetThreat() string         { return a.v.GetThreat() }
+
+func countUniqueIPs(visitors []shared.VisitorLike) int64 {
+	seen := map[string]struct{}{}
+	for _, v := range visitors {
+		if ip := v.GetIpAddress(); ip != "" {
+			seen[ip] = struct{}{}
+		}
+	}
+	return int64(len(seen))
+}
+
+func toCountList(in []shared.CountEntry) []map[string]any {
+	out := make([]map[string]any, 0, len(in))
+	for _, e := range in {
+		out = append(out, map[string]any{
+			FieldLabel: e.Label,
+			FieldCount: e.Count,
+		})
+	}
+	return out
+}
+
+func buildRecentVisitors(visitors []shared.VisitorLike, n int) []map[string]any {
+	if n > len(visitors) {
+		n = len(visitors)
+	}
+	out := make([]map[string]any, 0, n)
+	for i := 0; i < n; i++ {
+		v := visitors[i]
+		out = append(out, map[string]any{
+			FieldVisitorIP:        v.GetIpAddress(),
+			FieldVisitorCountry:   v.GetCountry(),
+			FieldVisitorPath:      v.GetPath(),
+			FieldVisitorBrowser:   v.GetUserBrowser(),
+			FieldVisitorOS:        v.GetUserOs(),
+			FieldVisitorDevice:    v.GetUserDeviceType(),
+			FieldVisitorCreatedAt: v.GetCreatedAt(),
+			FieldIsBot:            v.GetBot() == statsstore.VALUE_YES,
+			FieldIsThreat:         v.GetThreat() == statsstore.VALUE_YES,
+		})
+	}
+	return out
+}

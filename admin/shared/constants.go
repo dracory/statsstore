@@ -1,28 +1,40 @@
 package shared
 
-// ContextKey is a custom type for context keys to avoid collisions
-type ContextKey string
-
-// Context keys
 const (
-	KeyAdminHomeURL ContextKey = "admin_home_url"
-	KeyEndpoint     ContextKey = "endpoint"
+	CONTROLLER_DASHBOARD  = "dashboard"
+	CONTROLLER_VISITORS   = "visitors"
+	CONTROLLER_SESSIONS   = "sessions"
+	CONTROLLER_SETTINGS   = "settings"
+	CONTROLLER_IP_DETAILS = "ip-details"
 )
 
-// Controller name constants
+// Query parameter names
 const (
-	ControllerHome             = "home"
-	ControllerVisitorActivity  = "visitor-activity"
-	ControllerVisitorPaths     = "visitor-paths"
-	ControllerPageViewActivity = "page-view-activity"
-	ControllerSettings         = "settings"
+	ParamController = "controller"
+	ParamAction     = "action"
+	ParamPeriod     = "period"
+	ParamCountry    = "country"
+	ParamDeviceType = "device_type"
+	ParamPath       = "path"
+	ParamDateFrom   = "date_from"
+	ParamDateTo     = "date_to"
+	ParamPage       = "page"
+	ParamIP         = "ip"
 )
 
-// Path constants for admin routes
+// Period identifiers
 const (
-	PathHome             = "/admin/home"
-	PathVisitorActivity  = "/admin/visitor-activity"
-	PathVisitorPaths     = "/admin/visitor-paths"
-	PathPageViewActivity = "/admin/page-view-activity"
-	PathSettings         = "/admin/settings"
+	PeriodToday     = "today"
+	PeriodYesterday = "yesterday"
+	PeriodLast7Days = "last-7-days"
+	PeriodThisMonth = "this-month"
+	PeriodLastMonth = "last-month"
+	PeriodAllTime   = "all-time"
+	PeriodDefault   = PeriodLast7Days
+)
+
+// Pagination
+const (
+	DefaultPageSize = 25
+	MaxPageSize     = 100
 )

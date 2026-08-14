@@ -10,17 +10,20 @@ It is a **library**, not a standalone service: consumers embed `admin.New(...)` 
 
 ## Developer commands
 - Run all tests: `go test ./...` (also `task test`).
-- Run a single test / package: `go test -run <TestName> ./admin/home` etc.
+- Run a single test / package: `go test -run <TestName> ./admin/dashboard` etc.
 - Coverage report (opens HTML): `task cover` (runs `go test ./... -coverprofile=coverage.out`).
 - Linters (not wired into CI, must `go install` first): `task errcheck`, `task nilaway`, `task gocritic`, `task golangci-lint`, `task gosec`. See `taskfile.yml` for install tasks.
 - Runnable demo: `go run ./examples/admin-demo` (`admin-demo.exe` is committed but gitignored as `*.exe`; rebuild from that dir).
 
 ## Architecture / package boundaries
 - Root package `statsstore` — core library: `Store` (`store*.go`), `Visitor` (`visitor*.go`), geo-IP enrichment (`geo_ip.go`), bot filtering (`bot_filter.go`). Entrypoint: `NewStore(NewStoreOptions{...})`.
-- `admin/` — framework-agnostic admin dashboard. `admin.New(options)` returns an `http.Handler`. The dashboard UI is a **Vue.js SPA embedded as `admin/home/home.html` + `home.js`**; there is NO separate JS/frontend build step.
-- `admin/home/` — dashboard home page with per-section AJAX endpoints (`overview-ajax`, `comparison-ajax`, `dashboard-data-ajax`, `live-ajax`, `export`).
-- `admin/settings/` — settings page controller.
-- `admin/visitor-activity/`, `admin/visitor-paths/`, `admin/page-view-activity/` — additional admin pages.
+- `admin/` — framework-agnostic, self-contained admin dashboard. `admin.New(admin.Options{...})` returns an `http.Handler`. Consumers inject a `shared.LayoutInterface`, a `statsstore.StoreInterface`, and optional callbacks (`AuthUserID`, `FlashError`, `CountryNameByIso2`). The package depends only on `github.com/dracory/statsstore` — no host-application knowledge. The dashboard UI is a **Vue.js SPA** embedded per controller (`.html` + `.js` via `go:embed`); there is NO separate JS/frontend build step.
+- `admin/dashboard/` — overview dashboard with total visitors, unique IPs, top-N breakdowns (paths, countries, browsers, OS, device types), recent visitors. AJAX endpoint: `action=load-dashboard`.
+- `admin/visitors/` — paginated visitor list with filtering (IP, country, browser, OS, device type, path, date range, bot/threat flags). AJAX endpoint: `action=load-visitors`.
+- `admin/sessions/` — visitor sessions grouped by IP with visit history. AJAX endpoint: `action=load-sessions`.
+- `admin/settings/` — excluded IP management, bot IP management, automated bot identification scan. AJAX endpoints: `load-ips`, `add-ip`, `remove-ip`, `delete-visitors`, `load-bots`, `add-bot`, `remove-bot`, `identify-bots`, `delete-bots`, `delete-threats`.
+- `admin/ipdetails/` — per-IP deep dive with path history, flag as bot/threat, delete entries. AJAX endpoints: `load-paths`, `flag-bot`, `flag-threat`, `remove-entries`.
+- `admin/shared/` — shared types (`LayoutInterface`, `ControllerOptions`, `Breadcrumb`), URL builder (`Links`), period helpers, country name resolver, bot IP store helpers, breadcrumbs component, flash-or-redirect helper, test helpers.
 - `examples/admin-demo/` — a self-contained demo app wiring the store + admin together; use it to exercise the library end-to-end.
 - `docs/` — design notes and proposals (some are aspirational; `docs/overview.md` references goqu/`sb` builders that are NOT in the current `go.mod`, so trust code over those docs).
 

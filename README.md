@@ -119,16 +119,74 @@ store, _ := NewStore(NewStoreOptions{
 })
 ```
 
+## Admin Dashboard
+
+The `admin/` subpackage provides a self-contained, reusable visitor analytics
+dashboard. Any project can embed it by injecting a `LayoutInterface`, a
+`statsstore.StoreInterface`, and optional callbacks:
+
+```go
+import (
+    "github.com/dracory/statsstore"
+    "github.com/dracory/statsstore/admin"
+)
+
+// Implement shared.LayoutInterface (SetTitle, SetBody, SetScripts, Render, etc.)
+type myLayout struct { /* ... */ }
+
+handler, err := admin.New(admin.Options{
+    Store:             store,        // required
+    Layout:            &myLayout{},  // required
+    HomeURL:           "/admin",     // required
+    BaseURL:           "/admin/stats", // defaults to "/admin/stats"
+    CountryNameByIso2: countryNameByIso2, // optional
+    AuthUserID:        func(r *http.Request) string { /* ... */ }, // optional
+    FlashError:        func(w, r, msg, url string, delay int) string { /* ... */ }, // optional
+})
+
+http.Handle("/admin/stats", handler)
+```
+
+### Features
+
+- **Dashboard**: Overview with total visitors, unique IPs, top paths/countries/browsers/OS/device types
+- **Visitors**: Paginated visitor list with filtering (IP, country, browser, OS, device type, path, date range, bot/threat flags)
+- **Sessions**: Visitor sessions grouped by IP with visit history
+- **IP Details**: Per-IP deep dive with path history, flag as bot/threat, delete entries
+- **Settings**: Excluded IP management, bot IP management, automated bot identification scan
+- **Vue.js SPA**: Each page is a Vue.js single-page app with AJAX data loading
+- **No host dependencies**: The package depends only on `github.com/dracory/statsstore` and injected interfaces
+
+### Controllers
+
+| Controller | Query param | Description |
+|---|---|---|
+| Dashboard | `controller=dashboard` (default) | Overview stats and top-N breakdowns |
+| Visitors | `controller=visitors` | Paginated, filterable visitor list |
+| Sessions | `controller=sessions` | Sessions grouped by IP |
+| Settings | `controller=settings` | Excluded IPs, bot IPs, bot identification |
+| IP Details | `controller=ip-details&ip=X` | Per-IP details and actions |
+
+See `examples/admin-demo/` for a complete working example.
+
 ## Screenshots
 
 ### Dashboard
 
 ![Dashboard](examples/admin-demo/screenshots/screenshot-dashboard.png)
 
-### Visitor Activity
+### Visitors
 
-![Visitor Activity](examples/admin-demo/screenshots/screenshot-visitor-activity.png)
+![Visitors](examples/admin-demo/screenshots/screenshot-visitors.png)
 
-### Visitor Paths
+### Sessions
 
-![Visitor Paths](examples/admin-demo/screenshots/screenshot-visitor-paths.png)
+![Sessions](examples/admin-demo/screenshots/screenshot-sessions.png)
+
+### Settings
+
+![Settings](examples/admin-demo/screenshots/screenshot-settings.png)
+
+### IP Details
+
+![IP Details](examples/admin-demo/screenshots/screenshot-ip-details.png)

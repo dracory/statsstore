@@ -320,13 +320,11 @@ func main() {
 		l.body = ""
 
 		handler, err := admin.New(admin.Options{
-			ResponseWriter:    w,
-			Request:           r,
 			Store:             store,
 			Layout:            l,
 			HomeURL:           "/",
 			WebsiteUrl:        "https://example.com",
-			Endpoint:          "/",
+			BaseURL:           "/",
 			CountryNameByIso2: countryNameByIso2,
 		})
 		if err != nil {
