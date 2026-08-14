@@ -41,6 +41,11 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"Datadog/Synthetic HTTP/1.0",
 		"archive.org_bot",
 		"IA_Archiver",
+		// Python HTTP clients — stdlib urllib and aiohttp.
+		"Python/3.14 aiohttp/3.14.1", // real scraper UA seen in production
+		"Python/3.12 urllib/3.12",    // stdlib urllib format
+		"Python/3.10",                // bare stdlib format
+		"aiohttp/3.14.1",             // aiohttp without Python prefix
 	}
 
 	for _, ua := range botUAs {

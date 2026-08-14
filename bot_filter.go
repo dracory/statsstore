@@ -39,6 +39,8 @@ var botUserAgentSpecificPatterns = []string{
 	"curl",
 	"wget",
 	"python-requests",
+	"python/", // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
+	"aiohttp", // async HTTP client library: "Python/3.14 aiohttp/3.14.1"
 	"go-http-client",
 	"okhttp",
 	"headless",
