@@ -86,18 +86,19 @@ func (controller *visitorsController) handleLoadVisitors(w http.ResponseWriter, 
 	list := make([]map[string]any, 0, len(pageSlice))
 	for _, v := range pageSlice {
 		list = append(list, map[string]any{
-			FieldID:         v.GetID(),
-			FieldIP:         v.GetIpAddress(),
-			FieldCountry:    v.GetCountry(),
-			FieldPath:       v.GetPath(),
-			FieldBrowser:    v.GetUserBrowser(),
-			FieldOS:         v.GetUserOs(),
-			FieldDevice:     v.GetUserDevice(),
-			FieldDeviceType: v.GetUserDeviceType(),
-			FieldCreatedAt:  v.GetCreatedAt(),
-			FieldUserAgent:  v.GetUserAgent(),
-			FieldIsBot:      v.GetBot() == statsstore.VALUE_YES,
-			FieldIsThreat:   v.GetThreat() == statsstore.VALUE_YES,
+			FieldID:          v.GetID(),
+			FieldIP:          v.GetIpAddress(),
+			FieldCountry:     v.GetCountry(),
+			FieldCountryName: controller.opts.CountryName(v.GetCountry()),
+			FieldPath:        v.GetPath(),
+			FieldBrowser:     v.GetUserBrowser(),
+			FieldOS:          v.GetUserOs(),
+			FieldDevice:      v.GetUserDevice(),
+			FieldDeviceType:  v.GetUserDeviceType(),
+			FieldCreatedAt:   v.GetCreatedAt(),
+			FieldUserAgent:   v.GetUserAgent(),
+			FieldIsBot:       v.GetBot() == statsstore.VALUE_YES,
+			FieldIsThreat:    v.GetThreat() == statsstore.VALUE_YES,
 		})
 	}
 

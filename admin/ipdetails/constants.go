@@ -8,6 +8,7 @@ const (
 
 	FieldIP            = "ip"
 	FieldCountry       = "country"
+	FieldCountryName   = "country_name"
 	FieldBrowser       = "browser"
 	FieldBrowserVer    = "browser_version"
 	FieldOS            = "os"

@@ -96,6 +96,7 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 	details := map[string]any{
 		FieldIP:          ip,
 		FieldCountry:     latest.GetCountry(),
+		FieldCountryName: controller.opts.CountryName(latest.GetCountry()),
 		FieldBrowser:     latest.GetUserBrowser(),
 		FieldBrowserVer:  latest.GetUserBrowserVersion(),
 		FieldOS:          latest.GetUserOs(),

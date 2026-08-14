@@ -63,3 +63,20 @@ type ControllerOptions struct {
 	// Logger is used for internal logging. Defaults to slog.Default().
 	Logger *slog.Logger
 }
+
+// CountryName resolves an ISO2 code to a human-readable country name using
+// the CountryNameByIso2 callback. Returns the raw code when the callback is
+// nil or returns an error.
+func (o ControllerOptions) CountryName(iso2 string) string {
+	if iso2 == "" {
+		return ""
+	}
+	if o.CountryNameByIso2 == nil {
+		return iso2
+	}
+	name, err := o.CountryNameByIso2(iso2)
+	if err != nil || name == "" {
+		return iso2
+	}
+	return name
+}

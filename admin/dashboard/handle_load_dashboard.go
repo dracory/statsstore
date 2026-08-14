@@ -63,7 +63,7 @@ func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter
 	topDeviceTypes := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetUserDeviceType() }), 10)
 
 	// Recent visitors (last 15, newest first — visitors are typically ordered by created_at desc).
-	recent := buildRecentVisitors(like, 15)
+	recent := buildRecentVisitors(like, 15, controller.opts)
 
 	api.Respond(w, r, api.SuccessWithData("Dashboard loaded", map[string]any{
 		FieldTotalVisitors:  totalVisitors,
@@ -71,7 +71,7 @@ func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter
 		FieldPeriod:         reqBody.Period,
 		FieldPeriodLabel:    bounds.Label,
 		FieldTopPaths:       toCountList(topPaths),
-		FieldTopCountries:   toCountList(topCountries),
+		FieldTopCountries:   toCountryCountList(topCountries, controller.opts),
 		FieldTopBrowsers:    toCountList(topBrowsers),
 		FieldTopOS:          toCountList(topOS),
 		FieldTopDeviceTypes: toCountList(topDeviceTypes),
@@ -116,7 +116,21 @@ func toCountList(in []shared.CountEntry) []map[string]any {
 	return out
 }
 
-func buildRecentVisitors(visitors []shared.VisitorLike, n int) []map[string]any {
+// toCountryCountList is like toCountList but also resolves the ISO2 label to
+// a human-readable country name via the CountryNameByIso2 callback.
+func toCountryCountList(in []shared.CountEntry, opts shared.ControllerOptions) []map[string]any {
+	out := make([]map[string]any, 0, len(in))
+	for _, e := range in {
+		out = append(out, map[string]any{
+			FieldLabel:         e.Label,
+			FieldLabelResolved: opts.CountryName(e.Label),
+			FieldCount:         e.Count,
+		})
+	}
+	return out
+}
+
+func buildRecentVisitors(visitors []shared.VisitorLike, n int, opts shared.ControllerOptions) []map[string]any {
 	if n > len(visitors) {
 		n = len(visitors)
 	}
@@ -124,15 +138,16 @@ func buildRecentVisitors(visitors []shared.VisitorLike, n int) []map[string]any 
 	for i := 0; i < n; i++ {
 		v := visitors[i]
 		out = append(out, map[string]any{
-			FieldVisitorIP:        v.GetIpAddress(),
-			FieldVisitorCountry:   v.GetCountry(),
-			FieldVisitorPath:      v.GetPath(),
-			FieldVisitorBrowser:   v.GetUserBrowser(),
-			FieldVisitorOS:        v.GetUserOs(),
-			FieldVisitorDevice:    v.GetUserDeviceType(),
-			FieldVisitorCreatedAt: v.GetCreatedAt(),
-			FieldIsBot:            v.GetBot() == statsstore.VALUE_YES,
-			FieldIsThreat:         v.GetThreat() == statsstore.VALUE_YES,
+			FieldVisitorIP:          v.GetIpAddress(),
+			FieldVisitorCountry:     v.GetCountry(),
+			FieldVisitorCountryName: opts.CountryName(v.GetCountry()),
+			FieldVisitorPath:        v.GetPath(),
+			FieldVisitorBrowser:     v.GetUserBrowser(),
+			FieldVisitorOS:          v.GetUserOs(),
+			FieldVisitorDevice:      v.GetUserDeviceType(),
+			FieldVisitorCreatedAt:   v.GetCreatedAt(),
+			FieldIsBot:              v.GetBot() == statsstore.VALUE_YES,
+			FieldIsThreat:           v.GetThreat() == statsstore.VALUE_YES,
 		})
 	}
 	return out

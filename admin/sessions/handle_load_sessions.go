@@ -27,18 +27,19 @@ type sessionVisit struct {
 
 // session is a group of visits from a single IP.
 type session struct {
-	IP         string         `json:"ip"`
-	Country    string         `json:"country"`
-	Browser    string         `json:"browser"`
-	OS         string         `json:"os"`
-	Device     string         `json:"device"`
-	DeviceType string         `json:"device_type"`
-	VisitCount int            `json:"visit_count"`
-	FirstSeen  string         `json:"first_seen"`
-	LastSeen   string         `json:"last_seen"`
-	IsBot      bool           `json:"is_bot"`
-	IsThreat   bool           `json:"is_threat"`
-	Visits     []sessionVisit `json:"visits"`
+	IP          string         `json:"ip"`
+	Country     string         `json:"country"`
+	CountryName string         `json:"country_name"`
+	Browser     string         `json:"browser"`
+	OS          string         `json:"os"`
+	Device      string         `json:"device"`
+	DeviceType  string         `json:"device_type"`
+	VisitCount  int            `json:"visit_count"`
+	FirstSeen   string         `json:"first_seen"`
+	LastSeen    string         `json:"last_seen"`
+	IsBot       bool           `json:"is_bot"`
+	IsThreat    bool           `json:"is_threat"`
+	Visits      []sessionVisit `json:"visits"`
 }
 
 // condition is a single filter condition sent from the frontend.
@@ -96,7 +97,7 @@ func (controller *sessionsController) handleLoadSessions(w http.ResponseWriter, 
 
 	// Apply in-memory conditions and build sessions.
 	filtered := filterInMemory(visitors, reqBody.Conditions)
-	sessions := buildSessions(filtered)
+	sessions := buildSessions(filtered, controller.opts)
 
 	// Sort sessions by most recent activity.
 	sortSessions(sessions)
@@ -217,7 +218,7 @@ func matchesAnyInField(v statsstore.VisitorInterface, field string, conds []cond
 }
 
 // buildSessions groups visits by IP. Each IP becomes one session containing all visits.
-func buildSessions(visitors []statsstore.VisitorInterface) []session {
+func buildSessions(visitors []statsstore.VisitorInterface, opts shared.ControllerOptions) []session {
 	byIP := map[string]*session{}
 	for _, v := range visitors {
 		ip := v.GetIpAddress()
@@ -226,15 +227,16 @@ func buildSessions(visitors []statsstore.VisitorInterface) []session {
 		s, ok := byIP[ip]
 		if !ok {
 			s = &session{
-				IP:         ip,
-				Country:    v.GetCountry(),
-				Browser:    v.GetUserBrowser(),
-				OS:         v.GetUserOs(),
-				Device:     v.GetUserDevice(),
-				DeviceType: v.GetUserDeviceType(),
-				IsBot:      isBot,
-				IsThreat:   isThreat,
-				Visits:     []sessionVisit{},
+				IP:          ip,
+				Country:     v.GetCountry(),
+				CountryName: opts.CountryName(v.GetCountry()),
+				Browser:     v.GetUserBrowser(),
+				OS:          v.GetUserOs(),
+				Device:      v.GetUserDevice(),
+				DeviceType:  v.GetUserDeviceType(),
+				IsBot:       isBot,
+				IsThreat:    isThreat,
+				Visits:      []sessionVisit{},
 			}
 			byIP[ip] = s
 		}

@@ -58,7 +58,7 @@
                             <tbody>
                                 <tr>
                                     <th style="width: 140px;">Country</th>
-                                    <td><span v-if="details.country" class="fi me-1" :class="'fi-' + details.country.toLowerCase()" :title="details.country"></span>{{ details.country || '—' }}</td>
+                                    <td><span v-if="details.country" class="fi" :class="'fi-' + details.country.toLowerCase()" :title="details.country_name || details.country"></span><span v-else>—</span></td>
                                 </tr>
                                 <tr>
                                     <th>Device</th>
