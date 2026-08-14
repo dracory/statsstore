@@ -46,6 +46,24 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"Python/3.12 urllib/3.12",    // stdlib urllib format
 		"Python/3.10",                // bare stdlib format
 		"aiohttp/3.14.1",             // aiohttp without Python prefix
+		// AI/LLM crawlers without "bot"/"crawler"/"spider" keywords.
+		"ChatGPT-User/1.0",
+		"anthropic-ai/1.0",
+		"Claude-Web/1.0",
+		"Google-Extended/1.0",
+		"cohere-ai/1.0",
+		"Meta-ExternalAgent/1.1",
+		"Meta-ExternalFetcher/1.1",
+		"omgili/0.5",
+		// Additional HTTP client libraries.
+		"libwww-perl/6.43",
+		"Java/1.8.0_301",
+		"GuzzleHttp/7.0",
+		"Faraday/2.7",
+		"RestSharp/106.12",
+		"dart:io (2.19)",
+		"winhttp",
+		"libcurl-agent/1.0",
 	}
 
 	for _, ua := range botUAs {
@@ -230,11 +248,69 @@ func TestIsDataCenterIP_KnownRanges(t *testing.T) {
 		"159.65.1.2",    // DigitalOcean
 		"167.99.1.2",    // DigitalOcean
 		"129.146.1.2",   // Oracle Cloud
+		// Hetzner
+		"78.46.1.2",
+		"159.69.1.2",
+		"95.216.1.2",
+		// OVH
+		"51.77.1.2",
+		"94.23.1.2",
+		"176.31.1.2",
+		// Linode / Akamai
+		"45.79.1.2",
+		"172.104.1.2",
+		// Vultr
+		"45.32.1.2",
+		"45.76.1.2",
+		"108.61.1.2",
+		// Alibaba Cloud
+		"47.52.1.2",
+		"120.24.1.2",
+		"139.196.1.2",
+		// Tencent Cloud
+		"49.51.1.2",
+		"119.29.1.2",
+		"129.226.1.2",
+		// Contabo
+		"5.189.128.1",
+		"161.97.1.2",
+		// Scaleway / Online.net — includes the incident IP
+		"51.15.217.215",
+		"62.210.1.2",
+		"163.172.1.2",
+		// IBM Cloud
+		"129.40.1.2",
+		"158.85.1.2",
+		// UpCloud
+		"94.237.1.2",
+		// DigitalOcean (146.190.x — moved from UpCloud after verification)
+		"146.190.1.2",
 	}
 
 	for _, ip := range ips {
 		if !IsDataCenterIP(ip) {
 			t.Errorf("IsDataCenterIP(%q) = false, expected true", ip)
+		}
+	}
+}
+
+func TestIsDataCenterIP_IPv6Ranges(t *testing.T) {
+	ips := []string{
+		"2600:1f00:1::1", // AWS
+		"2600:1900:1::1", // GCP
+		"2603:1::1",      // Azure
+		"2a01:4f8:1::1",  // Hetzner
+		"2001:41d0:1::1", // OVH
+		"2600:3c00:1::1", // Linode
+		"2001:19f0:1::1", // Vultr
+		"2400:3200:1::1", // Alibaba
+		"2402:4e00:1::1", // Tencent
+		"2001:bc8:1::1",  // Scaleway
+	}
+
+	for _, ip := range ips {
+		if !IsDataCenterIP(ip) {
+			t.Errorf("IsDataCenterIP(%q) = false, expected true (IPv6 datacenter)", ip)
 		}
 	}
 }
@@ -599,6 +675,7 @@ func TestIsBotPath_KnownBotFiles(t *testing.T) {
 		"/BingSiteAuth.xml",
 		"/dnt-policy.txt",
 		"/sellers.json",
+		"/browserconfig.xml",
 	}
 
 	for _, p := range paths {
@@ -651,6 +728,14 @@ func TestIsMaliciousPath_UniversalMalicious(t *testing.T) {
 		"/.htpasswd",
 		"/shell.php",
 		"/uploads/shell.php",
+		// Credential / metadata leak patterns.
+		"/.aws/credentials",
+		"[GET] /.aws/credentials",
+		"/.ssh/id_rsa",
+		"/.ssh/config",
+		"/id_rsa",
+		"/.DS_Store",
+		"/.npmrc",
 	}
 
 	for _, p := range paths {
