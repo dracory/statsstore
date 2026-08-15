@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/dracory/api"
 	"github.com/dracory/statsstore"
-	"github.com/dracory/statsstore/admin/shared"
 )
 
 func (controller *visitorsController) handleExportCSV(w http.ResponseWriter, r *http.Request) string {

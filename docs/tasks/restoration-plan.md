@@ -38,10 +38,11 @@ The current implementation of `statsstore` is missing several key features that 
     - Update the session detail view to show a clear chronological timeline of paths.
 
 ### 4. Data Export
-- **CSV Export**:
-    - Add `action=export-csv` handlers to `Dashboard`, `Visitors`, and `Sessions` controllers.
-    - Add "Export CSV" buttons to the respective UI pages.
-    - Use Go's `encoding/csv` to generate the files.
+- [x] **CSV Export**:
+    - Added `action=export-csv` handlers to `Dashboard`, `Visitors`, and `Sessions` controllers in both `statsstore` and `statsadmin`.
+    - Added "Export CSV" buttons to the respective UI pages.
+    - Used Go's `encoding/csv` to generate the files.
+    - Implemented frontend download logic via `fetch` and `Blob`.
 
 ### 5. UI/UX Polishing
 - **Daily Stats Table/Chart**: Restore the day-by-day breakdown table/chart mentioned in the spec.

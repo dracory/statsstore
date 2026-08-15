@@ -9,7 +9,6 @@ import (
 
 	"github.com/dracory/api"
 	"github.com/dracory/statsstore"
-	"github.com/dracory/statsstore/admin/shared"
 )
 
 func (controller *sessionsController) handleExportCSV(w http.ResponseWriter, r *http.Request) string {
