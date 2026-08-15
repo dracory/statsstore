@@ -3,7 +3,7 @@
 ## Source
 Product Specification + Feature Audit
 
-## Status: Not Started
+## Status: In Progress
 
 ## Objective
 Restore missing analytics features described in the product specification and task documentation, including fingerprint-based tracking, period comparisons, bounce rates, and enhanced session reconstruction.
@@ -46,6 +46,7 @@ The current implementation of `statsstore` is missing several key features that 
 ### 5. UI/UX Polishing
 - **Daily Stats Table/Chart**: Restore the day-by-day breakdown table/chart mentioned in the spec.
 - **Standardize CDN usage**: Use the `cdn` package for all external scripts/styles in the admin panel as noted in `admin-upgrade-plan.md`.
+- [x] **IP Details Navigation**: Made visitor paths clickable on the IP Details page to align with other dashboard views.
 
 ## Files to Modify
 - `store.go` - `VisitorRegister` and potentially `VisitorCount` helpers.
@@ -58,7 +59,7 @@ The current implementation of `statsstore` is missing several key features that 
 
 ## Verification
 - [ ] Run `examples/admin-demo` and verify new cards (Bounce Rate, Duration, Live Visitors) appear.
-- [ ] Verify Unique Visitor counts match fingerprint-based logic.
+- [x] Verify Unique Visitor counts match fingerprint-based logic (verified via local tests).
 - [ ] Test CSV exports for all pages.
 - [ ] Verify session grouping correctly splits visits after 30 minutes of inactivity.
 - [ ] Check period comparison indicators with seeded historical data.

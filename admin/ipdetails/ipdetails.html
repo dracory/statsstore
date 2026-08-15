@@ -132,7 +132,9 @@
                         <tbody>
                             <tr v-for="(p, i) in paths" :key="i">
                                 <td class="small text-muted">{{ p.created_at }}</td>
-                                <td class="font-monospace small">{{ p.path }}</td>
+                                <td class="font-monospace small">
+                                    <a :href="pathUrl(p.path)" target="_blank" rel="noopener noreferrer" class="text-decoration-none text-break">{{ p.path }}</a>
+                                </td>
                             </tr>
                         </tbody>
                     </table>

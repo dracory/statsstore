@@ -184,6 +184,15 @@ createApp({
             }
         };
 
+        // pathUrl strips the "[METHOD] " prefix from a stored path (e.g. "[GET] /foo")
+        // and builds an absolute URL so the link can open in a new tab.
+        const pathUrl = (path) => {
+            if (!path) return '#';
+            const stripped = String(path).replace(/^\[[^\]]+\]\s*/, '');
+            if (!stripped.startsWith('/')) return stripped;
+            return window.location.origin + stripped;
+        };
+
         return {
             details,
             paths,
@@ -199,6 +208,7 @@ createApp({
             confirmFlagThreat,
             confirmRemoveEntries,
             showBotReasons,
+            pathUrl,
         };
     }
 }).mount('#ip-details-app');
