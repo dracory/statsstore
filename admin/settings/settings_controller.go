@@ -39,6 +39,8 @@ func (controller *settingsController) Handler(w http.ResponseWriter, r *http.Req
 		return controller.handleDeleteBots(w, r)
 	case actionDeleteThreats:
 		return controller.handleDeleteThreats(w, r)
+	case actionLoadStats:
+		return controller.handleLoadStats(w, r)
 	default:
 		return controller.renderPage(w, r)
 	}

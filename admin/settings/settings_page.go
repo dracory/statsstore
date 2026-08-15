@@ -46,6 +46,7 @@ func (controller *settingsController) renderPage(w http.ResponseWriter, r *http.
 	urlIdentifyBots := linksHelper.Settings(map[string]string{"action": actionIdentifyBots})
 	urlDeleteBots := linksHelper.Settings(map[string]string{"action": actionDeleteBots})
 	urlDeleteThreats := linksHelper.Settings(map[string]string{"action": actionDeleteThreats})
+	urlLoadStats := linksHelper.Settings(map[string]string{"action": actionLoadStats})
 	urlIPDetailsBase := linksHelper.IPDetails(nil)
 	urlDashboard := linksHelper.Dashboard(nil)
 	urlVisitors := linksHelper.Visitors(nil)
@@ -62,6 +63,7 @@ func (controller *settingsController) renderPage(w http.ResponseWriter, r *http.
 	html = strings.ReplaceAll(html, "urlIdentifyBots", "'"+urlIdentifyBots+"'")
 	html = strings.ReplaceAll(html, "urlDeleteBots", "'"+urlDeleteBots+"'")
 	html = strings.ReplaceAll(html, "urlDeleteThreats", "'"+urlDeleteThreats+"'")
+	html = strings.ReplaceAll(html, "urlLoadStats", "'"+urlLoadStats+"'")
 	html = strings.ReplaceAll(html, "urlIPDetailsBase", "'"+urlIPDetailsBase+"'")
 	html = strings.ReplaceAll(html, "__URL_DASHBOARD__", urlDashboard)
 	html = strings.ReplaceAll(html, "__URL_VISITORS__", urlVisitors)
@@ -77,6 +79,7 @@ func (controller *settingsController) renderPage(w http.ResponseWriter, r *http.
 	js = strings.ReplaceAll(js, "urlIdentifyBots", "'"+urlIdentifyBots+"'")
 	js = strings.ReplaceAll(js, "urlDeleteBots", "'"+urlDeleteBots+"'")
 	js = strings.ReplaceAll(js, "urlDeleteThreats", "'"+urlDeleteThreats+"'")
+	js = strings.ReplaceAll(js, "urlLoadStats", "'"+urlLoadStats+"'")
 	js = strings.ReplaceAll(js, "urlIPDetailsBase", "'"+urlIPDetailsBase+"'")
 
 	vueCDN := hb.Script("").Src(cdn.VueJs_3_5_32())

@@ -236,10 +236,20 @@
         <div class="card-body">
             <p class="text-muted small mb-3">Permanently remove old visitor records to save database space.</p>
 
+            <div class="alert alert-light border d-flex align-items-center gap-2 mb-3" v-if="totalRecords !== null">
+                <i class="bi bi-database"></i>
+                <span class="small">
+                    <strong>{{ totalRecords.toLocaleString() }}</strong> visitor record(s) currently in the database.
+                    <span v-if="deleteOlderThanDate && olderCount !== null" class="ms-2">
+                        <span class="badge bg-warning text-dark">{{ olderCount.toLocaleString() }}</span> would be deleted.
+                    </span>
+                </span>
+            </div>
+
             <div class="row align-items-end g-2">
                 <div class="col-md-4">
                     <label class="form-label small">Delete entries older than</label>
-                    <input type="date" class="form-control" v-model="deleteOlderThanDate">
+                    <input type="date" class="form-control" v-model="deleteOlderThanDate" @change="onDateChange">
                 </div>
                 <div class="col-md-3">
                     <button class="btn btn-danger w-100" type="button" @click="confirmDeleteOlderThan" :disabled="loading || !deleteOlderThanDate">

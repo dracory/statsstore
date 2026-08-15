@@ -29,6 +29,8 @@ createApp({
         const deletingThreats = ref(false);
         const deletingOlderThan = ref(false);
         const deleteOlderThanDate = ref('');
+        const totalRecords = ref(null);
+        const olderCount = ref(null);
 
         const loadIPs = async () => {
             loading.value = true;
@@ -304,6 +306,35 @@ createApp({
             );
         };
 
+        const loadStats = async (olderThan) => {
+            try {
+                const body = olderThan ? { older_than: olderThan } : {};
+                const response = await fetch(urlLoadStats, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    totalRecords.value = data.data.total_records || 0;
+                    if (olderThan) {
+                        olderCount.value = data.data.older_count || 0;
+                    } else {
+                        olderCount.value = null;
+                    }
+                }
+            } catch (e) {
+                // Silently fail — count is informational only
+            }
+        };
+
+        const onDateChange = () => {
+            olderCount.value = null;
+            if (deleteOlderThanDate.value) {
+                loadStats(deleteOlderThanDate.value);
+            }
+        };
+
         const confirmDeleteOlderThan = () => {
             if (!deleteOlderThanDate.value) return;
             
@@ -326,6 +357,8 @@ createApp({
                         if (data.status === 'success') {
                             success.value = data.message || 'Old records deleted';
                             deleteOlderThanDate.value = '';
+                            olderCount.value = null;
+                            await loadStats();
                         } else {
                             error.value = data.message || 'Failed to delete old records';
                         }
@@ -458,6 +491,7 @@ createApp({
         onMounted(() => {
             loadIPs();
             loadBots();
+            loadStats();
         });
 
         return {
@@ -498,6 +532,9 @@ createApp({
             deletingOlderThan,
             deleteOlderThanDate,
             confirmDeleteOlderThan,
+            totalRecords,
+            olderCount,
+            onDateChange,
             ipDetailsUrl,
         };
     }

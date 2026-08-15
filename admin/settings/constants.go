@@ -13,11 +13,14 @@ const (
 	actionIdentifyBots  = "identify-bots"
 	actionDeleteBots    = "delete-bots"
 	actionDeleteThreats = "delete-threats"
+	actionLoadStats     = "load-stats"
 
 	FieldIPs          = "ips"
 	FieldIP           = "ip"
 	FieldTotal        = "total"
 	FieldDeletedCount = "deleted_count"
+	FieldTotalRecords = "total_records"
+	FieldOlderCount   = "older_count"
 
 	// Bot IP fields
 	FieldBots    = "bots"
