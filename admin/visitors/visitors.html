@@ -57,7 +57,7 @@
                         <tr v-for="v in visitors" :key="v.id">
                             <td>
                                 <a :href="ipDetailsUrl(v.ip)" class="text-decoration-none font-monospace">{{ v.ip }}</a>
-                                <span v-if="v.is_bot" class="badge bg-warning text-dark ms-1">Bot</span>
+                                <span v-if="v.is_bot" class="badge bg-warning text-dark ms-1 bot-reason-badge" @click.prevent.stop="showBotReasons(v.ip)">Bot</span>
                                 <span v-if="v.is_threat" class="badge bg-danger ms-1">Threat</span>
                             </td>
                             <td><span v-if="v.country" class="fi" :class="'fi-' + v.country.toLowerCase()" :title="v.country_name || v.country"></span><span v-else>—</span></td>

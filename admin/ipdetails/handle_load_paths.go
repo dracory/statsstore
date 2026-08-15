@@ -119,12 +119,18 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 		return ci > cj
 	})
 
+	// Compute bot reasons from the visitor records so the UI can show why
+	// this IP was flagged. Uses the shared helper that checks all ingestion
+	// signals (user-agent, data-center IP, referrer spam, bot/malicious paths).
+	botReasons := shared.ComputeBotReasons(ipVisitors, nil)
+
 	api.Respond(w, r, api.SuccessWithData("IP details loaded", map[string]any{
 		FieldDetails:    details,
 		FieldPaths:      paths,
 		FieldVisitCount: len(ipVisitors),
 		FieldIsBot:      latest.GetBot() == statsstore.VALUE_YES,
 		FieldIsThreat:   latest.GetThreat() == statsstore.VALUE_YES,
+		FieldBotReasons: botReasons,
 		FieldTotal:      len(paths),
 	}))
 	return ""

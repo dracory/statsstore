@@ -30,7 +30,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
                     <span class="font-monospace">{{ details.ip || '__IP__' }}</span>
-                    <span v-if="isBot" class="badge bg-warning text-dark ms-2">Bot</span>
+                    <span v-if="isBot" class="badge bg-warning text-dark ms-2 bot-reason-badge" @click.stop="showBotReasons">Bot</span>
                     <span v-if="isThreat" class="badge bg-danger ms-2">Threat</span>
                 </h5>
                 <div class="d-flex align-items-center gap-2">
@@ -39,7 +39,7 @@
                         <span v-if="flagging" class="spinner-border spinner-border-sm"></span>
                         Flag as Bot
                     </button>
-                    <span v-else class="badge bg-warning text-dark">Bot</span>
+                    <span v-else class="badge bg-warning text-dark bot-reason-badge" @click.stop="showBotReasons">Bot</span>
                     <button v-if="!isThreat" class="btn btn-sm btn-outline-danger" @click="confirmFlagThreat" :disabled="flaggingThreat">
                         <span v-if="flaggingThreat" class="spinner-border spinner-border-sm"></span>
                         Flag as Threat

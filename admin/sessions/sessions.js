@@ -36,6 +36,53 @@ createApp({
         const showFilterModal = ref(false);
         const modalConditions = ref([]);
 
+        // showBotReasons fetches the bot reasons for the given IP via AJAX
+        // from the ipdetails controller's load-bot-reasons action and
+        // displays them in a Notiflix.Report dialog.
+        const showBotReasons = async (ip) => {
+            try {
+                const url = urlIPDetailsBase + '&action=load-bot-reasons&ip=' + encodeURIComponent(ip);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip: ip }),
+                });
+                const data = await response.json();
+                if (data.status !== 'success') {
+                    Notiflix.Notify.failure(data.message || 'Failed to load bot reasons');
+                    return;
+                }
+                const reasons = data.data.bot_reasons || [];
+                let html;
+                if (reasons.length === 0) {
+                    html = '<p style="margin:0;color:#6c757d;">No specific reasons recorded. This IP may have been flagged manually.</p>';
+                } else {
+                    html = '<div style="text-align:left;">';
+                    for (const r of reasons) {
+                        html += '<div style="margin-bottom:8px;">';
+                        html += '<span style="background:#f8f9fa;border:1px solid #dee2e6;padding:2px 8px;border-radius:4px;font-size:12px;">' + r.pattern + '</span>';
+                        html += '<span style="color:#6c757d;margin-left:6px;font-size:12px;">' + r.hits + 'x</span>';
+                        if (r.paths && r.paths.length) {
+                            html += '<div style="color:#6c757d;font-size:11px;margin-left:16px;margin-top:4px;font-family:monospace;">';
+                            for (const p of r.paths) {
+                                html += '<div>' + p + '</div>';
+                            }
+                            html += '</div>';
+                        }
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+                Notiflix.Report.info(
+                    'Bot Reasons — ' + ip,
+                    html,
+                    'Close'
+                );
+            } catch (e) {
+                Notiflix.Notify.failure('Failed to load bot reasons');
+            }
+        };
+
         const openFilterModal = () => {
             // Clone current conditions into the modal editor
             modalConditions.value = conditions.value.map(c => ({ ...c }));
@@ -193,6 +240,7 @@ createApp({
             fieldLabel, opLabel, getFieldOperators, getFieldInputType, getFieldPlaceholder,
             ipDetailsUrl,
             pathUrl,
+            showBotReasons,
         };
     }
 }).mount('#stats-sessions-app');

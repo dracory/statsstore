@@ -21,6 +21,8 @@ func (controller *ipDetailsController) Handler(w http.ResponseWriter, r *http.Re
 	switch action {
 	case actionLoadPaths:
 		return controller.handleLoadPaths(w, r)
+	case actionLoadBotReasons:
+		return controller.handleLoadBotReasons(w, r)
 	case actionFlagBot:
 		return controller.handleFlagBot(w, r)
 	case actionFlagThreat:

@@ -1,10 +1,11 @@
 package ipdetails
 
 const (
-	actionLoadPaths     = "load-paths"
-	actionFlagBot       = "flag-bot"
-	actionFlagThreat    = "flag-threat"
-	actionRemoveEntries = "remove-entries"
+	actionLoadPaths      = "load-paths"
+	actionLoadBotReasons = "load-bot-reasons"
+	actionFlagBot        = "flag-bot"
+	actionFlagThreat     = "flag-threat"
+	actionRemoveEntries  = "remove-entries"
 
 	FieldIP            = "ip"
 	FieldCountry       = "country"
@@ -25,6 +26,7 @@ const (
 	FieldLastSeen      = "last_seen"
 	FieldIsBot         = "is_bot"
 	FieldIsThreat      = "is_threat"
+	FieldBotReasons    = "bot_reasons"
 	FieldPaths         = "paths"
 	FieldPath          = "path"
 	FieldPathCreatedAt = "created_at"

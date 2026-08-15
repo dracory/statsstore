@@ -8,6 +8,7 @@ import (
 
 	"github.com/dracory/api"
 	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 )
 
 // reasonAgg tracks per-pattern evidence for a bot IP during aggregation.
@@ -45,6 +46,9 @@ func (controller *settingsController) handleLoadBots(w http.ResponseWriter, r *h
 		Reasons  map[string]*reasonAgg
 	}
 	agg := map[string]*ipAgg{}
+	// dataCenterChecked tracks which IPs have already been checked for
+	// data-center membership, since IsDataCenterIP is IP-level (not per-visit).
+	dataCenterChecked := map[string]bool{}
 	for _, v := range visitors {
 		ip := v.GetIpAddress()
 		if ip == "" {
@@ -84,6 +88,28 @@ func (controller *settingsController) handleLoadBots(w http.ResponseWriter, r *h
 			if !ok {
 				reason = &reasonAgg{Pattern: userAgentPattern}
 				a.Reasons[userAgentPattern] = reason
+			}
+			reason.Hits++
+		}
+
+		// Check data-center IP (once per IP — it's IP-level, not per-visit).
+		if !dataCenterChecked[ip] && statsstore.IsDataCenterIP(ip) {
+			reason, ok := a.Reasons[shared.BotReasonDataCenterIP]
+			if !ok {
+				reason = &reasonAgg{Pattern: shared.BotReasonDataCenterIP}
+				a.Reasons[shared.BotReasonDataCenterIP] = reason
+			}
+			reason.Hits++
+		}
+		dataCenterChecked[ip] = true
+
+		// Check referrer spam.
+		referrer := v.GetUserReferrer()
+		if referrer != "" && statsstore.IsReferrerSpam(referrer) {
+			reason, ok := a.Reasons[shared.BotReasonReferrerSpam]
+			if !ok {
+				reason = &reasonAgg{Pattern: shared.BotReasonReferrerSpam}
+				a.Reasons[shared.BotReasonReferrerSpam] = reason
 			}
 			reason.Hits++
 		}

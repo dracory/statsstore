@@ -7,6 +7,7 @@ createApp({
         const visitCount = ref(0);
         const isBot = ref(false);
         const isThreat = ref(false);
+        const botReasons = ref([]);
         const loading = ref(true);
         const flagging = ref(false);
         const flaggingThreat = ref(false);
@@ -26,6 +27,7 @@ createApp({
                     visitCount.value = data.data.visit_count || 0;
                     isBot.value = data.data.is_bot || false;
                     isThreat.value = data.data.is_threat || false;
+                    botReasons.value = data.data.bot_reasons || [];
                 } else {
                     Notiflix.Notify.failure(data.message || 'Failed to load IP details');
                 }
@@ -44,6 +46,38 @@ createApp({
                 'Cancel',
                 () => flagBot(),
                 () => {}
+            );
+        };
+
+        // showBotReasons displays the bot reasons in a Notiflix.Report dialog.
+        // The reasons are pre-loaded with the IP details (no AJAX needed).
+        const showBotReasons = () => {
+            const ip = details.value.ip || '__IP__';
+            const reasons = botReasons.value || [];
+            let html;
+            if (reasons.length === 0) {
+                html = '<p style="margin:0;color:#6c757d;">No specific reasons recorded. This IP may have been flagged manually.</p>';
+            } else {
+                html = '<div style="text-align:left;">';
+                for (const r of reasons) {
+                    html += '<div style="margin-bottom:8px;">';
+                    html += '<span style="background:#f8f9fa;border:1px solid #dee2e6;padding:2px 8px;border-radius:4px;font-size:12px;">' + r.pattern + '</span>';
+                    html += '<span style="color:#6c757d;margin-left:6px;font-size:12px;">' + r.hits + 'x</span>';
+                    if (r.paths && r.paths.length) {
+                        html += '<div style="color:#6c757d;font-size:11px;margin-left:16px;margin-top:4px;font-family:monospace;">';
+                        for (const p of r.paths) {
+                            html += '<div>' + p + '</div>';
+                        }
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            Notiflix.Report.info(
+                'Bot Reasons — ' + ip,
+                html,
+                'Close'
             );
         };
 
@@ -134,6 +168,7 @@ createApp({
                     visitCount.value = 0;
                     isBot.value = false;
                     isThreat.value = false;
+                    botReasons.value = [];
                 } else {
                     Notiflix.Notify.failure(data.message || 'Failed to remove entries');
                 }
@@ -150,6 +185,7 @@ createApp({
             visitCount,
             isBot,
             isThreat,
+            botReasons,
             loading,
             flagging,
             flaggingThreat,
@@ -157,6 +193,7 @@ createApp({
             confirmFlagBot,
             confirmFlagThreat,
             confirmRemoveEntries,
+            showBotReasons,
         };
     }
 }).mount('#ip-details-app');
