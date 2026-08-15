@@ -60,6 +60,26 @@ createApp({
             }
         };
 
+        const exportCSV = async () => {
+            try {
+                const response = await fetch(urlLoadDashboard.replace('action=load-dashboard', 'action=export-csv'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period: selectedPeriod.value }),
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `visitors_${selectedPeriod.value}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                Notiflix.Notify.failure('Failed to export CSV');
+            }
+        };
+
         const ipDetailsUrl = (ip) => {
             return urlIPDetailsBase + '&ip=' + encodeURIComponent(ip);
         };
@@ -90,7 +110,7 @@ createApp({
 
         return {
             totalVisitors,
-            uniqueIPs,
+            uniqueVisitors,
             periodLabel,
             selectedPeriod,
             periodOptions,
@@ -102,6 +122,7 @@ createApp({
             topDeviceTypes,
             recentVisitors,
             loadDashboard,
+            exportCSV,
             ipDetailsUrl,
             visitorsPathFilterUrl,
             visitorsFilterUrl,

@@ -2,6 +2,7 @@ package dashboard
 
 const (
 	actionLoadDashboard = "load-dashboard"
+	actionExportCSV     = "export-csv"
 
 	FieldTotalVisitors      = "total_visitors"
 	FieldUniqueVisitors     = "unique_visitors"

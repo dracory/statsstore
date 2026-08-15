@@ -140,6 +140,26 @@ createApp({
             updateURL();
         };
 
+        const exportCSV = async () => {
+            try {
+                const response = await fetch(urlSessionsBase + '&action=export-csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ conditions: conditions.value }),
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sessions.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                Notiflix.Notify.failure('Failed to export CSV');
+            }
+        };
+
         const loadSessions = async () => {
             try {
                 const response = await fetch(urlLoadSessions, {
@@ -242,6 +262,7 @@ createApp({
             clearModalConditions, onFieldChange, applyConditions,
             clearConditions, removeCondition,
             loadSessions, prevPage, nextPage,
+            exportCSV,
             fieldLabel, opLabel, getFieldOperators, getFieldInputType, getFieldPlaceholder,
             ipDetailsUrl,
             pathUrl,

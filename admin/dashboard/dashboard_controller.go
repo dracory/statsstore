@@ -24,6 +24,8 @@ func (controller *dashboardController) Handler(w http.ResponseWriter, r *http.Re
 	switch action {
 	case actionLoadDashboard:
 		return controller.handleLoadDashboard(w, r)
+	case actionExportCSV:
+		return controller.handleExportCSV(w, r)
 	default:
 		return controller.renderPage(w, r)
 	}

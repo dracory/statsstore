@@ -21,6 +21,8 @@ func (controller *visitorsController) Handler(w http.ResponseWriter, r *http.Req
 	switch action {
 	case actionLoadVisitors:
 		return controller.handleLoadVisitors(w, r)
+	case actionExportCSV:
+		return controller.handleExportCSV(w, r)
 	default:
 		return controller.renderPage(w, r)
 	}

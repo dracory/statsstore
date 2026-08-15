@@ -2,6 +2,7 @@ package sessions
 
 const (
 	actionLoadSessions = "load-sessions"
+	actionExportCSV    = "export-csv"
 
 	FieldSessions   = "sessions"
 	FieldTotal      = "total"

@@ -2,6 +2,7 @@ package visitors
 
 const (
 	actionLoadVisitors = "load-visitors"
+	actionExportCSV    = "export-csv"
 
 	FieldVisitors    = "visitors"
 	FieldTotal       = "total"

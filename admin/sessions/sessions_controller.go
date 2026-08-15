@@ -22,6 +22,8 @@ func (controller *sessionsController) Handler(w http.ResponseWriter, r *http.Req
 	switch action {
 	case actionLoadSessions:
 		return controller.handleLoadSessions(w, r)
+	case actionExportCSV:
+		return controller.handleExportCSV(w, r)
 	default:
 		return controller.renderPage(w, r)
 	}

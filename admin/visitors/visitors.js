@@ -93,6 +93,42 @@ createApp({
             updateURL();
         };
 
+        const exportCSV = () => {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = urlVisitorsBase + '&action=export-csv';
+            
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'conditions'; // The backend expect conditions in JSON body, but standard form POST is different.
+            // Actually, my backend handleExportCSV tries JSON decoder first.
+            // Standard form POST doesn't send JSON body easily.
+            // I'll change handleExportCSV to support query params or standard form.
+            
+            // Re-evaluating: easiest is to use fetch and create a blob.
+            doExport();
+        };
+
+        const doExport = async () => {
+            try {
+                const response = await fetch(urlVisitorsBase + '&action=export-csv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ conditions: conditions.value }),
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'visitors.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                Notiflix.Notify.failure('Failed to export CSV');
+            }
+        };
+
         const loadVisitors = async () => {
             try {
                 const response = await fetch(urlLoadVisitors, {
@@ -242,6 +278,7 @@ createApp({
             clearModalConditions, onFieldChange, applyConditions,
             clearConditions, removeCondition,
             loadVisitors, prevPage, nextPage,
+            exportCSV,
             fieldLabel, opLabel, getFieldOperators, getFieldInputType, getFieldPlaceholder,
             ipDetailsUrl,
             pathUrl,
