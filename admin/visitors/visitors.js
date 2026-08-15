@@ -1,5 +1,10 @@
 const { createApp, ref, onMounted } = Vue;
 
+// esc escapes a string for safe insertion into HTML innerHTML.
+// Prevents XSS when displaying user-controlled data (paths, patterns) in
+// Notiflix.Report dialogs.
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 const conditionOptions = [
     { value: 'ip',          label: 'IP Address',        operators: ['equals'],    inputType: 'text',   placeholder: 'e.g. 192.168.1.1' },
     { value: 'country',     label: 'Country',           operators: ['equals'],    inputType: 'text',   placeholder: 'ISO2 code (e.g. GB)' },
@@ -144,12 +149,12 @@ createApp({
                     html = '<div style="text-align:left;">';
                     for (const r of reasons) {
                         html += '<div style="margin-bottom:8px;">';
-                        html += '<span style="background:#f8f9fa;border:1px solid #dee2e6;padding:2px 8px;border-radius:4px;font-size:12px;">' + r.pattern + '</span>';
+                        html += '<span style="background:#f8f9fa;border:1px solid #dee2e6;padding:2px 8px;border-radius:4px;font-size:12px;">' + esc(r.pattern) + '</span>';
                         html += '<span style="color:#6c757d;margin-left:6px;font-size:12px;">' + r.hits + 'x</span>';
                         if (r.paths && r.paths.length) {
                             html += '<div style="color:#6c757d;font-size:11px;margin-left:16px;margin-top:4px;font-family:monospace;">';
                             for (const p of r.paths) {
-                                html += '<div>' + p + '</div>';
+                                html += '<div>' + esc(p) + '</div>';
                             }
                             html += '</div>';
                         }
@@ -158,7 +163,7 @@ createApp({
                     html += '</div>';
                 }
                 Notiflix.Report.info(
-                    'Bot Reasons — ' + ip,
+                    'Bot Reasons — ' + esc(ip),
                     html,
                     'Close'
                 );

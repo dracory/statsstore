@@ -41,9 +41,12 @@ const (
 // (e.g. ".php", "/wp-admin"); pass nil to check only the universal
 // statsstore patterns.
 //
-// This is the single source of truth for why an IP was flagged, ensuring
-// the displayed reasons match the ingestion logic. The returned slice is
-// sorted by pattern for stable display.
+// Universal bot/malicious path patterns use the same precise matching as
+// statsstore.IsBotPath / statsstore.IsMaliciousPath (suffix on last path
+// segment for file patterns, segment match for directory patterns). Extra
+// consumer patterns use case-insensitive substring matching, consistent
+// with the identify-bots scan. The returned slice is sorted by pattern for
+// stable display.
 func ComputeBotReasons(visitors []statsstore.VisitorInterface, extraPathPatterns []string) []BotReasonDisplay {
 	type reasonAgg struct {
 		Pattern string
@@ -67,18 +70,14 @@ func ComputeBotReasons(visitors []statsstore.VisitorInterface, extraPathPatterns
 		}
 	}
 
-	// Combine universal bot path patterns, universal malicious path patterns,
-	// and any consumer-specific extra patterns into one list for substring
-	// matching. Matching is case-insensitive against the lowercased path,
-	// consistent with the existing handleLoadBots logic.
-	allPathPatterns := append([]string{}, statsstore.BotPathPatterns()...)
-	allPathPatterns = append(allPathPatterns, statsstore.MaliciousPathPatterns()...)
-	allPathPatterns = append(allPathPatterns, extraPathPatterns...)
+	botPatterns := statsstore.BotPathPatterns()
+	maliciousPatterns := statsstore.MaliciousPathPatterns()
 
-	// Pre-lowercase the patterns once for case-insensitive matching.
-	pathPatternsLower := make([]string, len(allPathPatterns))
-	for i, p := range allPathPatterns {
-		pathPatternsLower[i] = strings.ToLower(p)
+	// Pre-lowercase extra patterns once for case-insensitive substring
+	// matching (matching the identify-bots scan behavior).
+	extraLower := make([]string, len(extraPathPatterns))
+	for i, p := range extraPathPatterns {
+		extraLower[i] = strings.ToLower(p)
 	}
 
 	// dataCenterIP is the same for all visitors from the same IP, so only
@@ -90,28 +89,49 @@ func ComputeBotReasons(visitors []statsstore.VisitorInterface, extraPathPatterns
 		ip := v.GetIpAddress()
 		referrer := v.GetUserReferrer()
 		path := v.GetPath()
-		pathLower := strings.ToLower(path)
 
 		// User-agent self-identification (e.g. "Googlebot", "curl").
+		// The path is irrelevant — the signal is the UA string, not the URL.
 		if ua != "" && statsstore.IsBot(ua) {
-			addReason(BotReasonUserAgent, path)
+			addReason(BotReasonUserAgent, "")
 		}
 
 		// Data-center IP — check once per IP since it's IP-level, not per-visit.
+		// The path is irrelevant — the signal is the IP range, not the URL.
 		if !dataCenterChecked && ip != "" && statsstore.IsDataCenterIP(ip) {
-			addReason(BotReasonDataCenterIP, path)
+			addReason(BotReasonDataCenterIP, "")
 			dataCenterChecked = true
 		}
 
 		// Referrer spam.
+		// The path is irrelevant — the signal is the referrer domain, not the URL.
 		if referrer != "" && statsstore.IsReferrerSpam(referrer) {
-			addReason(BotReasonReferrerSpam, path)
+			addReason(BotReasonReferrerSpam, "")
 		}
 
-		// Path-based patterns (bot files + malicious paths + consumer extras).
-		for i, patternLower := range pathPatternsLower {
+		// Bot-only path patterns (robots.txt, ads.txt, sitemap.xml, etc.).
+		// Uses the same suffix-on-last-segment matching as
+		// statsstore.IsBotPath to avoid false positives like
+		// "/robots.txt.backup" matching "robots.txt".
+		if matched := matchBotPath(path, botPatterns); matched != "" {
+			addReason(matched, path)
+		}
+
+		// Universal malicious path patterns (.env, .git/, shell.php, etc.).
+		// Uses the same matching as statsstore.IsMaliciousPath: suffix on
+		// last segment for file patterns, segment match for directory
+		// patterns (ending in "/").
+		if matched := matchMaliciousPath(path, maliciousPatterns); matched != "" {
+			addReason(matched, path)
+		}
+
+		// Extra consumer-specific patterns (e.g. ".php", "/wp-admin").
+		// These use case-insensitive substring matching, consistent with
+		// the identify-bots scan in handleIdentifyBots.
+		pathLower := strings.ToLower(path)
+		for i, patternLower := range extraLower {
 			if strings.Contains(pathLower, patternLower) {
-				addReason(allPathPatterns[i], path)
+				addReason(extraPathPatterns[i], path)
 			}
 		}
 	}
@@ -132,4 +152,63 @@ func ComputeBotReasons(visitors []statsstore.VisitorInterface, extraPathPatterns
 	})
 
 	return list
+}
+
+// matchBotPath finds the first bot path pattern that matches the given path
+// using suffix-on-last-segment matching (same as statsstore.IsBotPath).
+// Returns the matched pattern string, or "" if no match.
+func matchBotPath(path string, patterns []string) string {
+	if path == "" {
+		return ""
+	}
+	pathLower := strings.ToLower(path)
+	lastSeg := pathLastSegment(pathLower)
+	for _, pattern := range patterns {
+		if strings.HasSuffix(lastSeg, pattern) {
+			return pattern
+		}
+	}
+	return ""
+}
+
+// matchMaliciousPath finds the first malicious path pattern that matches the
+// given path using the same logic as statsstore.IsMaliciousPath: suffix on
+// last segment for file patterns, segment match for directory patterns
+// (patterns ending in "/"). Returns the matched pattern string, or "" if
+// no match.
+func matchMaliciousPath(path string, patterns []string) string {
+	if path == "" {
+		return ""
+	}
+	pathLower := strings.ToLower(path)
+	for _, pattern := range patterns {
+		if strings.HasSuffix(pattern, "/") {
+			dirName := strings.TrimSuffix(pattern, "/")
+			for _, segment := range strings.Split(pathLower, "/") {
+				if segment == dirName {
+					return pattern
+				}
+			}
+		} else {
+			if strings.HasSuffix(pathLastSegment(pathLower), pattern) {
+				return pattern
+			}
+		}
+	}
+	return ""
+}
+
+// pathLastSegment extracts the last path segment (filename) from a path,
+// stripping query strings and fragments first. For example,
+// "/courses/go" returns "go", "[GET] /robots.txt" returns "robots.txt".
+// This mirrors the unexported pathLastSegment in statsstore/bot_filter.go.
+func pathLastSegment(path string) string {
+	if i := strings.IndexAny(path, "?#"); i >= 0 {
+		path = path[:i]
+	}
+	idx := strings.LastIndex(path, "/")
+	if idx < 0 {
+		return path
+	}
+	return path[idx+1:]
 }

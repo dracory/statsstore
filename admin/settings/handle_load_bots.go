@@ -66,9 +66,12 @@ func (controller *settingsController) handleLoadBots(w http.ResponseWriter, r *h
 		}
 
 		// Check visitor path against bot/malicious patterns to derive reasons.
+		// Matching is case-insensitive (path is lowercased before comparison)
+		// to catch paths like "/Robots.txt" that would otherwise slip through.
 		path := v.GetPath()
+		pathLower := strings.ToLower(path)
 		for _, pattern := range botPagePatterns {
-			if strings.Contains(path, pattern) {
+			if strings.Contains(pathLower, pattern) {
 				reason, ok := a.Reasons[pattern]
 				if !ok {
 					reason = &reasonAgg{Pattern: pattern}
@@ -82,17 +85,19 @@ func (controller *settingsController) handleLoadBots(w http.ResponseWriter, r *h
 		}
 
 		// Check user agent for self-identifying bots.
+		// The path is irrelevant — the signal is the UA string, not the URL.
 		ua := v.GetUserAgent()
 		if ua != "" && statsstore.IsBot(ua) {
-			reason, ok := a.Reasons[userAgentPattern]
+			reason, ok := a.Reasons[shared.BotReasonUserAgent]
 			if !ok {
-				reason = &reasonAgg{Pattern: userAgentPattern}
-				a.Reasons[userAgentPattern] = reason
+				reason = &reasonAgg{Pattern: shared.BotReasonUserAgent}
+				a.Reasons[shared.BotReasonUserAgent] = reason
 			}
 			reason.Hits++
 		}
 
 		// Check data-center IP (once per IP — it's IP-level, not per-visit).
+		// The path is irrelevant — the signal is the IP range, not the URL.
 		if !dataCenterChecked[ip] && statsstore.IsDataCenterIP(ip) {
 			reason, ok := a.Reasons[shared.BotReasonDataCenterIP]
 			if !ok {
@@ -104,6 +109,7 @@ func (controller *settingsController) handleLoadBots(w http.ResponseWriter, r *h
 		dataCenterChecked[ip] = true
 
 		// Check referrer spam.
+		// The path is irrelevant — the signal is the referrer domain, not the URL.
 		referrer := v.GetUserReferrer()
 		if referrer != "" && statsstore.IsReferrerSpam(referrer) {
 			reason, ok := a.Reasons[shared.BotReasonReferrerSpam]

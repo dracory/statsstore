@@ -1,3 +1,8 @@
+<style>
+.stats-dashboard .table-fixed { table-layout: fixed; }
+.stats-dashboard .table-fixed .col-path { width: 75%; word-break: break-all; }
+.stats-dashboard .table-fixed .col-count { width: 25%; }
+</style>
 <div id="stats-dashboard-app" class="stats-dashboard">
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
@@ -61,12 +66,12 @@
             <div class="card">
                 <div class="card-header">Top Paths</div>
                 <div class="card-body">
-                    <table class="table table-sm table-striped" v-if="topPaths.length">
-                        <thead><tr><th>Path</th><th class="text-end">Visits</th></tr></thead>
+                    <table class="table table-sm table-striped table-fixed" v-if="topPaths.length">
+                        <thead><tr><th class="col-path">Path</th><th class="col-count text-end">Visits</th></tr></thead>
                         <tbody>
                             <tr v-for="item in topPaths" :key="item.label">
-                                <td><a :href="visitorsPathFilterUrl(item.label)" class="text-decoration-none">{{ item.label }}</a></td>
-                                <td class="text-end">{{ item.count }}</td>
+                                <td class="col-path"><a :href="visitorsPathFilterUrl(item.label)" class="text-decoration-none text-break">{{ item.label }}</a></td>
+                                <td class="col-count text-end">{{ item.count }}</td>
                             </tr>
                         </tbody>
                     </table>
