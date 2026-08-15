@@ -22,31 +22,49 @@ func (controller *settingsController) handleDeleteVisitors(w http.ResponseWriter
 	}
 
 	var reqBody struct {
-		IP string `json:"ip"`
+		IP        string `json:"ip"`
+		OlderThan string `json:"older_than"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		api.Respond(w, r, api.Error("Invalid request body"))
 		return ""
 	}
 
-	if reqBody.IP == "" {
-		api.Respond(w, r, api.Error("IP address is required"))
+	if reqBody.IP != "" {
+		count, err := store.VisitorDeleteByIP(r.Context(), reqBody.IP)
+		if err != nil {
+			slog.Error("statsadmin settings: failed to delete visitors by IP", "ip", reqBody.IP, "error", err)
+			api.Respond(w, r, api.Error(err.Error()))
+			return ""
+		}
+
+		api.Respond(w, r, api.SuccessWithData(
+			fmt.Sprintf("Deleted %d visitor record(s) for IP %s", count, reqBody.IP),
+			map[string]any{
+				FieldDeletedCount: count,
+				FieldIP:           reqBody.IP,
+			},
+		))
 		return ""
 	}
 
-	count, err := store.VisitorDeleteByIP(r.Context(), reqBody.IP)
-	if err != nil {
-		slog.Error("statsadmin settings: failed to delete visitors by IP", "ip", reqBody.IP, "error", err)
-		api.Respond(w, r, api.Error(err.Error()))
+	if reqBody.OlderThan != "" {
+		count, err := store.VisitorDeleteOlderThan(r.Context(), reqBody.OlderThan)
+		if err != nil {
+			slog.Error("statsadmin settings: failed to delete visitors older than", "older_than", reqBody.OlderThan, "error", err)
+			api.Respond(w, r, api.Error(err.Error()))
+			return ""
+		}
+
+		api.Respond(w, r, api.SuccessWithData(
+			fmt.Sprintf("Deleted %d visitor record(s) older than %s", count, reqBody.OlderThan),
+			map[string]any{
+				FieldDeletedCount: count,
+			},
+		))
 		return ""
 	}
 
-	api.Respond(w, r, api.SuccessWithData(
-		fmt.Sprintf("Deleted %d visitor record(s) for IP %s", count, reqBody.IP),
-		map[string]any{
-			FieldDeletedCount: count,
-			FieldIP:           reqBody.IP,
-		},
-	))
+	api.Respond(w, r, api.Error("IP address or OlderThan date is required"))
 	return ""
 }

@@ -470,6 +470,29 @@ func (st *storeImplementation) VisitorDeleteByIP(ctx context.Context, ip string)
 	return rowsAffected.RowsAffected, nil
 }
 
+// VisitorDeleteOlderThan permanently deletes all visitor records created before the given timestamp.
+// Returns the number of deleted rows.
+func (st *storeImplementation) VisitorDeleteOlderThan(ctx context.Context, timestamp string) (int64, error) {
+	if timestamp == "" {
+		return 0, errors.New("timestamp is empty")
+	}
+
+	ts, ok := parseCreatedAt(timestamp)
+	if !ok {
+		return 0, errors.New("invalid timestamp format")
+	}
+
+	rowsAffected, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_CREATED_AT+" < ?", ts).
+		Delete()
+	if err != nil {
+		return 0, err
+	}
+
+	return rowsAffected.RowsAffected, nil
+}
+
 // VisitorFindByID finds a visitor by ID.
 func (st *storeImplementation) VisitorFindByID(ctx context.Context, id string) (VisitorInterface, error) {
 	if id == "" {

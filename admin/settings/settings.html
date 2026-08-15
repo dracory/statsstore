@@ -227,4 +227,27 @@
             </div>
         </div>
     </div>
+
+    <!-- Maintenance Section -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-tools"></i> Maintenance</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Permanently remove old visitor records to save database space.</p>
+
+            <div class="row align-items-end g-2">
+                <div class="col-md-4">
+                    <label class="form-label small">Delete entries older than</label>
+                    <input type="date" class="form-control" v-model="deleteOlderThanDate">
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-danger w-100" type="button" @click="confirmDeleteOlderThan" :disabled="loading || !deleteOlderThanDate">
+                        <span v-if="deletingOlderThan" class="spinner-border spinner-border-sm me-1"></span>
+                        <i v-else class="bi bi-trash"></i> Delete Records
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

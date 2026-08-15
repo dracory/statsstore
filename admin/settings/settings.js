@@ -27,6 +27,8 @@ createApp({
         const identifying = ref(false);
         const deletingBots = ref(false);
         const deletingThreats = ref(false);
+        const deletingOlderThan = ref(false);
+        const deleteOlderThanDate = ref('');
 
         const loadIPs = async () => {
             loading.value = true;
@@ -302,6 +304,41 @@ createApp({
             );
         };
 
+        const confirmDeleteOlderThan = () => {
+            if (!deleteOlderThanDate.value) return;
+            
+            Notiflix.Confirm.show(
+                'Delete Old Records',
+                'Permanently delete ALL visitor records older than ' + deleteOlderThanDate.value + '? This cannot be undone.',
+                'Yes, delete them',
+                'No, cancel',
+                async () => {
+                    deletingOlderThan.value = true;
+                    error.value = '';
+                    success.value = '';
+                    try {
+                        const response = await fetch(urlDeleteVisitors, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ older_than: deleteOlderThanDate.value }),
+                        });
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            success.value = data.message || 'Old records deleted';
+                            deleteOlderThanDate.value = '';
+                        } else {
+                            error.value = data.message || 'Failed to delete old records';
+                        }
+                    } catch (e) {
+                        error.value = 'Failed to delete old records';
+                    } finally {
+                        deletingOlderThan.value = false;
+                    }
+                },
+                () => {}
+            );
+        };
+
         // == Identify Bots ==
 
         const identifyBots = async () => {
@@ -458,6 +495,9 @@ createApp({
             deleteThreatEntries,
             deletingBots,
             deletingThreats,
+            deletingOlderThan,
+            deleteOlderThanDate,
+            confirmDeleteOlderThan,
             ipDetailsUrl,
         };
     }
