@@ -146,6 +146,7 @@ type VisitorLike interface {
 	GetUserOs() string
 	GetUserDeviceType() string
 	GetIpAddress() string
+	GetFingerprint() string
 	GetCreatedAt() string
 	GetBot() string
 	GetThreat() string

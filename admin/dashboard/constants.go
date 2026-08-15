@@ -4,7 +4,7 @@ const (
 	actionLoadDashboard = "load-dashboard"
 
 	FieldTotalVisitors      = "total_visitors"
-	FieldUniqueIPs          = "unique_ips"
+	FieldUniqueVisitors     = "unique_visitors"
 	FieldPeriod             = "period"
 	FieldPeriodLabel        = "period_label"
 	FieldTopPaths           = "top_paths"

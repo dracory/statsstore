@@ -3,7 +3,7 @@ const { createApp, ref, computed, onMounted } = Vue;
 createApp({
     setup() {
         const totalVisitors = ref(0);
-        const uniqueIPs = ref(0);
+        const uniqueVisitors = ref(0);
         const periodLabel = ref('');
         const selectedPeriod = ref('last-7-days');
         const topPaths = ref([]);
@@ -44,7 +44,7 @@ createApp({
                 if (data.status === 'success') {
                     const d = data.data;
                     totalVisitors.value = d.total_visitors || 0;
-                    uniqueIPs.value = d.unique_ips || 0;
+                    uniqueVisitors.value = d.unique_visitors || 0;
                     periodLabel.value = d.period_label || '';
                     topPaths.value = d.top_paths || [];
                     topCountries.value = d.top_countries || [];

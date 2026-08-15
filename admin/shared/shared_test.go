@@ -150,15 +150,16 @@ func TestCountryNameResolver_EmptyCode(t *testing.T) {
 
 // mockVisitor implements VisitorLike for testing.
 type mockVisitor struct {
-	path       string
-	country    string
-	browser    string
-	os         string
-	deviceType string
-	ip         string
-	createdAt  string
-	bot        string
-	threat     string
+	path        string
+	country     string
+	browser     string
+	os          string
+	deviceType  string
+	ip          string
+	fingerprint string
+	createdAt   string
+	bot         string
+	threat      string
 }
 
 func (m mockVisitor) GetPath() string           { return m.path }
@@ -167,6 +168,7 @@ func (m mockVisitor) GetUserBrowser() string    { return m.browser }
 func (m mockVisitor) GetUserOs() string         { return m.os }
 func (m mockVisitor) GetUserDeviceType() string { return m.deviceType }
 func (m mockVisitor) GetIpAddress() string      { return m.ip }
+func (m mockVisitor) GetFingerprint() string    { return m.fingerprint }
 func (m mockVisitor) GetCreatedAt() string      { return m.createdAt }
 func (m mockVisitor) GetBot() string            { return m.bot }
 func (m mockVisitor) GetThreat() string         { return m.threat }

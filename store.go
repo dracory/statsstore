@@ -336,6 +336,8 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		SetBot(botVal).
 		SetThreat(threatVal)
 
+	visitor.SetFingerprint(visitor.FingerprintCalculate())
+
 	return st.VisitorCreate(ctx, visitor)
 }
 

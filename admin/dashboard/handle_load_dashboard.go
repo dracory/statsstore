@@ -54,7 +54,7 @@ func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter
 	}
 
 	totalVisitors := int64(len(like))
-	uniqueIPs := countUniqueIPs(like)
+	uniqueVisitors := countUniqueVisitors(like)
 
 	topPaths := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetPath() }), 10)
 	topCountries := shared.TopN(shared.AggregateCounts(like, func(v shared.VisitorLike) string { return v.GetCountry() }), 10)
@@ -67,7 +67,7 @@ func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter
 
 	api.Respond(w, r, api.SuccessWithData("Dashboard loaded", map[string]any{
 		FieldTotalVisitors:  totalVisitors,
-		FieldUniqueIPs:      uniqueIPs,
+		FieldUniqueVisitors: uniqueVisitors,
 		FieldPeriod:         reqBody.Period,
 		FieldPeriodLabel:    bounds.Label,
 		FieldTopPaths:       toCountList(topPaths),
@@ -91,15 +91,16 @@ func (a visitorAdapter) GetUserBrowser() string    { return a.v.GetUserBrowser()
 func (a visitorAdapter) GetUserOs() string         { return a.v.GetUserOs() }
 func (a visitorAdapter) GetUserDeviceType() string { return a.v.GetUserDeviceType() }
 func (a visitorAdapter) GetIpAddress() string      { return a.v.GetIpAddress() }
+func (a visitorAdapter) GetFingerprint() string    { return a.v.GetFingerprint() }
 func (a visitorAdapter) GetCreatedAt() string      { return a.v.GetCreatedAt() }
 func (a visitorAdapter) GetBot() string            { return a.v.GetBot() }
 func (a visitorAdapter) GetThreat() string         { return a.v.GetThreat() }
 
-func countUniqueIPs(visitors []shared.VisitorLike) int64 {
+func countUniqueVisitors(visitors []shared.VisitorLike) int64 {
 	seen := map[string]struct{}{}
 	for _, v := range visitors {
-		if ip := v.GetIpAddress(); ip != "" {
-			seen[ip] = struct{}{}
+		if fp := v.GetFingerprint(); fp != "" {
+			seen[fp] = struct{}{}
 		}
 	}
 	return int64(len(seen))
