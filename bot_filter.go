@@ -25,73 +25,72 @@ var botUserAgentBroadPatterns = []string{
 // botUserAgentSpecificPatterns contains lowercase substrings that are specific
 // enough to be safely matched as plain case-insensitive substrings.
 var botUserAgentSpecificPatterns = []string{
-	"baidu",
-	"yandex",
 	"ahrefs",
-	"semrush",
+	"aiohttp",      // async HTTP client library: "Python/3.14 aiohttp/3.14.1"
+	"anthropic-ai", // Anthropic crawler
+	"applebot",
+	"archive.org_bot",
+	"axios",
+	"baidu",
+	"bytespider",
+	"chatgpt-user", // OpenAI user-facing fetcher
+	"chrome-lighthouse",
+	"claude-web", // Anthropic Claude web fetcher
+	"cohere-ai",  // Cohere AI crawler
+	"colly",
+	"curl",
+	"cypress",
+	"dart:io", // Dart/Flutter HTTP client
+	"datadog",
 	"duckduckbot",
 	"facebookexternalhit",
-	"twitterbot",
-	"linkedinbot",
-	"telegrambot",
-	"applebot",
-	"petalbot",
-	"bytespider",
-	"curl",
-	"wget",
-	"python-requests",
-	"python/", // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
-	"aiohttp", // async HTTP client library: "Python/3.14 aiohttp/3.14.1"
-	"go-http-client",
-	"okhttp",
-	"headless",
-	"phantom",
-	"selenium",
-	"puppeteer",
-	"cypress",
-	"lighthouse",
-	"w3c_validator",
-	"chrome-lighthouse",
-	"google-structured-data-testing-tool",
-	"google-page-speed-insights",
+	"faraday", // Ruby HTTP client
 	"feedly",
-	"uptime",
-	"pingdom",
-	"datadog",
-	"newrelic",
-	"site24x7",
-	"node-fetch",
-	"axios",
-	"postman",
-	"insomnia",
+	"go-http-client",
+	"google-extended", // Google AI training fetcher
+	"google-page-speed-insights",
+	"google-structured-data-testing-tool",
+	"guzzlehttp", // PHP Guzzle client
+	"headless",
+	"heritrix",
 	"httpx",
-	"scrapy",
+	"ia_archiver",
+	"insomnia",
+	"java/",         // Apache HttpClient default: "Java/1.8.0_301"
+	"libcurl-agent", // libcurl default UA variant
+	"libwww-perl",   // Perl LWP user agent
+	"lighthouse",
+	"linkedinbot",
 	"mechanize",
 	"mechanize-go",
-	"colly",
-	"heritrix",
-	"nutch",
-	"archive.org_bot",
-	"ia_archiver",
-	"wayback",
-	// AI/LLM crawlers that don't contain "bot"/"crawler"/"spider" keywords.
-	"chatgpt-user",       // OpenAI user-facing fetcher
-	"anthropic-ai",       // Anthropic crawler
-	"claude-web",         // Anthropic Claude web fetcher
-	"google-extended",    // Google AI training fetcher
-	"cohere-ai",          // Cohere AI crawler
 	"meta-externalagent", // Meta AI/LLM crawler
 	"meta-externalfetcher",
+	"newrelic",
+	"node-fetch",
+	"nutch",
+	"okhttp",
 	"omgili", // AI news aggregator crawler
-	// Additional HTTP client libraries (no broad keyword, not already listed).
-	"libwww-perl",   // Perl LWP user agent
-	"java/",         // Apache HttpClient default: "Java/1.8.0_301"
-	"guzzlehttp",    // PHP Guzzle client
-	"faraday",       // Ruby HTTP client
-	"restsharp",     // .NET HTTP client
-	"dart:io",       // Dart/Flutter HTTP client
-	"winhttp",       // Windows WinHTTP library
-	"libcurl-agent", // libcurl default UA variant
+	"petalbot",
+	"phantom",
+	"pingdom",
+	"postman",
+	"puppeteer",
+	"python-requests",
+	"python/",   // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
+	"restsharp", // .NET HTTP client
+	"scrapy",
+	"selenium",
+	"semrush",
+	"site24x7",
+	"telegrambot",
+	"thewebreport", // theweb.report monitoring service — "TheWebReport/1.0; +https://theweb.report"
+	"twitterbot",
+	"uptime",
+	"w3c_validator",
+	"wayback",
+	"wget",
+	"winhttp", // Windows WinHTTP library
+	"yandex",
 }
 
 // == REFERRER SPAM DOMAINS ====================================================

@@ -39,6 +39,7 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"feedly/1.0",
 		"Pingdom.com_bot_version_1.4_(http://www.pingdom.com)",
 		"Datadog/Synthetic HTTP/1.0",
+		"TheWebReport/1.0; +https://theweb.report",
 		"archive.org_bot",
 		"IA_Archiver",
 		// Python HTTP clients — stdlib urllib and aiohttp.
