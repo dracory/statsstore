@@ -99,60 +99,60 @@ var botUserAgentSpecificPatterns = []string{
 // referrerSpamDomains contains lowercase domain names known to engage in
 // referrer spam. Matching is case-insensitive against the referrer host.
 var referrerSpamDomains = map[string]bool{
-	"semalt.com":                       true,
-	"semalt.semalt.com":                true,
-	"darodar.com":                      true,
-	"priceg.com":                       true,
 	"7makemoneyonline.com":             true,
+	"adsterra.com":                     true,
+	"adviceforum.info":                 true,
+	"bestwebsitesawards.com":           true,
+	"best-seo-offer.com":               true,
+	"blackhatworth.com":                true,
 	"buttons-for-website.com":          true,
 	"buttons-for-your-site.com":        true,
-	"bestwebsitesawards.com":           true,
-	"hulfingtonpost.com":               true,
-	"best-seo-offer.com":               true,
-	"offers.bycontext.com":             true,
-	"www1.social-buttons.com":          true,
-	"social-buttons.com":               true,
-	"free-share-buttons.com":           true,
-	"trafficmonetize.com":              true,
-	"webmonetizer.net":                 true,
-	"ranksonic.info":                   true,
-	"ranksonic.org":                    true,
-	"ranksonic.com":                    true,
-	"site1.floating-share-buttons.com": true,
-	"floating-share-buttons.com":       true,
-	"get-free-traffic-now.com":         true,
-	"quality-traffic.com":              true,
-	"traffic2cash.com":                 true,
-	"traffic2money.com":                true,
+	"buy-cheap-online.com":             true,
 	"cyber-monday.ga":                  true,
 	"cyber-monday.biz":                 true,
-	"free-traffic.xyz":                 true,
-	"buy-cheap-online.com":             true,
+	"darodar.com":                      true,
+	"econom.co":                        true,
 	"erot.co":                          true,
-	"palvira.com":                      true,
+	"floating-share-buttons.com":       true,
+	"free-share-buttons.com":           true,
+	"free-traffic.xyz":                 true,
+	"get-free-traffic-now.com":         true,
+	"get-clicky.com":                   true,
 	"gowildpass.com":                   true,
-	"torture.ml":                       true,
-	"xn--80adgbcm5aj1b5bfh.xn--p1ai":   true,
+	"hongfanji.com":                    true,
+	"howtostopreferralspam.eu":         true,
+	"humanorightswatch.org":            true,
+	"hulfingtonpost.com":               true,
 	"ilovevitaly.com":                  true,
 	"ilovevitaly.ru":                   true,
 	"ilovevitaly.org":                  true,
 	"ilovevitaly.co":                   true,
-	"econom.co":                        true,
-	"blackhatworth.com":                true,
-	"adviceforum.info":                 true,
-	"hongfanji.com":                    true,
-	"howtostopreferralspam.eu":         true,
-	"humanorightswatch.org":            true,
 	"o-o-6-o-o.com":                    true,
 	"o-o-8-o-o.com":                    true,
+	"offers.bycontext.com":             true,
+	"palvira.com":                      true,
+	"priceg.com":                       true,
+	"quality-traffic.com":              true,
+	"ranksonic.info":                   true,
+	"ranksonic.org":                    true,
+	"ranksonic.com":                    true,
 	"rank-checker.online":              true,
 	"referrerdisabler.com":             true,
-	"success-seo.com":                  true,
-	"videos-for-your-business.com":     true,
-	"get-clicky.com":                   true,
+	"semalt.com":                       true,
+	"semalt.semalt.com":                true,
+	"site1.floating-share-buttons.com": true,
 	"snip.to":                          true,
 	"snip.it":                          true,
-	"adsterra.com":                     true,
+	"www1.social-buttons.com":          true,
+	"social-buttons.com":               true,
+	"success-seo.com":                  true,
+	"torture.ml":                       true,
+	"trafficmonetize.com":              true,
+	"traffic2cash.com":                 true,
+	"traffic2money.com":                true,
+	"webmonetizer.net":                 true,
+	"xn--80adgbcm5aj1b5bfh.xn--p1ai":   true,
+	"videos-for-your-business.com":     true,
 }
 
 // == DATA CENTER CIDR RANGES ==================================================
@@ -456,16 +456,30 @@ func init() {
 // favicon.ico is excluded because browsers automatically request it.
 // /.well-known/ is excluded because browsers use it for legitimate
 // purposes (e.g. /.well-known/change-password for credential discovery).
+//
+// Matching is suffix-on-last-segment (see IsBotPath), so filename variants
+// each need an explicit entry — e.g. "sitemap.xml" does not catch
+// "sitemap_index.xml". Prefix-matched names (e.g. google*.html site
+// verification files) cannot be expressed with this list.
 var botPathPatterns = []string{
-	"robots.txt",
 	"ads.txt",
-	"sitemap.xml",
-	"humans.txt",
-	"security.txt",
+	"ai.txt", // spawning.ai proposal for AI-crawler permissions;
+	// rare false positive on files like "samurai.txt" (suffix match)
 	"bingsiteauth.xml",
+	"browserconfig.xml",      // IE/Edge tile config probed by some crawlers
+	"clientaccesspolicy.xml", // legacy Silverlight policy file, only scanners fetch it
+	"crossdomain.xml",        // legacy Flash policy file, only scanners fetch it
 	"dnt-policy.txt",
+	"humans.txt",
+	"llms.txt",      // llmstxt.org manifest for LLM crawlers
+	"llms-full.txt", // llmstxt.org full-content variant
+	"robots.txt",
+	"sitemap.xml",
+	"security.txt",
 	"sellers.json",
-	"browserconfig.xml", // IE/Edge tile config probed by some crawlers
+	"sitemap_index.xml", // Yoast/RankMath sitemap variant
+	"sitemap-index.xml", // hyphenated sitemap variant
+	"sitemap.xml.gz",    // compressed sitemap
 }
 
 // maliciousPathPatterns contains lowercase path substrings for endpoints
@@ -476,17 +490,36 @@ var botPathPatterns = []string{
 // Stack-dependent patterns (e.g. .php, .asp, wp-admin) are intentionally
 // excluded — they are malicious on some stacks but legitimate on others.
 // Consumers should add their own stack-specific patterns on top.
+//
+// Matching (see IsMaliciousPath): file patterns match as a suffix of the
+// last path segment; directory patterns (trailing "/") match a whole path
+// segment. All entries must be lowercase — the path is lowercased before
+// matching but the pattern is compared as-is.
 var maliciousPathPatterns = []string{
+	".aws/",    // AWS credentials directory
+	".claude/", // Claude Code config directory
+	".clinerules",
+	".continue/",   // Continue.dev config — may contain API keys
+	".cursor/",     // Cursor config dir — mcp.json may contain secrets
+	".cursorrules", // Cursor rules file
+	".devin/",      // Devin config dir — mcp.json may contain secrets
+	".ds_store",    // macOS metadata leak (path is lowercased before matching)
 	".env",
 	".git/",
-	".svn/",
 	".htpasswd",
+	".npmrc", // npm config, can leak auth tokens
+	".ssh/",  // SSH keys directory
+	".svn/",
+	".windsurf/",                 // Windsurf config directory
+	".windsurfrules",             // Windsurf rules file
+	"agents.md",                  // AGENTS.md — probed for agent-instruction leaks
+	"claude.md",                  // CLAUDE.md agent instructions
+	"claude_desktop_config.json", // Claude Desktop MCP config — contains secrets
+	"copilot-instructions.md",    // GitHub Copilot instructions (.github/)
+	"gemini.md",                  // GEMINI.md agent instructions
+	"id_rsa",                     // SSH private key
+	"mcp.json",                   // MCP server config — often contains API keys/tokens
 	"shell.php",
-	".aws/",     // AWS credentials directory
-	".ssh/",     // SSH keys directory
-	"id_rsa",    // SSH private key
-	".ds_store", // macOS metadata leak (path is lowercased before matching)
-	".npmrc",    // npm config, can leak auth tokens
 }
 
 // == PUBLIC FUNCTIONS =========================================================

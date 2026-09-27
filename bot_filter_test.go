@@ -676,6 +676,14 @@ func TestIsBotPath_KnownBotFiles(t *testing.T) {
 		"/dnt-policy.txt",
 		"/sellers.json",
 		"/browserconfig.xml",
+		"/llms.txt",
+		"/llms-full.txt",
+		"/ai.txt",
+		"/sitemap_index.xml",
+		"/sitemap-index.xml",
+		"/sitemap.xml.gz",
+		"/crossdomain.xml",
+		"/clientaccesspolicy.xml",
 	}
 
 	for _, p := range paths {
@@ -736,6 +744,18 @@ func TestIsMaliciousPath_UniversalMalicious(t *testing.T) {
 		"/id_rsa",
 		"/.DS_Store",
 		"/.npmrc",
+		// AI-agent config / instruction file probes.
+		"/AGENTS.md",
+		"/.claude/settings.json",
+		"/.cursor/mcp.json",
+		"/.cursorrules",
+		"/.windsurfrules",
+		"/.continue/config.json",
+		"/claude.md",
+		"/gemini.md",
+		"/.github/copilot-instructions.md",
+		"/mcp.json",
+		"/claude_desktop_config.json",
 	}
 
 	for _, p := range paths {
