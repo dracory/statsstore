@@ -536,3 +536,74 @@ func TestStoreVisitorRegisterExcludedPath(t *testing.T) {
 		t.Fatalf("expected 1 visitor (admin path excluded), got %d", count)
 	}
 }
+
+func TestVisitorQueryExcludesExcludedIPs(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	ctx := context.Background()
+
+	// Seed visitors from two different IPs
+	v1 := NewVisitor().SetIpAddress("192.168.1.50").SetPath("/home")
+	v2 := NewVisitor().SetIpAddress("10.0.0.50").SetPath("/dashboard")
+	if err := store.VisitorCreate(ctx, v1); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if err := store.VisitorCreate(ctx, v2); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// Before exclusion: count should be 2
+	count, err := store.VisitorCount(ctx, VisitorQuery())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 visitors before exclusion, got %d", count)
+	}
+
+	// Exclude 192.168.1.50
+	if err := store.ExcludedIPAdd(ctx, "192.168.1.50"); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	// General query (VisitorList and VisitorCount) should filter out 192.168.1.50
+	count, err = store.VisitorCount(ctx, VisitorQuery())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 visitor after excluding IP, got %d", count)
+	}
+
+	list, err := store.VisitorList(ctx, VisitorQuery())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(list) != 1 || list[0].GetIpAddress() != "10.0.0.50" {
+		t.Fatalf("expected list to contain only 10.0.0.50, got %v", list)
+	}
+
+	// Explicit IPIn query should still be able to query 192.168.1.50
+	listExplicit, err := store.VisitorList(ctx, VisitorQuery().SetIPIn([]string{"192.168.1.50"}))
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if len(listExplicit) != 1 {
+		t.Fatalf("expected explicit IPIn query to return 1 visitor, got %d", len(listExplicit))
+	}
+
+	// Removing excluded IP should restore general visibility
+	if err := store.ExcludedIPRemove(ctx, "192.168.1.50"); err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	count, err = store.VisitorCount(ctx, VisitorQuery())
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 visitors after removing IP exclusion, got %d", count)
+	}
+}

@@ -807,9 +807,21 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 		q = q.WhereIn(COLUMN_IP_ADDRESS, args)
 	}
 
+	// Combine query.IPNotIn and st.excludedIPs (unless query.HasIPIn is set)
+	var excluded []string
 	if query.HasIPNotIn() && len(query.IPNotIn()) > 0 {
-		args := make([]any, len(query.IPNotIn()))
-		for i, ip := range query.IPNotIn() {
+		excluded = append(excluded, query.IPNotIn()...)
+	}
+	if !query.HasIPIn() && len(st.excludedIPs) > 0 {
+		for _, ip := range st.excludedIPs {
+			if !slices.Contains(excluded, ip) {
+				excluded = append(excluded, ip)
+			}
+		}
+	}
+	if len(excluded) > 0 {
+		args := make([]any, len(excluded))
+		for i, ip := range excluded {
 			args[i] = ip
 		}
 		q = q.WhereNotIn(COLUMN_IP_ADDRESS, args)

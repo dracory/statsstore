@@ -65,6 +65,7 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"dart:io (2.19)",
 		"winhttp",
 		"libcurl-agent/1.0",
+		"Mozilla/4.0 (compatible; Netcraft Web Server Survey)",
 	}
 
 	for _, ua := range botUAs {
