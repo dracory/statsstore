@@ -65,6 +65,7 @@ var botUserAgentSpecificPatterns = []string{
 	"mechanize-go",
 	"meta-externalagent", // Meta AI/LLM crawler
 	"meta-externalfetcher",
+	"netcraft",
 	"newrelic",
 	"node-fetch",
 	"nutch",
