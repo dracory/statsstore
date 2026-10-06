@@ -18,6 +18,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Visitors</h2>
         <div class="d-flex gap-2">
+            <button class="btn btn-sm" :class="includeBots ? 'btn-outline-secondary' : 'btn-warning'" @click="toggleBots" :title="includeBots ? 'Click to exclude bots from stats' : 'Click to include bots in stats'">
+                <i class="bi bi-robot"></i> Bots: {{ includeBots ? 'ON' : 'OFF' }}
+            </button>
             <button class="btn btn-outline-primary btn-sm" @click="exportCSV">
                 <i class="bi bi-download"></i> Export CSV
             </button>

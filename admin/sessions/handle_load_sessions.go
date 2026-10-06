@@ -62,9 +62,10 @@ func (controller *sessionsController) handleLoadSessions(w http.ResponseWriter, 
 	}
 
 	var reqBody struct {
-		Page       int         `json:"page"`
-		PerPage    int         `json:"per_page"`
-		Conditions []condition `json:"conditions"`
+		Page        int         `json:"page"`
+		PerPage     int         `json:"per_page"`
+		Conditions  []condition `json:"conditions"`
+		IncludeBots *bool       `json:"include_bots"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		api.Respond(w, r, api.Error("Invalid request body"))
@@ -87,6 +88,10 @@ func (controller *sessionsController) handleLoadSessions(w http.ResponseWriter, 
 		SetLimit(10000)
 
 	applyStoreConditions(query, reqBody.Conditions)
+
+	if reqBody.IncludeBots != nil && !*reqBody.IncludeBots && !hasBotCondition(reqBody.Conditions) {
+		query.SetBot(statsstore.VALUE_NO)
+	}
 
 	visitors, err := store.VisitorList(ctx, query)
 	if err != nil {
@@ -127,6 +132,15 @@ func (controller *sessionsController) handleLoadSessions(w http.ResponseWriter, 
 		FieldTotalPages: totalPages,
 	}))
 	return ""
+}
+
+func hasBotCondition(conds []condition) bool {
+	for _, c := range conds {
+		if c.Field == "is_bot" {
+			return true
+		}
+	}
+	return false
 }
 
 // applyStoreConditions applies store-queryable conditions to the query.

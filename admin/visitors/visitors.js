@@ -28,6 +28,7 @@ function getFieldOpt(value) {
 
 createApp({
     setup() {
+        const includeBots = ref(localStorage.getItem('stats_include_bots') !== 'false');
         const visitors = ref([]);
         const total = ref(0);
         const page = ref(1);
@@ -36,6 +37,13 @@ createApp({
 
         // Applied conditions (sent to the server)
         const conditions = ref([]);
+
+        const toggleBots = () => {
+            includeBots.value = !includeBots.value;
+            localStorage.setItem('stats_include_bots', includeBots.value ? 'true' : 'false');
+            page.value = 1;
+            loadVisitors();
+        };
 
         // Modal state
         const showFilterModal = ref(false);
@@ -114,7 +122,7 @@ createApp({
                 const response = await fetch(urlVisitorsBase + '&action=export-csv', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ conditions: conditions.value }),
+                    body: JSON.stringify({ conditions: conditions.value, include_bots: includeBots.value }),
                 });
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -138,6 +146,7 @@ createApp({
                         page: page.value,
                         per_page: perPage.value,
                         conditions: conditions.value,
+                        include_bots: includeBots.value,
                     }),
                 });
                 const data = await response.json();
@@ -271,6 +280,7 @@ createApp({
         });
 
         return {
+            includeBots, toggleBots,
             visitors, total, page, perPage, totalPages,
             conditions, showFilterModal, modalConditions,
             conditionOptions, deviceTypes,

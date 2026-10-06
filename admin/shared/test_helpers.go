@@ -76,13 +76,21 @@ func NewTestControllerOptions(t testing.TB) (ControllerOptions, *FakeLayout, sta
 // SeedVisitor creates a single visitor record in the store for testing.
 func SeedVisitor(t testing.TB, store statsstore.StoreInterface, ip, path, country string) {
 	t.Helper()
+	_ = SeedVisitorWithBot(t, store, ip, path, country, statsstore.VALUE_NO)
+}
+
+// SeedVisitorWithBot creates a visitor record with a specified bot flag.
+func SeedVisitorWithBot(t testing.TB, store statsstore.StoreInterface, ip, path, country, bot string) statsstore.VisitorInterface {
+	t.Helper()
 	v := statsstore.NewVisitor().
 		SetIpAddress(ip).
 		SetPath(path).
-		SetCountry(country)
+		SetCountry(country).
+		SetBot(bot)
 	if err := store.VisitorCreate(context.Background(), v); err != nil {
 		t.Fatalf("failed to seed visitor: %v", err)
 	}
+	return v
 }
 
 // AssertContains checks that the body contains a substring, failing the test

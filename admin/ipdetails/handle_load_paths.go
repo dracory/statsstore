@@ -26,13 +26,14 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 		return ""
 	}
 
+	var body struct {
+		IP          string `json:"ip"`
+		IncludeBots *bool  `json:"include_bots"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
 	ip := req.GetStringTrimmed(r, shared.ParamIP)
 	if ip == "" {
-		// Try JSON body if query param wasn't set.
-		var body struct {
-			IP string `json:"ip"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
 		ip = strings.TrimSpace(body.IP)
 	}
 	if ip == "" {
@@ -55,10 +56,13 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 		return ""
 	}
 
-	// Filter to just this IP.
+	// Filter to just this IP (and optionally exclude bot visits if include_bots is false).
 	var ipVisitors []statsstore.VisitorInterface
 	for _, v := range visitors {
 		if v.GetIpAddress() == ip {
+			if body.IncludeBots != nil && !*body.IncludeBots && v.GetBot() == statsstore.VALUE_YES {
+				continue
+			}
 			ipVisitors = append(ipVisitors, v)
 		}
 	}
