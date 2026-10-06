@@ -2,6 +2,7 @@ const { createApp, ref, computed, onMounted } = Vue;
 
 createApp({
     setup() {
+        const includeBots = ref(localStorage.getItem('stats_include_bots') !== 'false');
         const totalVisitors = ref(0);
         const uniqueVisitors = ref(0);
         const periodLabel = ref('');
@@ -12,6 +13,12 @@ createApp({
         const topOS = ref([]);
         const topDeviceTypes = ref([]);
         const recentVisitors = ref([]);
+
+        const toggleBots = () => {
+            includeBots.value = !includeBots.value;
+            localStorage.setItem('stats_include_bots', includeBots.value ? 'true' : 'false');
+            loadDashboard();
+        };
 
         const periodOptions = [
             { value: 'today', label: 'Today' },
@@ -38,7 +45,7 @@ createApp({
                 const response = await fetch(urlLoadDashboard, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period: selectedPeriod.value }),
+                    body: JSON.stringify({ period: selectedPeriod.value, include_bots: includeBots.value }),
                 });
                 const data = await response.json();
                 if (data.status === 'success') {
@@ -65,7 +72,7 @@ createApp({
                 const response = await fetch(urlLoadDashboard.replace('action=load-dashboard', 'action=export-csv'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period: selectedPeriod.value }),
+                    body: JSON.stringify({ period: selectedPeriod.value, include_bots: includeBots.value }),
                 });
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -109,6 +116,8 @@ createApp({
         });
 
         return {
+            includeBots,
+            toggleBots,
             totalVisitors,
             uniqueVisitors,
             periodLabel,

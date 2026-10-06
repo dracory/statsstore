@@ -19,7 +19,8 @@ func (controller *dashboardController) handleExportCSV(w http.ResponseWriter, r 
 	}
 
 	var reqBody struct {
-		Period string `json:"period"`
+		Period      string `json:"period"`
+		IncludeBots *bool  `json:"include_bots"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
@@ -34,6 +35,10 @@ func (controller *dashboardController) handleExportCSV(w http.ResponseWriter, r 
 		SetCreatedAtGte(bounds.From).
 		SetCreatedAtLte(bounds.To).
 		SetLimit(50000)
+
+	if reqBody.IncludeBots != nil && !*reqBody.IncludeBots {
+		query.SetBot(statsstore.VALUE_NO)
+	}
 
 	visitors, err := store.VisitorList(ctx, query)
 	if err != nil {

@@ -7,6 +7,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 createApp({
     setup() {
+        const includeBots = ref(localStorage.getItem('stats_include_bots') !== 'false');
         const details = ref({});
         const paths = ref([]);
         const visitCount = ref(0);
@@ -18,12 +19,18 @@ createApp({
         const flaggingThreat = ref(false);
         const removing = ref(false);
 
+        const toggleBots = () => {
+            includeBots.value = !includeBots.value;
+            localStorage.setItem('stats_include_bots', includeBots.value ? 'true' : 'false');
+            loadDetails();
+        };
+
         const loadDetails = async () => {
             try {
                 const response = await fetch(urlLoadPaths, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ip: '__IP__' }),
+                    body: JSON.stringify({ ip: '__IP__', include_bots: includeBots.value }),
                 });
                 const data = await response.json();
                 if (data.status === 'success') {
@@ -194,6 +201,8 @@ createApp({
         };
 
         return {
+            includeBots,
+            toggleBots,
             details,
             paths,
             visitCount,

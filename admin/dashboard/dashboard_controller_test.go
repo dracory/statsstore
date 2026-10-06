@@ -67,3 +67,31 @@ func TestDashboardController_LoadDashboard_Post(t *testing.T) {
 		t.Errorf("should report 3 total visitors, got: %s", body)
 	}
 }
+
+func TestDashboardController_LoadDashboard_IncludeBotsToggle(t *testing.T) {
+	opts, _, store := shared.NewTestControllerOptions(t)
+
+	// Seed regular visitor and bot visitor
+	shared.SeedVisitor(t, store, "1.2.3.4", "/", "US")
+	shared.SeedVisitorWithBot(t, store, "9.9.9.9", "/bot", "US", "yes")
+
+	controller := NewDashboardController(opts)
+
+	// With include_bots = true
+	reqTrue := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-dashboard", strings.NewReader(`{"period":"all-time", "include_bots": true}`))
+	reqTrue.Header.Set("Content-Type", "application/json")
+	wTrue := httptest.NewRecorder()
+	_ = controller.Handler(wTrue, reqTrue)
+	if !strings.Contains(wTrue.Body.String(), `"total_visitors":2`) {
+		t.Errorf("expected 2 total visitors when include_bots=true, got: %s", wTrue.Body.String())
+	}
+
+	// With include_bots = false
+	reqFalse := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-dashboard", strings.NewReader(`{"period":"all-time", "include_bots": false}`))
+	reqFalse.Header.Set("Content-Type", "application/json")
+	wFalse := httptest.NewRecorder()
+	_ = controller.Handler(wFalse, reqFalse)
+	if !strings.Contains(wFalse.Body.String(), `"total_visitors":1`) {
+		t.Errorf("expected 1 total visitor when include_bots=false, got: %s", wFalse.Body.String())
+	}
+}

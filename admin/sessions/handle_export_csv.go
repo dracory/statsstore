@@ -19,7 +19,8 @@ func (controller *sessionsController) handleExportCSV(w http.ResponseWriter, r *
 	}
 
 	var reqBody struct {
-		Conditions []condition `json:"conditions"`
+		Conditions  []condition `json:"conditions"`
+		IncludeBots *bool       `json:"include_bots"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
@@ -30,6 +31,10 @@ func (controller *sessionsController) handleExportCSV(w http.ResponseWriter, r *
 		SetLimit(20000)
 
 	applyStoreConditions(query, reqBody.Conditions)
+
+	if reqBody.IncludeBots != nil && !*reqBody.IncludeBots && !hasBotCondition(reqBody.Conditions) {
+		query.SetBot(statsstore.VALUE_NO)
+	}
 
 	visitors, err := store.VisitorList(ctx, query)
 	if err != nil {

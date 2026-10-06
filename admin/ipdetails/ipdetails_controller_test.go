@@ -107,3 +107,30 @@ func TestIPDetailsController_RemoveEntries_Post(t *testing.T) {
 		t.Errorf("should report 2 deleted, got: %s", body)
 	}
 }
+
+func TestIPDetailsController_LoadPaths_IncludeBotsToggle(t *testing.T) {
+	opts, _, store := shared.NewTestControllerOptions(t)
+
+	shared.SeedVisitor(t, store, "1.2.3.4", "/", "US")
+	shared.SeedVisitorWithBot(t, store, "1.2.3.4", "/bot", "US", "yes")
+
+	controller := NewIPDetailsController(opts)
+
+	// With include_bots = true
+	reqTrue := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-paths&ip=1.2.3.4", strings.NewReader(`{"ip":"1.2.3.4","include_bots":true}`))
+	reqTrue.Header.Set("Content-Type", "application/json")
+	wTrue := httptest.NewRecorder()
+	_ = controller.Handler(wTrue, reqTrue)
+	if !strings.Contains(wTrue.Body.String(), `"visit_count":2`) {
+		t.Errorf("expected visit_count: 2 when include_bots=true, got: %s", wTrue.Body.String())
+	}
+
+	// With include_bots = false
+	reqFalse := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-paths&ip=1.2.3.4", strings.NewReader(`{"ip":"1.2.3.4","include_bots":false}`))
+	reqFalse.Header.Set("Content-Type", "application/json")
+	wFalse := httptest.NewRecorder()
+	_ = controller.Handler(wFalse, reqFalse)
+	if !strings.Contains(wFalse.Body.String(), `"visit_count":1`) {
+		t.Errorf("expected visit_count: 1 when include_bots=false, got: %s", wFalse.Body.String())
+	}
+}
