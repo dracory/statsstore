@@ -110,7 +110,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.String(COLUMN_USER_DEVICE, 40)
 			table.String(COLUMN_USER_DEVICE_TYPE, 12)
 			table.String(COLUMN_USER_BROWSER, 40)
-			table.String(COLUMN_USER_BROWSER_VERSION, 24)
+			table.String(COLUMN_USER_BROWSER_VERSION, 50)
 			table.String(COLUMN_USER_REFERRER, 510)
 			table.String(COLUMN_BOT, 3).Default(VALUE_NO)
 			table.String(COLUMN_THREAT, 3).Default(VALUE_NO)

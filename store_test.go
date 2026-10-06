@@ -607,3 +607,51 @@ func TestVisitorQueryExcludesExcludedIPs(t *testing.T) {
 		t.Fatalf("expected 2 visitors after removing IP exclusion, got %d", count)
 	}
 }
+
+func TestVisitorUserBrowserVersionTruncation(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	ctx := context.Background()
+
+	longVersion := strings.Repeat("1234567890", 10) // 100 characters long
+	if len(longVersion) <= 50 {
+		t.Fatalf("expected test string > 50 chars, got %d", len(longVersion))
+	}
+
+	visitor := NewVisitor()
+	visitor.SetUserBrowserVersion(longVersion)
+
+	if len(visitor.GetUserBrowserVersion()) != 50 {
+		t.Fatalf("expected truncated user browser version length 50, got %d", len(visitor.GetUserBrowserVersion()))
+	}
+
+	if err := store.VisitorCreate(ctx, visitor); err != nil {
+		t.Fatalf("unexpected error creating visitor with long browser version: %v", err)
+	}
+
+	found, err := store.VisitorFindByID(ctx, visitor.GetID())
+	if err != nil {
+		t.Fatalf("unexpected error finding visitor: %v", err)
+	}
+	if found == nil {
+		t.Fatal("visitor not found")
+	}
+
+	if found.GetUserBrowserVersion() != longVersion[:50] {
+		t.Fatalf("expected browser version %q, got %q", longVersion[:50], found.GetUserBrowserVersion())
+	}
+
+	// Test update with another long version string
+	anotherLongVersion := "Version/" + strings.Repeat("9.8.7.6.5.4.3.2.1.0.", 5)
+	found.SetUserBrowserVersion(anotherLongVersion)
+	if len(found.GetUserBrowserVersion()) != 50 {
+		t.Fatalf("expected updated browser version truncated to 50 chars, got %d", len(found.GetUserBrowserVersion()))
+	}
+
+	if err := store.VisitorUpdate(ctx, found); err != nil {
+		t.Fatalf("unexpected error updating visitor with long browser version: %v", err)
+	}
+}

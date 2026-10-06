@@ -316,7 +316,14 @@ func (o *visitorImplementation) GetUserBrowserVersion() string {
 
 // SetUserBrowserVersion sets the user browser version of the visitor.
 func (o *visitorImplementation) SetUserBrowserVersion(userBrowserVersion string) VisitorInterface {
-	o.UserBrowserVersionField = userBrowserVersion
+	runes := []rune(userBrowserVersion)
+	if len(runes) > 50 {
+		runes = runes[:50]
+	}
+	for len(string(runes)) > 50 {
+		runes = runes[:len(runes)-1]
+	}
+	o.UserBrowserVersionField = string(runes)
 	return o
 }
 
