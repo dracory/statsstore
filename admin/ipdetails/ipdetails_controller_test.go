@@ -116,21 +116,21 @@ func TestIPDetailsController_LoadPaths_IncludeBotsToggle(t *testing.T) {
 
 	controller := NewIPDetailsController(opts)
 
-	// With include_bots = true
-	reqTrue := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-paths&ip=1.2.3.4", strings.NewReader(`{"ip":"1.2.3.4","include_bots":true}`))
+	// With no condition (include bots)
+	reqTrue := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-paths&ip=1.2.3.4", strings.NewReader(`{"ip":"1.2.3.4","conditions":[]}`))
 	reqTrue.Header.Set("Content-Type", "application/json")
 	wTrue := httptest.NewRecorder()
 	_ = controller.Handler(wTrue, reqTrue)
 	if !strings.Contains(wTrue.Body.String(), `"visit_count":2`) {
-		t.Errorf("expected visit_count: 2 when include_bots=true, got: %s", wTrue.Body.String())
+		t.Errorf("expected visit_count: 2 when no bot condition, got: %s", wTrue.Body.String())
 	}
 
-	// With include_bots = false
-	reqFalse := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-paths&ip=1.2.3.4", strings.NewReader(`{"ip":"1.2.3.4","include_bots":false}`))
+	// With is_bot = no condition (exclude bots)
+	reqFalse := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-paths&ip=1.2.3.4", strings.NewReader(`{"ip":"1.2.3.4","conditions":[{"field":"is_bot","operator":"equals","value":"no"}]}`))
 	reqFalse.Header.Set("Content-Type", "application/json")
 	wFalse := httptest.NewRecorder()
 	_ = controller.Handler(wFalse, reqFalse)
 	if !strings.Contains(wFalse.Body.String(), `"visit_count":1`) {
-		t.Errorf("expected visit_count: 1 when include_bots=false, got: %s", wFalse.Body.String())
+		t.Errorf("expected visit_count: 1 when is_bot=no condition applied, got: %s", wFalse.Body.String())
 	}
 }

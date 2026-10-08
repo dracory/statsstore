@@ -4,12 +4,54 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/dracory/statsstore/admin/shared"
 
 	"github.com/dracory/api"
 	"github.com/dracory/statsstore"
 )
+
+type condition struct {
+	Field    string `json:"field"`
+	Operator string `json:"operator"`
+	Value    string `json:"value"`
+}
+
+func applyStoreConditions(query statsstore.VisitorQueryInterface, conds []condition) {
+	for _, c := range conds {
+		val := strings.TrimSpace(c.Value)
+		if val == "" {
+			continue
+		}
+		switch c.Field {
+		case "country":
+			query.SetCountry(val)
+		case "device_type":
+			query.SetDeviceType(val)
+		case "path_contains":
+			query.SetPathContains(val)
+		case "path_exact":
+			query.SetPathExact(val)
+		case "date_from":
+			query.SetCreatedAtGte(val + " 00:00:00")
+		case "date_to":
+			query.SetCreatedAtLte(val + " 23:59:59")
+		case "is_bot":
+			if strings.EqualFold(val, "yes") {
+				query.SetBot(statsstore.VALUE_YES)
+			} else if strings.EqualFold(val, "no") {
+				query.SetBot(statsstore.VALUE_NO)
+			}
+		case "is_threat":
+			if strings.EqualFold(val, "yes") {
+				query.SetThreat(statsstore.VALUE_YES)
+			} else if strings.EqualFold(val, "no") {
+				query.SetThreat(statsstore.VALUE_NO)
+			}
+		}
+	}
+}
 
 func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter, r *http.Request) string {
 	if r.Method != http.MethodPost {
@@ -24,8 +66,8 @@ func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter
 	}
 
 	var reqBody struct {
-		Period      string `json:"period"`
-		IncludeBots *bool  `json:"include_bots"`
+		Period     string      `json:"period"`
+		Conditions []condition `json:"conditions"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&reqBody)
 
@@ -41,9 +83,7 @@ func (controller *dashboardController) handleLoadDashboard(w http.ResponseWriter
 		SetCreatedAtLte(bounds.To).
 		SetLimit(5000)
 
-	if reqBody.IncludeBots != nil && !*reqBody.IncludeBots {
-		query.SetBot(statsstore.VALUE_NO)
-	}
+	applyStoreConditions(query, reqBody.Conditions)
 
 	visitors, err := store.VisitorList(ctx, query)
 	if err != nil {

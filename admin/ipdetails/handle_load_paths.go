@@ -26,9 +26,15 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 		return ""
 	}
 
+	type condition struct {
+		Field    string `json:"field"`
+		Operator string `json:"operator"`
+		Value    string `json:"value"`
+	}
+
 	var body struct {
-		IP          string `json:"ip"`
-		IncludeBots *bool  `json:"include_bots"`
+		IP         string      `json:"ip"`
+		Conditions []condition `json:"conditions"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
@@ -39,6 +45,14 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 	if ip == "" {
 		api.Respond(w, r, api.Error("IP address is required"))
 		return ""
+	}
+
+	excludeBots := false
+	for _, c := range body.Conditions {
+		if c.Field == "is_bot" && strings.EqualFold(strings.TrimSpace(c.Value), "no") {
+			excludeBots = true
+			break
+		}
 	}
 
 	ctx := r.Context()
@@ -56,11 +70,11 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 		return ""
 	}
 
-	// Filter to just this IP (and optionally exclude bot visits if include_bots is false).
+	// Filter to just this IP (and optionally exclude bot visits if is_bot=no condition is set).
 	var ipVisitors []statsstore.VisitorInterface
 	for _, v := range visitors {
 		if v.GetIpAddress() == ip {
-			if body.IncludeBots != nil && !*body.IncludeBots && v.GetBot() == statsstore.VALUE_YES {
+			if excludeBots && v.GetBot() == statsstore.VALUE_YES {
 				continue
 			}
 			ipVisitors = append(ipVisitors, v)

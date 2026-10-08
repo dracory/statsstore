@@ -42,10 +42,14 @@ createApp({
 
         const loadDashboard = async () => {
             try {
+                const conds = [];
+                if (!includeBots.value) {
+                    conds.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                }
                 const response = await fetch(urlLoadDashboard, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period: selectedPeriod.value, include_bots: includeBots.value }),
+                    body: JSON.stringify({ period: selectedPeriod.value, conditions: conds }),
                 });
                 const data = await response.json();
                 if (data.status === 'success') {
@@ -69,10 +73,14 @@ createApp({
 
         const exportCSV = async () => {
             try {
+                const conds = [];
+                if (!includeBots.value) {
+                    conds.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                }
                 const response = await fetch(urlLoadDashboard.replace('action=load-dashboard', 'action=export-csv'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period: selectedPeriod.value, include_bots: includeBots.value }),
+                    body: JSON.stringify({ period: selectedPeriod.value, conditions: conds }),
                 });
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);

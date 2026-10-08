@@ -403,6 +403,12 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
 	st.ensureBotThreatFlags(visitor)
+	if visitor.GetBot() == "" {
+		visitor.SetBot(VALUE_NO)
+	}
+	if visitor.GetThreat() == "" {
+		visitor.SetThreat(VALUE_NO)
+	}
 
 	row := map[string]any{
 		COLUMN_ID:                   visitor.GetID(),
@@ -614,6 +620,12 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 	visitor.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 
 	st.ensureBotThreatFlags(visitor)
+	if visitor.GetBot() == "" {
+		visitor.SetBot(VALUE_NO)
+	}
+	if visitor.GetThreat() == "" {
+		visitor.SetThreat(VALUE_NO)
+	}
 
 	row := map[string]any{
 		COLUMN_PATH:                 visitor.GetPath(),
@@ -850,7 +862,11 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 	}
 
 	if query.HasBot() && query.Bot() != "" {
-		q = q.Where(COLUMN_BOT+" = ?", query.Bot())
+		if query.Bot() == VALUE_NO {
+			q = q.Where("("+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" IS NULL)", VALUE_NO, "")
+		} else {
+			q = q.Where(COLUMN_BOT+" = ?", query.Bot())
+		}
 	}
 
 	if query.HasThreat() && query.Threat() != "" {

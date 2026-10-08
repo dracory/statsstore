@@ -77,8 +77,8 @@ func TestDashboardController_LoadDashboard_IncludeBotsToggle(t *testing.T) {
 
 	controller := NewDashboardController(opts)
 
-	// With include_bots = true
-	reqTrue := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-dashboard", strings.NewReader(`{"period":"all-time", "include_bots": true}`))
+	// With no conditions (include bots)
+	reqTrue := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-dashboard", strings.NewReader(`{"period":"all-time", "conditions": []}`))
 	reqTrue.Header.Set("Content-Type", "application/json")
 	wTrue := httptest.NewRecorder()
 	_ = controller.Handler(wTrue, reqTrue)
@@ -86,12 +86,12 @@ func TestDashboardController_LoadDashboard_IncludeBotsToggle(t *testing.T) {
 		t.Errorf("expected 2 total visitors when include_bots=true, got: %s", wTrue.Body.String())
 	}
 
-	// With include_bots = false
-	reqFalse := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-dashboard", strings.NewReader(`{"period":"all-time", "include_bots": false}`))
+	// With is_bot = no condition (exclude bots)
+	reqFalse := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-dashboard", strings.NewReader(`{"period":"all-time", "conditions": [{"field":"is_bot","operator":"equals","value":"no"}]}`))
 	reqFalse.Header.Set("Content-Type", "application/json")
 	wFalse := httptest.NewRecorder()
 	_ = controller.Handler(wFalse, reqFalse)
 	if !strings.Contains(wFalse.Body.String(), `"total_visitors":1`) {
-		t.Errorf("expected 1 total visitor when include_bots=false, got: %s", wFalse.Body.String())
+		t.Errorf("expected 1 total visitor when is_bot=no condition applied, got: %s", wFalse.Body.String())
 	}
 }

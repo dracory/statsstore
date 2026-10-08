@@ -1,4 +1,4 @@
-const { createApp, ref, onMounted } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 // esc escapes a string for safe insertion into HTML innerHTML.
 // Prevents XSS when displaying user-controlled data (paths, patterns) in
@@ -28,7 +28,6 @@ function getFieldOpt(value) {
 
 createApp({
     setup() {
-        const includeBots = ref(localStorage.getItem('stats_include_bots') !== 'false');
         const visitors = ref([]);
         const total = ref(0);
         const page = ref(1);
@@ -38,11 +37,25 @@ createApp({
         // Applied conditions (sent to the server)
         const conditions = ref([]);
 
+        const includeBots = computed(() => {
+            return !conditions.value.some(c => c.field === 'is_bot' && c.value === 'no');
+        });
+
         const toggleBots = () => {
-            includeBots.value = !includeBots.value;
-            localStorage.setItem('stats_include_bots', includeBots.value ? 'true' : 'false');
+            if (includeBots.value) {
+                // Currently ON -> turn OFF (add is_bot=no)
+                if (!conditions.value.some(c => c.field === 'is_bot' && c.value === 'no')) {
+                    conditions.value.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                }
+                localStorage.setItem('stats_include_bots', 'false');
+            } else {
+                // Currently OFF -> turn ON (remove is_bot conditions)
+                conditions.value = conditions.value.filter(c => c.field !== 'is_bot');
+                localStorage.setItem('stats_include_bots', 'true');
+            }
             page.value = 1;
             loadVisitors();
+            updateURL();
         };
 
         // Modal state
@@ -122,7 +135,7 @@ createApp({
                 const response = await fetch(urlVisitorsBase + '&action=export-csv', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ conditions: conditions.value, include_bots: includeBots.value }),
+                    body: JSON.stringify({ conditions: conditions.value }),
                 });
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -146,7 +159,6 @@ createApp({
                         page: page.value,
                         per_page: perPage.value,
                         conditions: conditions.value,
-                        include_bots: includeBots.value,
                     }),
                 });
                 const data = await response.json();
@@ -243,13 +255,22 @@ createApp({
         const loadFromURL = () => {
             const params = new URLSearchParams(window.location.search);
             const filtersRaw = params.get('filters');
+            let hasFiltersInURL = false;
             if (filtersRaw) {
                 try {
                     const parsed = JSON.parse(filtersRaw);
                     if (Array.isArray(parsed)) {
                         conditions.value = parsed.filter(c => c && c.field && c.value);
+                        hasFiltersInURL = true;
                     }
                 } catch (e) { /* ignore malformed */ }
+            }
+            if (!hasFiltersInURL) {
+                if (localStorage.getItem('stats_include_bots') === 'false') {
+                    if (!conditions.value.some(c => c.field === 'is_bot')) {
+                        conditions.value.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                    }
+                }
             }
             const pageRaw = params.get('page');
             if (pageRaw) {

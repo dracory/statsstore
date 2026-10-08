@@ -27,10 +27,14 @@ createApp({
 
         const loadDetails = async () => {
             try {
+                const conds = [];
+                if (!includeBots.value) {
+                    conds.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                }
                 const response = await fetch(urlLoadPaths, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ip: '__IP__', include_bots: includeBots.value }),
+                    body: JSON.stringify({ ip: '__IP__', conditions: conds }),
                 });
                 const data = await response.json();
                 if (data.status === 'success') {

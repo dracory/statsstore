@@ -56,6 +56,8 @@ func NewVisitor() VisitorInterface {
 	o.SetUserOs("")
 	o.SetUserOsVersion("")
 	o.SetUserReferrer("")
+	o.SetBot(VALUE_NO)
+	o.SetThreat(VALUE_NO)
 	o.SetCreatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 	o.SetUpdatedAt(carbon.Now(carbon.UTC).ToDateTimeString(carbon.UTC))
 	o.SetSoftDeletedAt(MAX_DATETIME)
