@@ -2,7 +2,18 @@ const { createApp, ref, computed, onMounted } = Vue;
 
 createApp({
     setup() {
-        const includeBots = ref(localStorage.getItem('stats_include_bots') !== 'false');
+        const conditions = ref([]);
+
+        if (localStorage.getItem('stats_include_bots') === 'false') {
+            if (!conditions.value.some(c => c.field === 'is_bot' && c.value === 'no')) {
+                conditions.value.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+            }
+        }
+
+        const includeBots = computed(() => {
+            return !conditions.value.some(c => c.field === 'is_bot' && c.value === 'no');
+        });
+
         const totalVisitors = ref(0);
         const uniqueVisitors = ref(0);
         const periodLabel = ref('');
@@ -15,8 +26,15 @@ createApp({
         const recentVisitors = ref([]);
 
         const toggleBots = () => {
-            includeBots.value = !includeBots.value;
-            localStorage.setItem('stats_include_bots', includeBots.value ? 'true' : 'false');
+            if (includeBots.value) {
+                if (!conditions.value.some(c => c.field === 'is_bot' && c.value === 'no')) {
+                    conditions.value.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                }
+                localStorage.setItem('stats_include_bots', 'false');
+            } else {
+                conditions.value = conditions.value.filter(c => c.field !== 'is_bot');
+                localStorage.setItem('stats_include_bots', 'true');
+            }
             loadDashboard();
         };
 
@@ -42,14 +60,10 @@ createApp({
 
         const loadDashboard = async () => {
             try {
-                const conds = [];
-                if (!includeBots.value) {
-                    conds.push({ field: 'is_bot', operator: 'equals', value: 'no' });
-                }
                 const response = await fetch(urlLoadDashboard, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period: selectedPeriod.value, conditions: conds }),
+                    body: JSON.stringify({ period: selectedPeriod.value, conditions: conditions.value }),
                 });
                 const data = await response.json();
                 if (data.status === 'success') {
@@ -73,14 +87,10 @@ createApp({
 
         const exportCSV = async () => {
             try {
-                const conds = [];
-                if (!includeBots.value) {
-                    conds.push({ field: 'is_bot', operator: 'equals', value: 'no' });
-                }
                 const response = await fetch(urlLoadDashboard.replace('action=load-dashboard', 'action=export-csv'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ period: selectedPeriod.value, conditions: conds }),
+                    body: JSON.stringify({ period: selectedPeriod.value, conditions: conditions.value }),
                 });
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
