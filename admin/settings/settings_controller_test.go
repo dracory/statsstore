@@ -145,3 +145,32 @@ func TestSettingsController_DeleteVisitors(t *testing.T) {
 		t.Errorf("expected 2 deleted, got %v", resp.Data["deleted_count"])
 	}
 }
+
+func TestSettingsController_IdentifyBots_WlwManifest(t *testing.T) {
+	opts, _, store := shared.NewTestControllerOptions(t)
+
+	// Seed a visitor requesting /blog/wp-includes/wlwmanifest.xml
+	shared.SeedVisitor(t, store, "5.6.7.8", "/blog/wp-includes/wlwmanifest.xml", "US")
+
+	resp := callAction(t, opts, http.MethodPost, actionIdentifyBots, "")
+
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Message)
+	}
+
+	autoAdded, ok := resp.Data["auto_added"].([]interface{})
+	if !ok || len(autoAdded) == 0 {
+		t.Fatalf("expected 5.6.7.8 to be auto-added as a bot, got %v", resp.Data["auto_added"])
+	}
+
+	found := false
+	for _, ip := range autoAdded {
+		if ip == "5.6.7.8" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected IP 5.6.7.8 in auto_added list, got %v", autoAdded)
+	}
+}
