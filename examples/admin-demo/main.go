@@ -177,8 +177,11 @@ func seedData(store statsstore.StoreInterface) error {
 		{-55, "/docs/script", "RU", "Chrome", "120.0", "Windows", "10", "Desktop", "desktop", "https://openalternative.co/products/statsstore", "198.51.100.20", "fp020"},
 		{-56, "/event/hello-world", "RU", "Chrome", "120.0", "Windows", "10", "Desktop", "desktop", "https://openalternative.co/products/statsstore", "198.51.100.20", "fp020"},
 		{-58, "/", "CN", "Mobile Firefox", "121.0", "Android", "12", "Redmi Note 12", "mobile", "https://selfh.st/statsstore", "192.0.2.21", "fp021"},
-		{-60, "/", "US", "Chrome Headless", "120.0", "Linux", "Ubuntu 22.04", "Desktop", "desktop", "", "203.0.113.22", "fp022"},
-		{-62, "/", "CA", "Android Browser", "4.4", "Android", "12", "Galaxy A14", "mobile", "", "192.0.2.23", "fp023"},
+		{-60, "/", "US", "Googlebot", "2.1", "Linux", "", "Bot", "bot", "", "66.249.66.1", "fpbot1"},
+		{-61, "/docs", "US", "Googlebot", "2.1", "Linux", "", "Bot", "bot", "", "66.249.66.1", "fpbot1"},
+		{-62, "/robots.txt", "US", "Bingbot", "2.0", "Windows", "", "Bot", "bot", "", "157.55.39.1", "fpbot2"},
+		{-63, "/sitemap.xml", "DE", "AhrefsBot", "7.0", "Linux", "", "Bot", "bot", "", "54.36.148.1", "fpbot3"},
+		{-64, "/", "CA", "Android Browser", "4.4", "Android", "12", "Galaxy A14", "mobile", "", "192.0.2.23", "fp023"},
 		{-64, "/", "GB", "Chrome", "120.0", "Windows", "11", "Desktop", "desktop", "https://google.com/search?q=visitor+tracking", "203.0.113.24", "fp024"},
 		{-65, "/docs", "GB", "Chrome", "120.0", "Windows", "11", "Desktop", "desktop", "https://google.com/search?q=visitor+tracking", "203.0.113.24", "fp024"},
 		{-66, "/docs/roadmap", "GB", "Chrome", "120.0", "Windows", "11", "Desktop", "desktop", "https://google.com/search?q=visitor+tracking", "203.0.113.24", "fp024"},
@@ -253,6 +256,10 @@ func seedData(store statsstore.StoreInterface) error {
 
 	for _, sv := range visitors {
 		createdAt := now.AddHours(sv.offsetHours * -1).ToDateTimeString(carbon.UTC)
+		botVal := statsstore.VALUE_NO
+		if strings.Contains(strings.ToLower(sv.browser), "bot") || strings.Contains(strings.ToLower(sv.path), "robot") || strings.Contains(strings.ToLower(sv.path), "sitemap") {
+			botVal = statsstore.VALUE_YES
+		}
 		v := statsstore.NewVisitor().
 			SetCountry(sv.country).
 			SetPath(sv.path).
@@ -266,6 +273,7 @@ func seedData(store statsstore.StoreInterface) error {
 			SetUserDeviceType(sv.deviceType).
 			SetUserReferrer(sv.referrer).
 			SetUserAgent(sv.browser + "/" + sv.browserVer + " (" + sv.os + " " + sv.osVer + ")").
+			SetBot(botVal).
 			SetCreatedAt(createdAt)
 
 		if err := store.VisitorCreate(ctx, v); err != nil {

@@ -32,10 +32,9 @@ func (controller *visitorsController) handleLoadVisitors(w http.ResponseWriter, 
 	}
 
 	var reqBody struct {
-		Page        int         `json:"page"`
-		PerPage     int         `json:"per_page"`
-		Conditions  []condition `json:"conditions"`
-		IncludeBots *bool       `json:"include_bots"`
+		Page       int         `json:"page"`
+		PerPage    int         `json:"per_page"`
+		Conditions []condition `json:"conditions"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		api.Respond(w, r, api.Error("Invalid request body"))
@@ -61,10 +60,6 @@ func (controller *visitorsController) handleLoadVisitors(w http.ResponseWriter, 
 		SetLimit(10000) // fetch a large batch, then paginate in-memory if needed
 
 	applyStoreConditions(query, storeConds)
-
-	if reqBody.IncludeBots != nil && !*reqBody.IncludeBots && !hasBotCondition(reqBody.Conditions) {
-		query.SetBot(statsstore.VALUE_NO)
-	}
 
 	visitors, err := store.VisitorList(ctx, query)
 	if err != nil {

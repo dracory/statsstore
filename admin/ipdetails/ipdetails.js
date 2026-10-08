@@ -1,4 +1,4 @@
-const { createApp, ref, onMounted } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 // esc escapes a string for safe insertion into HTML innerHTML.
 // Prevents XSS when displaying user-controlled data (paths, patterns) in
@@ -7,7 +7,18 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 createApp({
     setup() {
-        const includeBots = ref(localStorage.getItem('stats_include_bots') !== 'false');
+        const conditions = ref([]);
+
+        if (localStorage.getItem('stats_include_bots') === 'false') {
+            if (!conditions.value.some(c => c.field === 'is_bot' && c.value === 'no')) {
+                conditions.value.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+            }
+        }
+
+        const includeBots = computed(() => {
+            return !conditions.value.some(c => c.field === 'is_bot' && c.value === 'no');
+        });
+
         const details = ref({});
         const paths = ref([]);
         const visitCount = ref(0);
@@ -20,8 +31,15 @@ createApp({
         const removing = ref(false);
 
         const toggleBots = () => {
-            includeBots.value = !includeBots.value;
-            localStorage.setItem('stats_include_bots', includeBots.value ? 'true' : 'false');
+            if (includeBots.value) {
+                if (!conditions.value.some(c => c.field === 'is_bot' && c.value === 'no')) {
+                    conditions.value.push({ field: 'is_bot', operator: 'equals', value: 'no' });
+                }
+                localStorage.setItem('stats_include_bots', 'false');
+            } else {
+                conditions.value = conditions.value.filter(c => c.field !== 'is_bot');
+                localStorage.setItem('stats_include_bots', 'true');
+            }
             loadDetails();
         };
 
@@ -30,7 +48,7 @@ createApp({
                 const response = await fetch(urlLoadPaths, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ip: '__IP__', include_bots: includeBots.value }),
+                    body: JSON.stringify({ ip: '__IP__', conditions: conditions.value }),
                 });
                 const data = await response.json();
                 if (data.status === 'success') {
