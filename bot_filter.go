@@ -524,7 +524,8 @@ var maliciousPathPatterns = []string{
 
 // == PUBLIC FUNCTIONS =========================================================
 
-// IsBot checks whether a user-agent string matches known bot/crawler patterns.
+// IsBot checks whether a user-agent string matches known bot/crawler patterns
+// or is identified as a bot device by uasurfer parsing.
 // Broad patterns (bot, crawler, spider, scraper, slurp) are matched with a
 // word-boundary check to avoid false positives (e.g. "bot" inside a non-bot
 // word). Specific patterns (semrush, curl, googlebot, etc.) are matched as
@@ -533,6 +534,12 @@ func IsBot(userAgent string) bool {
 	if userAgent == "" {
 		return false
 	}
+
+	uaInfo := ParseUserAgent(userAgent)
+	if strings.EqualFold(uaInfo.DeviceType, "bot") || strings.EqualFold(uaInfo.Device, "bot") {
+		return true
+	}
+
 	uaLower := strings.ToLower(userAgent)
 
 	// Check broad patterns with word-boundary matching.

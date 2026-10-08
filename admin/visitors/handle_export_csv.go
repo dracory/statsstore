@@ -8,6 +8,7 @@ import (
 
 	"github.com/dracory/api"
 	"github.com/dracory/statsstore"
+	"github.com/dracory/statsstore/admin/shared"
 )
 
 func (controller *visitorsController) handleExportCSV(w http.ResponseWriter, r *http.Request) string {
@@ -59,6 +60,10 @@ func (controller *visitorsController) handleExportCSV(w http.ResponseWriter, r *
 	})
 
 	for _, v := range filtered {
+		botVal := v.GetBot()
+		if shared.IsBotVisitor(v) {
+			botVal = statsstore.VALUE_YES
+		}
 		_ = writer.Write([]string{
 			v.GetID(),
 			v.GetCreatedAt(),
@@ -72,7 +77,7 @@ func (controller *visitorsController) handleExportCSV(w http.ResponseWriter, r *
 			v.GetUserDevice(),
 			v.GetUserDeviceType(),
 			v.GetUserReferrer(),
-			v.GetBot(),
+			botVal,
 			v.GetThreat(),
 		})
 	}

@@ -134,6 +134,7 @@ func (a visitorAdapter) GetPath() string           { return a.v.GetPath() }
 func (a visitorAdapter) GetCountry() string        { return a.v.GetCountry() }
 func (a visitorAdapter) GetUserBrowser() string    { return a.v.GetUserBrowser() }
 func (a visitorAdapter) GetUserOs() string         { return a.v.GetUserOs() }
+func (a visitorAdapter) GetUserDevice() string     { return a.v.GetUserDevice() }
 func (a visitorAdapter) GetUserDeviceType() string { return a.v.GetUserDeviceType() }
 func (a visitorAdapter) GetIpAddress() string      { return a.v.GetIpAddress() }
 func (a visitorAdapter) GetFingerprint() string    { return a.v.GetFingerprint() }
@@ -192,7 +193,7 @@ func buildRecentVisitors(visitors []shared.VisitorLike, n int, opts shared.Contr
 			FieldVisitorOS:          v.GetUserOs(),
 			FieldVisitorDevice:      v.GetUserDeviceType(),
 			FieldVisitorCreatedAt:   v.GetCreatedAt(),
-			FieldIsBot:              v.GetBot() == statsstore.VALUE_YES,
+			FieldIsBot:              shared.IsBotVisitor(v),
 			FieldIsThreat:           v.GetThreat() == statsstore.VALUE_YES,
 		})
 	}

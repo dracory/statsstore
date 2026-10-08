@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"strings"
 
 	"github.com/dromara/carbon/v2"
 )
@@ -144,12 +145,24 @@ type VisitorLike interface {
 	GetCountry() string
 	GetUserBrowser() string
 	GetUserOs() string
+	GetUserDevice() string
 	GetUserDeviceType() string
 	GetIpAddress() string
 	GetFingerprint() string
 	GetCreatedAt() string
 	GetBot() string
 	GetThreat() string
+}
+
+// IsBotVisitor reports whether a visitor is flagged as a bot, either via its
+// bot field or because its device or device_type is identified as "bot".
+func IsBotVisitor(v VisitorLike) bool {
+	if v == nil {
+		return false
+	}
+	return v.GetBot() == "yes" ||
+		strings.EqualFold(v.GetUserDeviceType(), "bot") ||
+		strings.EqualFold(v.GetUserDevice(), "bot")
 }
 
 func sortCounts(in []CountEntry) {

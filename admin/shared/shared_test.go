@@ -208,6 +208,7 @@ type mockVisitor struct {
 	country     string
 	browser     string
 	os          string
+	device      string
 	deviceType  string
 	ip          string
 	fingerprint string
@@ -220,12 +221,31 @@ func (m mockVisitor) GetPath() string           { return m.path }
 func (m mockVisitor) GetCountry() string        { return m.country }
 func (m mockVisitor) GetUserBrowser() string    { return m.browser }
 func (m mockVisitor) GetUserOs() string         { return m.os }
+func (m mockVisitor) GetUserDevice() string     { return m.device }
 func (m mockVisitor) GetUserDeviceType() string { return m.deviceType }
 func (m mockVisitor) GetIpAddress() string      { return m.ip }
 func (m mockVisitor) GetFingerprint() string    { return m.fingerprint }
 func (m mockVisitor) GetCreatedAt() string      { return m.createdAt }
 func (m mockVisitor) GetBot() string            { return m.bot }
 func (m mockVisitor) GetThreat() string         { return m.threat }
+
+func TestIsBotVisitor(t *testing.T) {
+	if IsBotVisitor(nil) {
+		t.Error("nil visitor should not be bot")
+	}
+	if !IsBotVisitor(mockVisitor{bot: "yes"}) {
+		t.Error("bot=yes should be bot")
+	}
+	if !IsBotVisitor(mockVisitor{bot: "no", deviceType: "bot"}) {
+		t.Error("deviceType=bot should be bot even if bot=no")
+	}
+	if !IsBotVisitor(mockVisitor{bot: "no", device: "bot"}) {
+		t.Error("device=bot should be bot even if bot=no")
+	}
+	if IsBotVisitor(mockVisitor{bot: "no", deviceType: "desktop"}) {
+		t.Error("desktop with bot=no should not be bot")
+	}
+}
 
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))

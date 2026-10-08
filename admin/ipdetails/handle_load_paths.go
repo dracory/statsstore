@@ -74,7 +74,7 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 	var ipVisitors []statsstore.VisitorInterface
 	for _, v := range visitors {
 		if v.GetIpAddress() == ip {
-			if excludeBots && v.GetBot() == statsstore.VALUE_YES {
+			if excludeBots && shared.IsBotVisitor(v) {
 				continue
 			}
 			ipVisitors = append(ipVisitors, v)
@@ -146,7 +146,7 @@ func (controller *ipDetailsController) handleLoadPaths(w http.ResponseWriter, r 
 		FieldDetails:    details,
 		FieldPaths:      paths,
 		FieldVisitCount: len(ipVisitors),
-		FieldIsBot:      latest.GetBot() == statsstore.VALUE_YES,
+		FieldIsBot:      shared.IsBotVisitor(latest),
 		FieldIsThreat:   latest.GetThreat() == statsstore.VALUE_YES,
 		FieldBotReasons: botReasons,
 		FieldTotal:      len(paths),

@@ -9,6 +9,21 @@ import (
 
 // == IsBot TESTS =============================================================
 
+func TestIsBot_DeviceBotUserAgents(t *testing.T) {
+	deviceBotUAs := []string{
+		"YandexBot",
+		"ClaudeBot",
+		"Googlebot",
+		"Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)",
+		"Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)",
+	}
+	for _, ua := range deviceBotUAs {
+		if !IsBot(ua) {
+			t.Errorf("IsBot(%q) = false, expected true", ua)
+		}
+	}
+}
+
 func TestIsBot_KnownBots(t *testing.T) {
 	botUAs := []string{
 		"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
