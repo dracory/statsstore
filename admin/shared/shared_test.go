@@ -148,6 +148,60 @@ func TestCountryNameResolver_EmptyCode(t *testing.T) {
 	}
 }
 
+func TestCountryNameResolver_UnknownCodeEmptyReturn(t *testing.T) {
+	r := NewCountryNameResolver(func(iso2 string) (string, error) {
+		return "", nil
+	})
+	if name := r.Name(context.Background(), "XX"); name != "XX" {
+		t.Errorf("expected raw code XX when lookup returns empty string, got %s", name)
+	}
+}
+
+func TestControllerOptions_CountryName(t *testing.T) {
+	t.Run("nil callback", func(t *testing.T) {
+		opts := ControllerOptions{}
+		if name := opts.CountryName("US"); name != "US" {
+			t.Errorf("expected US, got %s", name)
+		}
+	})
+
+	t.Run("empty code", func(t *testing.T) {
+		opts := ControllerOptions{
+			CountryNameByIso2: func(iso2 string) (string, error) {
+				return "United States", nil
+			},
+		}
+		if name := opts.CountryName(""); name != "" {
+			t.Errorf("expected empty string, got %s", name)
+		}
+	})
+
+	t.Run("valid lookup", func(t *testing.T) {
+		opts := ControllerOptions{
+			CountryNameByIso2: func(iso2 string) (string, error) {
+				if iso2 == "US" {
+					return "United States", nil
+				}
+				return "", nil
+			},
+		}
+		if name := opts.CountryName("US"); name != "United States" {
+			t.Errorf("expected United States, got %s", name)
+		}
+	})
+
+	t.Run("unknown code returning empty string", func(t *testing.T) {
+		opts := ControllerOptions{
+			CountryNameByIso2: func(iso2 string) (string, error) {
+				return "", nil
+			},
+		}
+		if name := opts.CountryName("XX"); name != "XX" {
+			t.Errorf("expected raw code XX when callback returns empty string, got %s", name)
+		}
+	})
+}
+
 // mockVisitor implements VisitorLike for testing.
 type mockVisitor struct {
 	path        string
