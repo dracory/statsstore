@@ -231,7 +231,7 @@ func buildSessions(visitors []statsstore.VisitorInterface, opts shared.Controlle
 	byIP := map[string]*session{}
 	for _, v := range visitors {
 		ip := v.GetIpAddress()
-		isBot := v.GetBot() == statsstore.VALUE_YES
+		isBot := shared.IsBotVisitor(v)
 		isThreat := v.GetThreat() == statsstore.VALUE_YES
 		s, ok := byIP[ip]
 		if !ok {

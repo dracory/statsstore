@@ -90,3 +90,35 @@ func TestVisitorsController_LoadVisitors_IncludeBotsToggle(t *testing.T) {
 		t.Errorf("expected 1 total visitor when is_bot=no condition applied, got: %s", wFalse.Body.String())
 	}
 }
+
+func TestVisitorsController_LoadVisitors_DeviceBotIsBotTrue(t *testing.T) {
+	opts, _, store := shared.NewTestControllerOptions(t)
+
+	// Seed visitor with device_type = "bot" but bot column = "no"
+	v := shared.SeedVisitorWithBot(t, store, "87.250.224.7", "/robots.txt", "", "no")
+	v.SetUserDeviceType("bot")
+	_ = store.VisitorUpdate(nil, v)
+
+	controller := NewVisitorsController(opts)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-visitors", strings.NewReader(`{"page":1,"per_page":25}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	_ = controller.Handler(w, req)
+	body := w.Body.String()
+
+	if !strings.Contains(body, `"is_bot":true`) {
+		t.Errorf("expected is_bot:true when device_type is 'bot', got response: %s", body)
+	}
+
+	// Also verify that filtering by is_bot = no excludes this device='bot' visitor
+	reqFilter := httptest.NewRequest(http.MethodPost, "/admin/stats?action=load-visitors", strings.NewReader(`{"page":1,"per_page":25,"conditions":[{"field":"is_bot","operator":"equals","value":"no"}]}`))
+	reqFilter.Header.Set("Content-Type", "application/json")
+	wFilter := httptest.NewRecorder()
+
+	_ = controller.Handler(wFilter, reqFilter)
+	if !strings.Contains(wFilter.Body.String(), `"total":0`) {
+		t.Errorf("expected 0 visitors when filtering is_bot=no for device_type='bot', got response: %s", wFilter.Body.String())
+	}
+}

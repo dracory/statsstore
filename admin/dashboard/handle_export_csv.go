@@ -55,6 +55,10 @@ func (controller *dashboardController) handleExportCSV(w http.ResponseWriter, r 
 	})
 
 	for _, v := range visitors {
+		botVal := v.GetBot()
+		if shared.IsBotVisitor(v) {
+			botVal = statsstore.VALUE_YES
+		}
 		_ = writer.Write([]string{
 			v.GetID(),
 			v.GetCreatedAt(),
@@ -68,7 +72,7 @@ func (controller *dashboardController) handleExportCSV(w http.ResponseWriter, r 
 			v.GetUserDevice(),
 			v.GetUserDeviceType(),
 			v.GetUserReferrer(),
-			v.GetBot(),
+			botVal,
 			v.GetThreat(),
 		})
 	}

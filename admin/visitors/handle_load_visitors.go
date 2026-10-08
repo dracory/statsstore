@@ -97,7 +97,7 @@ func (controller *visitorsController) handleLoadVisitors(w http.ResponseWriter, 
 			FieldDeviceType:  v.GetUserDeviceType(),
 			FieldCreatedAt:   v.GetCreatedAt(),
 			FieldUserAgent:   v.GetUserAgent(),
-			FieldIsBot:       v.GetBot() == statsstore.VALUE_YES,
+			FieldIsBot:       shared.IsBotVisitor(v),
 			FieldIsThreat:    v.GetThreat() == statsstore.VALUE_YES,
 		})
 	}

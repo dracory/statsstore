@@ -77,7 +77,7 @@ func (controller *ipDetailsController) handleLoadBotReasons(w http.ResponseWrite
 	}
 
 	botReasons := shared.ComputeBotReasons(ipVisitors, nil)
-	isBot := ipVisitors[0].GetBot() == statsstore.VALUE_YES
+	isBot := shared.IsBotVisitor(ipVisitors[0])
 
 	api.Respond(w, r, api.SuccessWithData("Bot reasons loaded", map[string]any{
 		FieldIP:          ip,

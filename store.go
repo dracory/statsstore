@@ -284,9 +284,12 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		return nil
 	}
 
+	uaInfo := ParseUserAgent(userAgent)
+
 	// BotFilterEnabled: detect and skip bot/threat traffic at ingestion.
 	if st.botFilterEnabled {
-		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path)
+		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path) ||
+			strings.EqualFold(uaInfo.DeviceType, "bot") || strings.EqualFold(uaInfo.Device, "bot")
 		isThreat := IsMaliciousPath(path)
 
 		if isBot || isThreat {
@@ -303,7 +306,8 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 	threatVal := VALUE_NO
 
 	if st.botAutoTagEnabled {
-		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path)
+		isBot := IsBot(userAgent) || IsReferrerSpam(referrer) || IsDataCenterIP(ip) || IsBotPath(path) ||
+			strings.EqualFold(uaInfo.DeviceType, "bot") || strings.EqualFold(uaInfo.Device, "bot")
 		isThreat := IsMaliciousPath(path)
 
 		if isBot {
@@ -319,8 +323,6 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 				"user_agent", userAgent, "ip", ip, "path", path)
 		}
 	}
-
-	uaInfo := ParseUserAgent(userAgent)
 
 	visitor := NewVisitor().
 		SetPath(path).
@@ -370,16 +372,17 @@ func (st *storeImplementation) ensureBotThreatFlags(visitor VisitorInterface) {
 		return
 	}
 
-	if visitor.GetBot() == "" {
-		isBot := IsBot(visitor.GetUserAgent()) ||
-			IsReferrerSpam(visitor.GetUserReferrer()) ||
-			IsDataCenterIP(visitor.GetIpAddress()) ||
-			IsBotPath(visitor.GetPath())
-		if isBot {
-			visitor.SetBot(VALUE_YES)
-		} else {
-			visitor.SetBot(VALUE_NO)
-		}
+	isBot := IsBot(visitor.GetUserAgent()) ||
+		strings.EqualFold(visitor.GetUserDeviceType(), "bot") ||
+		strings.EqualFold(visitor.GetUserDevice(), "bot") ||
+		IsReferrerSpam(visitor.GetUserReferrer()) ||
+		IsDataCenterIP(visitor.GetIpAddress()) ||
+		IsBotPath(visitor.GetPath())
+
+	if isBot {
+		visitor.SetBot(VALUE_YES)
+	} else if visitor.GetBot() == "" {
+		visitor.SetBot(VALUE_NO)
 	}
 
 	if visitor.GetThreat() == "" {
@@ -770,6 +773,10 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 			visitor.SetUserDeviceType(uaInfo.DeviceType)
 		}
 
+		if strings.EqualFold(visitor.GetUserDeviceType(), "bot") || strings.EqualFold(visitor.GetUserDevice(), "bot") || IsBot(visitor.GetUserAgent()) {
+			visitor.SetBot(VALUE_YES)
+		}
+
 		// Set country from the resolved map so VisitorUpdate persists it
 		ipResolved := false
 		if country, ok := resolvedCountries[visitor.GetIpAddress()]; ok {
@@ -863,9 +870,11 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 
 	if query.HasBot() && query.Bot() != "" {
 		if query.Bot() == VALUE_NO {
-			q = q.Where("("+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" IS NULL)", VALUE_NO, "")
+			q = q.Where("("+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" IS NULL)", VALUE_NO, "").
+				Where("("+COLUMN_USER_DEVICE_TYPE+" != ? OR "+COLUMN_USER_DEVICE_TYPE+" IS NULL)", "bot").
+				Where("("+COLUMN_USER_DEVICE+" != ? OR "+COLUMN_USER_DEVICE+" IS NULL)", "bot")
 		} else {
-			q = q.Where(COLUMN_BOT+" = ?", query.Bot())
+			q = q.Where("("+COLUMN_BOT+" = ? OR "+COLUMN_USER_DEVICE_TYPE+" = ? OR "+COLUMN_USER_DEVICE+" = ?)", VALUE_YES, "bot", "bot")
 		}
 	}
 

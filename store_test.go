@@ -608,6 +608,58 @@ func TestVisitorQueryExcludesExcludedIPs(t *testing.T) {
 	}
 }
 
+func TestVisitor_DeviceBotTaggingAndQuerying(t *testing.T) {
+	store, err := initStore()
+	if err != nil {
+		t.Fatal("unexpected error:", err)
+	}
+
+	ctx := context.Background()
+
+	// Seed visitor with device type = bot but bot flag = no
+	v := NewVisitor().
+		SetIpAddress("87.250.224.7").
+		SetUserDeviceType("bot").
+		SetBot("no")
+
+	if err := store.VisitorCreate(ctx, v); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Querying SetBot("yes") should include this visitor because UserDeviceType = bot
+	yesCount, err := store.VisitorCount(ctx, VisitorQuery().SetBot(VALUE_YES))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if yesCount != 1 {
+		t.Fatalf("expected 1 bot visitor when device type is bot, got %d", yesCount)
+	}
+
+	// Querying SetBot("no") should exclude this visitor
+	noCount, err := store.VisitorCount(ctx, VisitorQuery().SetBot(VALUE_NO))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if noCount != 0 {
+		t.Fatalf("expected 0 human visitors when device type is bot, got %d", noCount)
+	}
+
+	// Enable bot auto tag and update visitor; ensureBotThreatFlags should upgrade Bot to 'yes'
+	store.SetBotAutoTagEnabled(true)
+	if err := store.VisitorUpdate(ctx, v); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated, err := store.VisitorFindByID(ctx, v.GetID())
+	if err != nil || updated == nil {
+		t.Fatalf("unexpected error finding visitor: %v", err)
+	}
+
+	if updated.GetBot() != VALUE_YES {
+		t.Fatalf("expected Bot flag to be upgraded to 'yes', got %q", updated.GetBot())
+	}
+}
+
 func TestVisitorUserBrowserVersionTruncation(t *testing.T) {
 	store, err := initStore()
 	if err != nil {
