@@ -103,3 +103,42 @@ func TestParseUserAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestVisitorStringTrimming(t *testing.T) {
+	v := NewVisitor()
+
+	// Truncate ASCII and multibyte strings safely
+	longStr := "a" + string([]rune{'😀', '😁', '😂'}) + "b"
+	v.SetUserBrowser(longStr)
+	if v.GetUserBrowser() != longStr {
+		t.Fatalf("expected string within limit to remain untouched")
+	}
+
+	longBrowser := "SuperBrowserWithExceedinglyLongNameThatExceedsTheLimitByFar" + "123456789012345678901234567890123456789012345678901234567890"
+	v.SetUserBrowser(longBrowser)
+	if len(v.GetUserBrowser()) > 100 {
+		t.Fatalf("expected UserBrowser truncated to <= 100, got %d", len(v.GetUserBrowser()))
+	}
+
+	longOS := "SuperOperatingSystemWithLongName" + "1234567890123456789012345678901234567890"
+	v.SetUserOs(longOS)
+	if len(v.GetUserOs()) > 50 {
+		t.Fatalf("expected UserOs truncated to <= 50, got %d", len(v.GetUserOs()))
+	}
+
+	longDevice := "SuperDeviceWithLongName" + "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
+	v.SetUserDevice(longDevice)
+	if len(v.GetUserDevice()) > 100 {
+		t.Fatalf("expected UserDevice truncated to <= 100, got %d", len(v.GetUserDevice()))
+	}
+
+	// Multibyte string truncation check
+	multibyteStr := ""
+	for i := 0; i < 60; i++ {
+		multibyteStr += "🔥"
+	}
+	v.SetUserBrowser(multibyteStr)
+	if len(v.GetUserBrowser()) > 100 {
+		t.Fatalf("expected byte length of UserBrowser to be <= 100, got %d", len(v.GetUserBrowser()))
+	}
+}
