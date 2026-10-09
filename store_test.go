@@ -669,15 +669,15 @@ func TestVisitorUserBrowserVersionTruncation(t *testing.T) {
 	ctx := context.Background()
 
 	longVersion := strings.Repeat("1234567890", 15) // 150 characters long
-	if len(longVersion) <= 100 {
-		t.Fatalf("expected test string > 100 chars, got %d", len(longVersion))
+	if len(longVersion) <= MAX_LEN_USER_BROWSER_VERSION {
+		t.Fatalf("expected test string > %d chars, got %d", MAX_LEN_USER_BROWSER_VERSION, len(longVersion))
 	}
 
 	visitor := NewVisitor()
 	visitor.SetUserBrowserVersion(longVersion)
 
-	if len(visitor.GetUserBrowserVersion()) != 100 {
-		t.Fatalf("expected truncated user browser version length 100, got %d", len(visitor.GetUserBrowserVersion()))
+	if len(visitor.GetUserBrowserVersion()) != MAX_LEN_USER_BROWSER_VERSION {
+		t.Fatalf("expected truncated user browser version length %d, got %d", MAX_LEN_USER_BROWSER_VERSION, len(visitor.GetUserBrowserVersion()))
 	}
 
 	if err := store.VisitorCreate(ctx, visitor); err != nil {
@@ -692,15 +692,15 @@ func TestVisitorUserBrowserVersionTruncation(t *testing.T) {
 		t.Fatal("visitor not found")
 	}
 
-	if found.GetUserBrowserVersion() != longVersion[:100] {
-		t.Fatalf("expected browser version %q, got %q", longVersion[:100], found.GetUserBrowserVersion())
+	if found.GetUserBrowserVersion() != longVersion[:MAX_LEN_USER_BROWSER_VERSION] {
+		t.Fatalf("expected browser version %q, got %q", longVersion[:MAX_LEN_USER_BROWSER_VERSION], found.GetUserBrowserVersion())
 	}
 
 	// Test update with another long version string
 	anotherLongVersion := "Version/" + strings.Repeat("9.8.7.6.5.4.3.2.1.0.", 10)
 	found.SetUserBrowserVersion(anotherLongVersion)
-	if len(found.GetUserBrowserVersion()) != 100 {
-		t.Fatalf("expected updated browser version truncated to 100 chars, got %d", len(found.GetUserBrowserVersion()))
+	if len(found.GetUserBrowserVersion()) != MAX_LEN_USER_BROWSER_VERSION {
+		t.Fatalf("expected updated browser version truncated to %d chars, got %d", MAX_LEN_USER_BROWSER_VERSION, len(found.GetUserBrowserVersion()))
 	}
 
 	if err := store.VisitorUpdate(ctx, found); err != nil {

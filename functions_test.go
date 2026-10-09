@@ -116,20 +116,20 @@ func TestVisitorStringTrimming(t *testing.T) {
 
 	longBrowser := "SuperBrowserWithExceedinglyLongNameThatExceedsTheLimitByFar" + "123456789012345678901234567890123456789012345678901234567890"
 	v.SetUserBrowser(longBrowser)
-	if len(v.GetUserBrowser()) > 100 {
-		t.Fatalf("expected UserBrowser truncated to <= 100, got %d", len(v.GetUserBrowser()))
+	if len(v.GetUserBrowser()) > MAX_LEN_USER_BROWSER {
+		t.Fatalf("expected UserBrowser truncated to <= %d, got %d", MAX_LEN_USER_BROWSER, len(v.GetUserBrowser()))
 	}
 
 	longOS := "SuperOperatingSystemWithLongName" + "1234567890123456789012345678901234567890"
 	v.SetUserOs(longOS)
-	if len(v.GetUserOs()) > 50 {
-		t.Fatalf("expected UserOs truncated to <= 50, got %d", len(v.GetUserOs()))
+	if len(v.GetUserOs()) > MAX_LEN_USER_OS {
+		t.Fatalf("expected UserOs truncated to <= %d, got %d", MAX_LEN_USER_OS, len(v.GetUserOs()))
 	}
 
 	longDevice := "SuperDeviceWithLongName" + "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
 	v.SetUserDevice(longDevice)
-	if len(v.GetUserDevice()) > 100 {
-		t.Fatalf("expected UserDevice truncated to <= 100, got %d", len(v.GetUserDevice()))
+	if len(v.GetUserDevice()) > MAX_LEN_USER_DEVICE {
+		t.Fatalf("expected UserDevice truncated to <= %d, got %d", MAX_LEN_USER_DEVICE, len(v.GetUserDevice()))
 	}
 
 	// Multibyte string truncation check
@@ -138,7 +138,7 @@ func TestVisitorStringTrimming(t *testing.T) {
 		multibyteStr += "🔥"
 	}
 	v.SetUserBrowser(multibyteStr)
-	if len(v.GetUserBrowser()) > 100 {
-		t.Fatalf("expected byte length of UserBrowser to be <= 100, got %d", len(v.GetUserBrowser()))
+	if len(v.GetUserBrowser()) > MAX_LEN_USER_BROWSER {
+		t.Fatalf("expected byte length of UserBrowser to be <= %d, got %d", MAX_LEN_USER_BROWSER, len(v.GetUserBrowser()))
 	}
 }
