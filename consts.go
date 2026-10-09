@@ -40,5 +40,26 @@ const (
 	SETTING_EXCLUDED_IPS = "excluded_ips"
 )
 
+// Maximum column lengths for string fields.
+const (
+	MAX_LEN_ID                   = 40
+	MAX_LEN_PATH                 = 510
+	MAX_LEN_FINGERPRINT          = 40
+	MAX_LEN_IP_ADDRESS           = 40
+	MAX_LEN_COUNTRY              = 2
+	MAX_LEN_USER_ACCEPT_LANGUAGE = 100
+	MAX_LEN_USER_ACCEPT_ENCODING = 40
+	MAX_LEN_USER_AGENT           = 510
+	MAX_LEN_USER_OS              = 50
+	MAX_LEN_USER_OS_VERSION      = 50
+	MAX_LEN_USER_DEVICE          = 100
+	MAX_LEN_USER_DEVICE_TYPE     = 50
+	MAX_LEN_USER_BROWSER         = 100
+	MAX_LEN_USER_BROWSER_VERSION = 100
+	MAX_LEN_USER_REFERRER        = 510
+	MAX_LEN_BOT                  = 3
+	MAX_LEN_THREAT               = 3
+)
+
 // MAX_DATETIME is a far-future datetime used as the default soft-delete sentinel.
 const MAX_DATETIME = "9999-12-31 23:59:59"

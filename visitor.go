@@ -179,7 +179,7 @@ func truncateString(s string, maxLen int) string {
 
 // SetPath sets the path of the visitor.
 func (o *visitorImplementation) SetPath(path string) VisitorInterface {
-	o.PathField = truncateString(path, 510)
+	o.PathField = truncateString(path, MAX_LEN_PATH)
 	return o
 }
 
@@ -190,7 +190,7 @@ func (o *visitorImplementation) GetCountry() string {
 
 // SetCountry sets the country of the visitor.
 func (o *visitorImplementation) SetCountry(country string) VisitorInterface {
-	o.CountryField = truncateString(country, 2)
+	o.CountryField = truncateString(country, MAX_LEN_COUNTRY)
 	return o
 }
 
@@ -256,7 +256,7 @@ func (o *visitorImplementation) GetIpAddress() string {
 
 // SetIpAddress sets the IP address of the visitor.
 func (o *visitorImplementation) SetIpAddress(ipAddress string) VisitorInterface {
-	o.IPAddressField = truncateString(ipAddress, 40)
+	o.IPAddressField = truncateString(ipAddress, MAX_LEN_IP_ADDRESS)
 	return o
 }
 
@@ -289,7 +289,7 @@ func (o *visitorImplementation) GetUserAcceptLanguage() string {
 
 // SetUserAcceptLanguage sets the user accept language of the visitor.
 func (o *visitorImplementation) SetUserAcceptLanguage(userAcceptLanguage string) VisitorInterface {
-	o.UserAcceptLanguageField = truncateString(userAcceptLanguage, 100)
+	o.UserAcceptLanguageField = truncateString(userAcceptLanguage, MAX_LEN_USER_ACCEPT_LANGUAGE)
 	return o
 }
 
@@ -300,7 +300,7 @@ func (o *visitorImplementation) GetUserAcceptEncoding() string {
 
 // SetUserAcceptEncoding sets the user accept encoding of the visitor.
 func (o *visitorImplementation) SetUserAcceptEncoding(userAcceptEncoding string) VisitorInterface {
-	o.UserAcceptEncodingField = truncateString(userAcceptEncoding, 40)
+	o.UserAcceptEncodingField = truncateString(userAcceptEncoding, MAX_LEN_USER_ACCEPT_ENCODING)
 	return o
 }
 
@@ -311,7 +311,7 @@ func (o *visitorImplementation) GetUserAgent() string {
 
 // SetUserAgent sets the user agent of the visitor.
 func (o *visitorImplementation) SetUserAgent(userAgent string) VisitorInterface {
-	o.UserAgentField = truncateString(userAgent, 510)
+	o.UserAgentField = truncateString(userAgent, MAX_LEN_USER_AGENT)
 	return o
 }
 
@@ -322,7 +322,7 @@ func (o *visitorImplementation) GetUserBrowser() string {
 
 // SetUserBrowser sets the user browser of the visitor.
 func (o *visitorImplementation) SetUserBrowser(userBrowser string) VisitorInterface {
-	o.UserBrowserField = truncateString(userBrowser, 100)
+	o.UserBrowserField = truncateString(userBrowser, MAX_LEN_USER_BROWSER)
 	return o
 }
 
@@ -333,7 +333,7 @@ func (o *visitorImplementation) GetUserBrowserVersion() string {
 
 // SetUserBrowserVersion sets the user browser version of the visitor.
 func (o *visitorImplementation) SetUserBrowserVersion(userBrowserVersion string) VisitorInterface {
-	o.UserBrowserVersionField = truncateString(userBrowserVersion, 100)
+	o.UserBrowserVersionField = truncateString(userBrowserVersion, MAX_LEN_USER_BROWSER_VERSION)
 	return o
 }
 
@@ -344,7 +344,7 @@ func (o *visitorImplementation) GetUserDevice() string {
 
 // SetUserDevice sets the user device of the visitor.
 func (o *visitorImplementation) SetUserDevice(userDevice string) VisitorInterface {
-	o.UserDeviceField = truncateString(userDevice, 100)
+	o.UserDeviceField = truncateString(userDevice, MAX_LEN_USER_DEVICE)
 	return o
 }
 
@@ -355,7 +355,7 @@ func (o *visitorImplementation) GetUserDeviceType() string {
 
 // SetUserDeviceType sets the user device type of the visitor.
 func (o *visitorImplementation) SetUserDeviceType(userDeviceType string) VisitorInterface {
-	o.UserDeviceTypeField = truncateString(userDeviceType, 50)
+	o.UserDeviceTypeField = truncateString(userDeviceType, MAX_LEN_USER_DEVICE_TYPE)
 	return o
 }
 
@@ -366,7 +366,7 @@ func (o *visitorImplementation) GetUserOs() string {
 
 // SetUserOs sets the user OS of the visitor.
 func (o *visitorImplementation) SetUserOs(userOs string) VisitorInterface {
-	o.UserOsField = truncateString(userOs, 50)
+	o.UserOsField = truncateString(userOs, MAX_LEN_USER_OS)
 	return o
 }
 
@@ -377,7 +377,7 @@ func (o *visitorImplementation) GetUserOsVersion() string {
 
 // SetUserOsVersion sets the user OS version of the visitor.
 func (o *visitorImplementation) SetUserOsVersion(userOsVersion string) VisitorInterface {
-	o.UserOsVersionField = truncateString(userOsVersion, 50)
+	o.UserOsVersionField = truncateString(userOsVersion, MAX_LEN_USER_OS_VERSION)
 	return o
 }
 
@@ -388,7 +388,7 @@ func (o *visitorImplementation) GetUserReferrer() string {
 
 // SetUserReferrer sets the user referrer of the visitor.
 func (o *visitorImplementation) SetUserReferrer(userReferrer string) VisitorInterface {
-	o.UserReferrerField = truncateString(userReferrer, 510)
+	o.UserReferrerField = truncateString(userReferrer, MAX_LEN_USER_REFERRER)
 	return o
 }
 

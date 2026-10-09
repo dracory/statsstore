@@ -51,7 +51,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 		// neat's HasColumn guards against re-adding.
 		if !st.db.Schema().HasColumn(st.visitorTableName, COLUMN_BOT) {
 			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
-				table.String(COLUMN_BOT, 3).Default(VALUE_NO)
+				table.String(COLUMN_BOT, MAX_LEN_BOT).Default(VALUE_NO)
 			}); err != nil {
 				if st.debugEnabled {
 					st.logger.Error("MigrateUp: add bot column failed", "error", err)
@@ -61,7 +61,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 		}
 		if !st.db.Schema().HasColumn(st.visitorTableName, COLUMN_THREAT) {
 			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
-				table.String(COLUMN_THREAT, 3).Default(VALUE_NO)
+				table.String(COLUMN_THREAT, MAX_LEN_THREAT).Default(VALUE_NO)
 			}); err != nil {
 				if st.debugEnabled {
 					st.logger.Error("MigrateUp: add threat column failed", "error", err)
@@ -96,24 +96,24 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 		}
 	} else {
 		err := st.db.Schema().Create(st.visitorTableName, func(table contractsschema.Blueprint) {
-			table.String(COLUMN_ID, 40)
+			table.String(COLUMN_ID, MAX_LEN_ID)
 			table.Primary(COLUMN_ID)
-			table.String(COLUMN_PATH, 510)
-			table.String(COLUMN_FINGERPRINT, 40)
-			table.String(COLUMN_IP_ADDRESS, 40)
-			table.String(COLUMN_COUNTRY, 2)
-			table.String(COLUMN_USER_ACCEPT_LANGUAGE, 100)
-			table.String(COLUMN_USER_ACCEPT_ENCODING, 40)
-			table.String(COLUMN_USER_AGENT, 510)
-			table.String(COLUMN_USER_OS, 50)
-			table.String(COLUMN_USER_OS_VERSION, 50)
-			table.String(COLUMN_USER_DEVICE, 100)
-			table.String(COLUMN_USER_DEVICE_TYPE, 50)
-			table.String(COLUMN_USER_BROWSER, 100)
-			table.String(COLUMN_USER_BROWSER_VERSION, 100)
-			table.String(COLUMN_USER_REFERRER, 510)
-			table.String(COLUMN_BOT, 3).Default(VALUE_NO)
-			table.String(COLUMN_THREAT, 3).Default(VALUE_NO)
+			table.String(COLUMN_PATH, MAX_LEN_PATH)
+			table.String(COLUMN_FINGERPRINT, MAX_LEN_FINGERPRINT)
+			table.String(COLUMN_IP_ADDRESS, MAX_LEN_IP_ADDRESS)
+			table.String(COLUMN_COUNTRY, MAX_LEN_COUNTRY)
+			table.String(COLUMN_USER_ACCEPT_LANGUAGE, MAX_LEN_USER_ACCEPT_LANGUAGE)
+			table.String(COLUMN_USER_ACCEPT_ENCODING, MAX_LEN_USER_ACCEPT_ENCODING)
+			table.String(COLUMN_USER_AGENT, MAX_LEN_USER_AGENT)
+			table.String(COLUMN_USER_OS, MAX_LEN_USER_OS)
+			table.String(COLUMN_USER_OS_VERSION, MAX_LEN_USER_OS_VERSION)
+			table.String(COLUMN_USER_DEVICE, MAX_LEN_USER_DEVICE)
+			table.String(COLUMN_USER_DEVICE_TYPE, MAX_LEN_USER_DEVICE_TYPE)
+			table.String(COLUMN_USER_BROWSER, MAX_LEN_USER_BROWSER)
+			table.String(COLUMN_USER_BROWSER_VERSION, MAX_LEN_USER_BROWSER_VERSION)
+			table.String(COLUMN_USER_REFERRER, MAX_LEN_USER_REFERRER)
+			table.String(COLUMN_BOT, MAX_LEN_BOT).Default(VALUE_NO)
+			table.String(COLUMN_THREAT, MAX_LEN_THREAT).Default(VALUE_NO)
 			table.DateTime(COLUMN_CREATED_AT)
 			table.DateTime(COLUMN_UPDATED_AT)
 			table.DateTime(COLUMN_SOFT_DELETED_AT)
