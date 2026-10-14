@@ -35,6 +35,7 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)",
 		"Mozilla/5.0 (compatible; PetalBot;+https://webmaster.petalsearch.com/site/petalbot)",
 		"Mozilla/5.0 (compatible; Bytespider; spider'bot, +https://www.google.com/bot.html)",
+		"Mozilla/5.0 (compatible; AwarioBot/1.0; +https://awario.com/bots.html)",
 		"curl/7.88.1",
 		"Wget/1.21.4",
 		"python-requests/2.31.0",

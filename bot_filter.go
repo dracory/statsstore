@@ -30,6 +30,7 @@ var botUserAgentSpecificPatterns = []string{
 	"anthropic-ai", // Anthropic crawler
 	"applebot",
 	"archive.org_bot",
+	"awario",
 	"axios",
 	"baidu",
 	"bytespider",
