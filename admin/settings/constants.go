@@ -65,6 +65,8 @@ const (
 	botPagePatternCgi     = ".cgi"
 	botPagePatternPl      = ".pl"
 	botPagePatternRb      = ".rb"
+	botPagePatternWp          = "/wp"
+	botPagePatternWordPress   = "/wordpress"
 	botPagePatternWpAdmin     = "/wp-admin"
 	botPagePatternWpLogin     = "/wp-login"
 	botPagePatternWpIncludes  = "/wp-includes"

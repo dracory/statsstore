@@ -857,7 +857,7 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 	if query.HasPathExact() && query.PathExact() != "" {
 		q = q.Where(COLUMN_PATH+" = ?", query.PathExact())
 	} else if query.HasPathContains() && query.PathContains() != "" {
-		q = q.Where(COLUMN_PATH+" LIKE ?", "%"+query.PathContains()+"%")
+		q = q.Where("LOWER("+COLUMN_PATH+") LIKE LOWER(?)", "%"+query.PathContains()+"%")
 	}
 
 	if query.HasDeviceType() && query.DeviceType() != "" {
