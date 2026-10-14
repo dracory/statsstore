@@ -40,6 +40,7 @@ var botUserAgentSpecificPatterns = []string{
 	"cohere-ai",  // Cohere AI crawler
 	"colly",
 	"curl",
+	"cve-", // vulnerability scanners / exploit probes
 	"cypress",
 	"dart:io", // Dart/Flutter HTTP client
 	"datadog",
