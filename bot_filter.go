@@ -59,6 +59,7 @@ var botUserAgentSpecificPatterns = []string{
 	"ia_archiver",
 	"insomnia",
 	"java/",         // Apache HttpClient default: "Java/1.8.0_301"
+	"keenablebot",
 	"libcurl-agent", // libcurl default UA variant
 	"libwww-perl",   // Perl LWP user agent
 	"lighthouse",
