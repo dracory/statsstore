@@ -56,6 +56,7 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"feedly/1.0",
 		"Pingdom.com_bot_version_1.4_(http://www.pingdom.com)",
 		"Datadog/Synthetic HTTP/1.0",
+		"Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; KeenableBot/1.0; +https://keenable.ai/bot)",
 		"TheWebReport/1.0; +https://theweb.report",
 		"archive.org_bot",
 		"IA_Archiver",
