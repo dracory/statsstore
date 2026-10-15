@@ -174,3 +174,32 @@ func TestSettingsController_IdentifyBots_WlwManifest(t *testing.T) {
 		t.Errorf("expected IP 5.6.7.8 in auto_added list, got %v", autoAdded)
 	}
 }
+
+func TestSettingsController_IdentifyBots_WordPressProbing(t *testing.T) {
+	opts, _, store := shared.NewTestControllerOptions(t)
+
+	// Seed a visitor requesting /WordPress directory probe
+	shared.SeedVisitor(t, store, "103.45.230.198", "/WordPress", "US")
+
+	resp := callAction(t, opts, http.MethodPost, actionIdentifyBots, "")
+
+	if resp.Status != "success" {
+		t.Fatalf("expected success, got %s: %s", resp.Status, resp.Message)
+	}
+
+	autoAdded, ok := resp.Data["auto_added"].([]interface{})
+	if !ok || len(autoAdded) == 0 {
+		t.Fatalf("expected 103.45.230.198 to be auto-added as a bot, got %v", resp.Data["auto_added"])
+	}
+
+	found := false
+	for _, ip := range autoAdded {
+		if ip == "103.45.230.198" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected IP 103.45.230.198 in auto_added list, got %v", autoAdded)
+	}
+}

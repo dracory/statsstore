@@ -27,6 +27,8 @@ var stackDependentMaliciousPatterns = []string{
 	botPagePatternCgi,
 	botPagePatternPl,
 	botPagePatternRb,
+	botPagePatternWp,
+	botPagePatternWordPress,
 	botPagePatternWpAdmin,
 	botPagePatternWpLogin,
 	botPagePatternWpIncludes,
