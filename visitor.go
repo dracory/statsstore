@@ -1,9 +1,10 @@
 package statsstore
 
 import (
+	"uuid"
+
 	"github.com/dracory/neat/database/orm"
 	"github.com/dracory/neat/database/soft_delete"
-	neatuid "github.com/dracory/neat/support/uid"
 	"github.com/dracory/str"
 	"github.com/dromara/carbon/v2"
 )
@@ -11,7 +12,7 @@ import (
 // == TYPE =====================================================================
 
 type visitorImplementation struct {
-	orm.ShortID
+	orm.StringID
 
 	PathField               string `db:"path"`
 	FingerprintField        string `db:"fingerprint"`
@@ -41,7 +42,7 @@ var _ VisitorInterface = (*visitorImplementation)(nil)
 // NewVisitor creates a new visitor.
 func NewVisitor() VisitorInterface {
 	o := &visitorImplementation{}
-	o.SetID(neatuid.GenerateShortID())
+	o.SetID(uuid.NewV7().String())
 	o.SetPath("")
 	o.SetCountry("")
 	o.SetIpAddress("")
@@ -148,12 +149,12 @@ func (o *visitorImplementation) IsSoftDeleted() bool {
 
 // GetID returns the id of the visitor.
 func (o *visitorImplementation) GetID() string {
-	return o.ShortID.ID
+	return o.StringID.ID
 }
 
 // SetID sets the id of the visitor.
 func (o *visitorImplementation) SetID(id string) VisitorInterface {
-	o.ShortID.ID = id
+	o.StringID.ID = id
 	return o
 }
 
