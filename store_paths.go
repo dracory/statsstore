@@ -4,92 +4,139 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 )
 
-// ExcludedPathList returns all excluded path prefixes stored in the database.
+// ExcludedPathList returns the effective excluded path prefixes — the merge of
+// prefixes stored in the database and any supplied via NewStoreOptions.
 func (st *storeImplementation) ExcludedPathList(ctx context.Context) ([]string, error) {
-	return st.pathListLoadFromDB(ctx, SETTING_EXCLUDED_PATHS)
+	return st.GetExcludedPathPrefixes(), nil
 }
 
 // ExcludedPathAdd adds a path prefix to the exclusion list in the database and
 // updates the in-memory cache. Duplicate prefixes are silently ignored.
+// Prefixes supplied via NewStoreOptions are never written to the database.
 func (st *storeImplementation) ExcludedPathAdd(ctx context.Context, prefix string) error {
 	prefix = strings.TrimSpace(prefix)
 	if prefix == "" {
 		return errors.New("path prefix is empty")
 	}
 
-	for _, existing := range st.excludedPathPrefixes {
-		if existing == prefix {
-			return nil
-		}
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
+
+	if slices.Contains(st.excludedPathPrefixes, prefix) {
+		return nil
 	}
 
-	st.excludedPathPrefixes = append(st.excludedPathPrefixes, prefix)
-	return st.pathListSaveToDB(ctx, SETTING_EXCLUDED_PATHS, st.excludedPathPrefixes)
+	dbList := append(stringListSubtract(st.excludedPathPrefixes, st.excludedPathPrefixesOpts), prefix)
+	if err := st.pathListSaveToDB(ctx, SETTING_EXCLUDED_PATHS, dbList); err != nil {
+		return err
+	}
+
+	st.excludedPathPrefixes = append(slices.Clone(st.excludedPathPrefixesOpts), dbList...)
+	return nil
 }
 
 // ExcludedPathRemove removes a path prefix from the exclusion list in the
-// database and updates the in-memory cache.
+// database and updates the in-memory cache. Prefixes supplied via
+// NewStoreOptions cannot be removed this way — they stay active for the
+// lifetime of the process.
 func (st *storeImplementation) ExcludedPathRemove(ctx context.Context, prefix string) error {
 	prefix = strings.TrimSpace(prefix)
 	if prefix == "" {
 		return errors.New("path prefix is empty")
 	}
 
-	filtered := make([]string, 0, len(st.excludedPathPrefixes))
-	for _, existing := range st.excludedPathPrefixes {
-		if existing != prefix {
-			filtered = append(filtered, existing)
-		}
-	}
-	st.excludedPathPrefixes = filtered
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
 
-	return st.pathListSaveToDB(ctx, SETTING_EXCLUDED_PATHS, st.excludedPathPrefixes)
+	dbList := stringListRemove(
+		stringListSubtract(st.excludedPathPrefixes, st.excludedPathPrefixesOpts), prefix)
+	if err := st.pathListSaveToDB(ctx, SETTING_EXCLUDED_PATHS, dbList); err != nil {
+		return err
+	}
+
+	st.excludedPathPrefixes = append(slices.Clone(st.excludedPathPrefixesOpts), dbList...)
+	return nil
 }
 
-// IncludedPathList returns all included path prefixes stored in the database.
+// IncludedPathList returns the effective included path prefixes — the merge of
+// prefixes stored in the database and any supplied via NewStoreOptions.
 // When non-empty the list acts as a whitelist — only matching paths are tracked.
 func (st *storeImplementation) IncludedPathList(ctx context.Context) ([]string, error) {
-	return st.pathListLoadFromDB(ctx, SETTING_INCLUDED_PATHS)
+	return st.GetIncludedPathPrefixes(), nil
 }
 
 // IncludedPathAdd adds a path prefix to the inclusion list in the database and
 // updates the in-memory cache. Duplicate prefixes are silently ignored.
+// Prefixes supplied via NewStoreOptions are never written to the database.
 func (st *storeImplementation) IncludedPathAdd(ctx context.Context, prefix string) error {
 	prefix = strings.TrimSpace(prefix)
 	if prefix == "" {
 		return errors.New("path prefix is empty")
 	}
 
-	for _, existing := range st.includedPathPrefixes {
-		if existing == prefix {
-			return nil
-		}
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
+
+	if slices.Contains(st.includedPathPrefixes, prefix) {
+		return nil
 	}
 
-	st.includedPathPrefixes = append(st.includedPathPrefixes, prefix)
-	return st.pathListSaveToDB(ctx, SETTING_INCLUDED_PATHS, st.includedPathPrefixes)
+	dbList := append(stringListSubtract(st.includedPathPrefixes, st.includedPathPrefixesOpts), prefix)
+	if err := st.pathListSaveToDB(ctx, SETTING_INCLUDED_PATHS, dbList); err != nil {
+		return err
+	}
+
+	st.includedPathPrefixes = append(slices.Clone(st.includedPathPrefixesOpts), dbList...)
+	return nil
 }
 
 // IncludedPathRemove removes a path prefix from the inclusion list in the
-// database and updates the in-memory cache.
+// database and updates the in-memory cache. Prefixes supplied via
+// NewStoreOptions cannot be removed this way — they stay active for the
+// lifetime of the process.
 func (st *storeImplementation) IncludedPathRemove(ctx context.Context, prefix string) error {
 	prefix = strings.TrimSpace(prefix)
 	if prefix == "" {
 		return errors.New("path prefix is empty")
 	}
 
-	filtered := make([]string, 0, len(st.includedPathPrefixes))
-	for _, existing := range st.includedPathPrefixes {
-		if existing != prefix {
-			filtered = append(filtered, existing)
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
+
+	dbList := stringListRemove(
+		stringListSubtract(st.includedPathPrefixes, st.includedPathPrefixesOpts), prefix)
+	if err := st.pathListSaveToDB(ctx, SETTING_INCLUDED_PATHS, dbList); err != nil {
+		return err
+	}
+
+	st.includedPathPrefixes = append(slices.Clone(st.includedPathPrefixesOpts), dbList...)
+	return nil
+}
+
+// stringListSubtract returns the elements of list that are not present in exclude.
+func stringListSubtract(list, exclude []string) []string {
+	out := make([]string, 0, len(list))
+	for _, s := range list {
+		if !slices.Contains(exclude, s) {
+			out = append(out, s)
 		}
 	}
-	st.includedPathPrefixes = filtered
+	return out
+}
 
-	return st.pathListSaveToDB(ctx, SETTING_INCLUDED_PATHS, st.includedPathPrefixes)
+// stringListRemove returns a copy of list with all occurrences of s removed.
+func stringListRemove(list []string, s string) []string {
+	out := make([]string, 0, len(list))
+	for _, existing := range list {
+		if existing != s {
+			out = append(out, existing)
+		}
+	}
+	return out
 }
 
 // pathPatternMatchAny reports whether s matches any of the given patterns and

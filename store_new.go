@@ -48,19 +48,22 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	store := &storeImplementation{
-		visitorTableName:     opts.VisitorTableName,
-		settingsTableName:    settingsTable,
-		db:                   neatDB,
-		automigrateEnabled:   opts.AutomigrateEnabled,
-		debugEnabled:         opts.DebugEnabled,
-		botFilterEnabled:     opts.BotFilterEnabled,
-		botAutoTagEnabled:    opts.BotAutoTagEnabled,
-		excludedPathPrefixes: opts.ExcludedPathPrefixes,
-		includedPathPrefixes: opts.IncludedPathPrefixes,
-		excludedIPs:          opts.ExcludedIPs,
-		geoIPResolver:        opts.GeoIPResolver,
-		enhanceBatchSize:     opts.EnhanceBatchSize,
-		logger:               logger,
+		visitorTableName:         opts.VisitorTableName,
+		settingsTableName:        settingsTable,
+		db:                       neatDB,
+		automigrateEnabled:       opts.AutomigrateEnabled,
+		debugEnabled:             opts.DebugEnabled,
+		botFilterEnabled:         opts.BotFilterEnabled,
+		botAutoTagEnabled:        opts.BotAutoTagEnabled,
+		excludedPathPrefixes:     opts.ExcludedPathPrefixes,
+		includedPathPrefixes:     opts.IncludedPathPrefixes,
+		excludedIPs:              opts.ExcludedIPs,
+		excludedPathPrefixesOpts: opts.ExcludedPathPrefixes,
+		includedPathPrefixesOpts: opts.IncludedPathPrefixes,
+		excludedIPsOpts:          opts.ExcludedIPs,
+		geoIPResolver:            opts.GeoIPResolver,
+		enhanceBatchSize:         opts.EnhanceBatchSize,
+		logger:                   logger,
 	}
 
 	if store.automigrateEnabled {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dracory/neat"
@@ -24,19 +25,29 @@ var _ StoreInterface = (*storeImplementation)(nil)
 
 // storeImplementation implements StoreInterface for visitor operations.
 type storeImplementation struct {
-	visitorTableName     string
-	settingsTableName    string
-	db                   *neat.Database
-	automigrateEnabled   bool
-	debugEnabled         bool
-	botFilterEnabled     bool
-	botAutoTagEnabled    bool
+	visitorTableName   string
+	settingsTableName  string
+	db                 *neat.Database
+	automigrateEnabled bool
+	debugEnabled       bool
+	botFilterEnabled   bool
+	botAutoTagEnabled  bool
+	// filtersMu guards the in-memory filter lists below; they are read on
+	// every VisitorRegister/buildQuery call while admin endpoints may mutate
+	// them concurrently.
+	filtersMu            sync.RWMutex
 	excludedPathPrefixes []string
 	includedPathPrefixes []string
 	excludedIPs          []string
-	geoIPResolver        GeoIPResolver
-	enhanceBatchSize     int
-	logger               *slog.Logger
+	// The *Opts fields preserve the values supplied via NewStoreOptions so
+	// that DB writes never persist option-configured entries and option
+	// entries remain active even if "removed" via the admin UI.
+	excludedPathPrefixesOpts []string
+	includedPathPrefixesOpts []string
+	excludedIPsOpts          []string
+	geoIPResolver            GeoIPResolver
+	enhanceBatchSize         int
+	logger                   *slog.Logger
 }
 
 // == MIGRATE ==================================================================
@@ -239,12 +250,17 @@ func (st *storeImplementation) IsBotAutoTagEnabled() bool {
 // (e.g. "/api/*", "/*.php"). Matching requests are silently skipped by
 // VisitorRegister.
 func (st *storeImplementation) SetExcludedPathPrefixes(prefixes []string) {
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
 	st.excludedPathPrefixes = prefixes
+	st.excludedPathPrefixesOpts = slices.Clone(prefixes)
 }
 
 // GetExcludedPathPrefixes returns the currently configured excluded path prefixes.
 func (st *storeImplementation) GetExcludedPathPrefixes() []string {
-	return st.excludedPathPrefixes
+	st.filtersMu.RLock()
+	defer st.filtersMu.RUnlock()
+	return slices.Clone(st.excludedPathPrefixes)
 }
 
 // SetIncludedPathPrefixes sets path patterns that should be included in visitor
@@ -253,23 +269,33 @@ func (st *storeImplementation) GetExcludedPathPrefixes() []string {
 // whitelist: requests whose URL path does not match are silently skipped by
 // VisitorRegister. An empty list means all paths are tracked.
 func (st *storeImplementation) SetIncludedPathPrefixes(prefixes []string) {
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
 	st.includedPathPrefixes = prefixes
+	st.includedPathPrefixesOpts = slices.Clone(prefixes)
 }
 
 // GetIncludedPathPrefixes returns the currently configured included path prefixes.
 func (st *storeImplementation) GetIncludedPathPrefixes() []string {
-	return st.includedPathPrefixes
+	st.filtersMu.RLock()
+	defer st.filtersMu.RUnlock()
+	return slices.Clone(st.includedPathPrefixes)
 }
 
 // SetExcludedIPs sets IP addresses that should be excluded from visitor tracking.
 // Requests from these IPs will be silently skipped by VisitorRegister.
 func (st *storeImplementation) SetExcludedIPs(ips []string) {
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
 	st.excludedIPs = ips
+	st.excludedIPsOpts = slices.Clone(ips)
 }
 
 // GetExcludedIPs returns the currently configured excluded IP addresses.
 func (st *storeImplementation) GetExcludedIPs() []string {
-	return st.excludedIPs
+	st.filtersMu.RLock()
+	defer st.filtersMu.RUnlock()
+	return slices.Clone(st.excludedIPs)
 }
 
 // == VISITOR OPERATIONS =======================================================
@@ -281,7 +307,13 @@ func (st *storeImplementation) GetExcludedIPs() []string {
 func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
 
-	if pattern, matched := pathPatternMatchAny(st.excludedPathPrefixes, path); matched {
+	st.filtersMu.RLock()
+	excludedPaths := st.excludedPathPrefixes
+	includedPaths := st.includedPathPrefixes
+	excludedIPs := st.excludedIPs
+	st.filtersMu.RUnlock()
+
+	if pattern, matched := pathPatternMatchAny(excludedPaths, path); matched {
 		if st.debugEnabled {
 			st.logger.Info("path-filter: skipping excluded path", "path", path, "pattern", pattern)
 		}
@@ -290,8 +322,8 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 
 	// Whitelist semantics: when includedPathPrefixes is non-empty, only paths
 	// matching a prefix are tracked; everything else is skipped.
-	if len(st.includedPathPrefixes) > 0 {
-		if _, matched := pathPatternMatchAny(st.includedPathPrefixes, path); !matched {
+	if len(includedPaths) > 0 {
+		if _, matched := pathPatternMatchAny(includedPaths, path); !matched {
 			if st.debugEnabled {
 				st.logger.Info("path-filter: skipping non-included path", "path", path)
 			}
@@ -303,7 +335,7 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 	userAgent := r.UserAgent()
 	referrer := r.Header.Get("Referer")
 
-	if slices.Contains(st.excludedIPs, ip) {
+	if slices.Contains(excludedIPs, ip) {
 		if st.debugEnabled {
 			st.logger.Info("ip-filter: skipping excluded IP", "ip", ip)
 		}
@@ -857,8 +889,8 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 	if query.HasIPNotIn() && len(query.IPNotIn()) > 0 {
 		excluded = append(excluded, query.IPNotIn()...)
 	}
-	if !query.HasIPIn() && len(st.excludedIPs) > 0 {
-		for _, ip := range st.excludedIPs {
+	if !query.HasIPIn() {
+		for _, ip := range st.GetExcludedIPs() {
 			if !slices.Contains(excluded, ip) {
 				excluded = append(excluded, ip)
 			}
