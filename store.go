@@ -32,6 +32,7 @@ type storeImplementation struct {
 	botFilterEnabled     bool
 	botAutoTagEnabled    bool
 	excludedPathPrefixes []string
+	includedPathPrefixes []string
 	excludedIPs          []string
 	geoIPResolver        GeoIPResolver
 	enhanceBatchSize     int
@@ -232,9 +233,11 @@ func (st *storeImplementation) IsBotAutoTagEnabled() bool {
 	return st.botAutoTagEnabled
 }
 
-// SetExcludedPathPrefixes sets path prefixes that should be excluded from visitor tracking.
-// Requests whose URL path starts with any of these prefixes will be silently skipped
-// by VisitorRegister. This is useful for excluding admin panel traffic (e.g. "/admin/").
+// SetExcludedPathPrefixes sets path patterns that should be excluded from
+// visitor tracking. Entries without a "*" act as prefix matches ("/admin/"
+// covers "/admin/users"); "*" matches any character sequence including "/"
+// (e.g. "/api/*", "/*.php"). Matching requests are silently skipped by
+// VisitorRegister.
 func (st *storeImplementation) SetExcludedPathPrefixes(prefixes []string) {
 	st.excludedPathPrefixes = prefixes
 }
@@ -242,6 +245,20 @@ func (st *storeImplementation) SetExcludedPathPrefixes(prefixes []string) {
 // GetExcludedPathPrefixes returns the currently configured excluded path prefixes.
 func (st *storeImplementation) GetExcludedPathPrefixes() []string {
 	return st.excludedPathPrefixes
+}
+
+// SetIncludedPathPrefixes sets path patterns that should be included in visitor
+// tracking. Entries use the same pattern syntax as SetExcludedPathPrefixes
+// (prefix match, or glob-style "*"). When the list is non-empty it acts as a
+// whitelist: requests whose URL path does not match are silently skipped by
+// VisitorRegister. An empty list means all paths are tracked.
+func (st *storeImplementation) SetIncludedPathPrefixes(prefixes []string) {
+	st.includedPathPrefixes = prefixes
+}
+
+// GetIncludedPathPrefixes returns the currently configured included path prefixes.
+func (st *storeImplementation) GetIncludedPathPrefixes() []string {
+	return st.includedPathPrefixes
 }
 
 // SetExcludedIPs sets IP addresses that should be excluded from visitor tracking.
@@ -264,10 +281,19 @@ func (st *storeImplementation) GetExcludedIPs() []string {
 func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Request) error {
 	path := r.URL.Path
 
-	for _, prefix := range st.excludedPathPrefixes {
-		if strings.HasPrefix(path, prefix) {
+	if pattern, matched := pathPatternMatchAny(st.excludedPathPrefixes, path); matched {
+		if st.debugEnabled {
+			st.logger.Info("path-filter: skipping excluded path", "path", path, "pattern", pattern)
+		}
+		return nil
+	}
+
+	// Whitelist semantics: when includedPathPrefixes is non-empty, only paths
+	// matching a prefix are tracked; everything else is skipped.
+	if len(st.includedPathPrefixes) > 0 {
+		if _, matched := pathPatternMatchAny(st.includedPathPrefixes, path); !matched {
 			if st.debugEnabled {
-				st.logger.Info("path-filter: skipping excluded path", "path", path, "prefix", prefix)
+				st.logger.Info("path-filter: skipping non-included path", "path", path)
 			}
 			return nil
 		}

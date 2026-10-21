@@ -57,14 +57,14 @@ const (
 	// for these file types are scanners probing for non-existent attack
 	// surface. Universal malicious patterns (.env, .git/, .svn/, .htpasswd,
 	// shell.php) come from statsstore.MaliciousPathPatterns().
-	botPagePatternPhp     = ".php"
-	botPagePatternPy      = ".py"
-	botPagePatternAsp     = ".asp"
-	botPagePatternAspx    = ".aspx"
-	botPagePatternJsp     = ".jsp"
-	botPagePatternCgi     = ".cgi"
-	botPagePatternPl      = ".pl"
-	botPagePatternRb      = ".rb"
+	botPagePatternPhp         = ".php"
+	botPagePatternPy          = ".py"
+	botPagePatternAsp         = ".asp"
+	botPagePatternAspx        = ".aspx"
+	botPagePatternJsp         = ".jsp"
+	botPagePatternCgi         = ".cgi"
+	botPagePatternPl          = ".pl"
+	botPagePatternRb          = ".rb"
 	botPagePatternWp          = "/wp"
 	botPagePatternWordPress   = "/wordpress"
 	botPagePatternWpAdmin     = "/wp-admin"
