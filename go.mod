@@ -10,8 +10,8 @@ require (
 	github.com/dracory/neat v0.57.0
 	github.com/dracory/req v0.1.0
 	github.com/dracory/str v0.19.0
-	github.com/dromara/carbon/v2 v2.6.18
-	modernc.org/sqlite v1.60.1
+	github.com/dromara/carbon/v2 v2.7.0
+	modernc.org/sqlite v1.61.0
 )
 
 require (
@@ -27,7 +27,7 @@ require (
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	modernc.org/libc v1.78.0 // indirect
+	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
