@@ -60,7 +60,7 @@ var botUserAgentSpecificPatterns = []string{
 	"ia_archiver",
 	"insomnia",
 	"jakarta commons-httpclient", // Apache Commons HttpClient variant
-	"java/",                     // Apache HttpClient default: "Java/1.8.0_301"
+	"java/",                      // Apache HttpClient default: "Java/1.8.0_301"
 	"keenablebot",
 	"libcurl-agent", // libcurl default UA variant
 	"libwww-perl",   // Perl LWP user agent
@@ -86,8 +86,8 @@ var botUserAgentSpecificPatterns = []string{
 	"puppeteer",
 	"python-requests",
 	"python-urllib", // stdlib urllib format: "Python-urllib/3.10"
-	"python/",        // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
-	"restsharp",      // .NET HTTP client
+	"python/",       // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
+	"restsharp",     // .NET HTTP client
 	"scrapy",
 	"selenium",
 	"semrush",

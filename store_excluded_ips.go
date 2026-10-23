@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,47 +19,57 @@ type settingsRow struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// ExcludedIPList returns all excluded IP addresses stored in the database.
+// ExcludedIPList returns the effective excluded IP addresses — the merge of
+// IPs stored in the database and any supplied via NewStoreOptions.
 func (st *storeImplementation) ExcludedIPList(ctx context.Context) ([]string, error) {
-	return st.excludedIPsLoadFromDB(ctx)
+	return st.GetExcludedIPs(), nil
 }
 
 // ExcludedIPAdd adds an IP address to the exclusion list in the database and
 // updates the in-memory cache. Duplicate IPs are silently ignored.
+// IPs supplied via NewStoreOptions are never written to the database.
 func (st *storeImplementation) ExcludedIPAdd(ctx context.Context, ip string) error {
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
 		return errors.New("ip address is empty")
 	}
 
-	// Check if already exists in the in-memory list
-	for _, existing := range st.excludedIPs {
-		if existing == ip {
-			return nil
-		}
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
+
+	if slices.Contains(st.excludedIPs, ip) {
+		return nil
 	}
 
-	st.excludedIPs = append(st.excludedIPs, ip)
-	return st.excludedIPsSaveToDB(ctx)
+	dbList := append(stringListSubtract(st.excludedIPs, st.excludedIPsOpts), ip)
+	if err := st.excludedIPsSaveToDB(ctx, dbList); err != nil {
+		return err
+	}
+
+	st.excludedIPs = append(slices.Clone(st.excludedIPsOpts), dbList...)
+	return nil
 }
 
 // ExcludedIPRemove removes an IP address from the exclusion list in the database
-// and updates the in-memory cache.
+// and updates the in-memory cache. IPs supplied via NewStoreOptions cannot be
+// removed this way — they stay active for the lifetime of the process.
 func (st *storeImplementation) ExcludedIPRemove(ctx context.Context, ip string) error {
 	ip = strings.TrimSpace(ip)
 	if ip == "" {
 		return errors.New("ip address is empty")
 	}
 
-	filtered := make([]string, 0, len(st.excludedIPs))
-	for _, existing := range st.excludedIPs {
-		if existing != ip {
-			filtered = append(filtered, existing)
-		}
-	}
-	st.excludedIPs = filtered
+	st.filtersMu.Lock()
+	defer st.filtersMu.Unlock()
 
-	return st.excludedIPsSaveToDB(ctx)
+	dbList := stringListRemove(
+		stringListSubtract(st.excludedIPs, st.excludedIPsOpts), ip)
+	if err := st.excludedIPsSaveToDB(ctx, dbList); err != nil {
+		return err
+	}
+
+	st.excludedIPs = append(slices.Clone(st.excludedIPsOpts), dbList...)
+	return nil
 }
 
 // excludedIPsLoadFromDB reads the excluded IPs JSON array from the settings table.
@@ -91,14 +102,14 @@ func (st *storeImplementation) excludedIPsLoadFromDB(ctx context.Context) ([]str
 	return ips, nil
 }
 
-// excludedIPsSaveToDB serializes the in-memory excluded IPs list to the settings
+// excludedIPsSaveToDB serializes the given excluded IPs list to the settings
 // table as a JSON array, using upsert semantics.
-func (st *storeImplementation) excludedIPsSaveToDB(ctx context.Context) error {
+func (st *storeImplementation) excludedIPsSaveToDB(ctx context.Context, ips []string) error {
 	if st.settingsTableName == "" {
 		return errors.New("settings table name is empty")
 	}
 
-	data, err := json.Marshal(st.excludedIPs)
+	data, err := json.Marshal(ips)
 	if err != nil {
 		return err
 	}

@@ -24,6 +24,22 @@ type StoreInterface interface {
 
 	SetExcludedPathPrefixes(prefixes []string)
 	GetExcludedPathPrefixes() []string
+	SetIncludedPathPrefixes(prefixes []string)
+	GetIncludedPathPrefixes() []string
+
+	// ExcludedPathList/Add/Remove manage persisted excluded path prefixes
+	// (stored as a JSON array in the settings table under "excluded_paths").
+	// Excluded prefixes are skipped by VisitorRegister.
+	ExcludedPathList(ctx context.Context) ([]string, error)
+	ExcludedPathAdd(ctx context.Context, prefix string) error
+	ExcludedPathRemove(ctx context.Context, prefix string) error
+
+	// IncludedPathList/Add/Remove manage persisted included path prefixes
+	// (stored under "included_paths"). When non-empty they act as a
+	// whitelist: only matching paths are tracked by VisitorRegister.
+	IncludedPathList(ctx context.Context) ([]string, error)
+	IncludedPathAdd(ctx context.Context, prefix string) error
+	IncludedPathRemove(ctx context.Context, prefix string) error
 
 	SetExcludedIPs(ips []string)
 	GetExcludedIPs() []string

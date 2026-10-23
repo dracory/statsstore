@@ -35,9 +35,11 @@ const DEFAULT_SETTINGS_TABLE = "statsstore_settings"
 
 // Settings table column names.
 const (
-	COLUMN_KEY           = "key"
-	COLUMN_VALUE         = "value"
-	SETTING_EXCLUDED_IPS = "excluded_ips"
+	COLUMN_KEY             = "key"
+	COLUMN_VALUE           = "value"
+	SETTING_EXCLUDED_IPS   = "excluded_ips"
+	SETTING_EXCLUDED_PATHS = "excluded_paths"
+	SETTING_INCLUDED_PATHS = "included_paths"
 )
 
 // Maximum column lengths for string fields.
