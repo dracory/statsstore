@@ -6,6 +6,9 @@
 
 Stats Store - a visitor stats storage implementation for Go.
 
+See [`github.com/dracory/statsadmin`](https://github.com/dracory/statsadmin)
+for a complete example of how the store can be used.
+
 ## License
 This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0). You can find a copy of the license at [https://www.gnu.org/licenses/agpl-3.0.en.html](https://www.gnu.org/licenses/agpl-3.0.txt)
 
@@ -164,5 +167,5 @@ http.Handle("/admin/stats", handler)
 | Settings | `controller=settings` | Excluded IPs, bot IPs, bot identification |
 | IP Details | `controller=ip-details&ip=X` | Per-IP details and actions |
 
-See the `statsadmin` repository for a complete working example and
-screenshots.
+See the [`statsadmin`](https://github.com/dracory/statsadmin) repository for a
+complete working example and screenshots.
