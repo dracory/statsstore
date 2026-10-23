@@ -333,18 +333,18 @@ func TestIsDataCenterIP_KnownRanges(t *testing.T) {
 
 func TestIsDataCenterIP_IPv6Ranges(t *testing.T) {
 	ips := []string{
-		"2600:1f00:1::1",      // AWS
-		"::ffff:52.1.2.3",     // IPv4-mapped IPv6 (AWS)
-		"::ffff:3.128.1.2",    // IPv4-mapped IPv6 (AWS upper 3.x)
-		"2600:1900:1::1",      // GCP
-		"2603:1::1",           // Azure
-		"2a01:4f8:1::1",       // Hetzner
-		"2001:41d0:1::1",      // OVH
-		"2600:3c00:1::1",      // Linode
-		"2001:19f0:1::1",      // Vultr
-		"2400:3200:1::1",      // Alibaba
-		"2402:4e00:1::1",      // Tencent
-		"2001:bc8:1::1",       // Scaleway
+		"2600:1f00:1::1",   // AWS
+		"::ffff:52.1.2.3",  // IPv4-mapped IPv6 (AWS)
+		"::ffff:3.128.1.2", // IPv4-mapped IPv6 (AWS upper 3.x)
+		"2600:1900:1::1",   // GCP
+		"2603:1::1",        // Azure
+		"2a01:4f8:1::1",    // Hetzner
+		"2001:41d0:1::1",   // OVH
+		"2600:3c00:1::1",   // Linode
+		"2001:19f0:1::1",   // Vultr
+		"2400:3200:1::1",   // Alibaba
+		"2402:4e00:1::1",   // Tencent
+		"2001:bc8:1::1",    // Scaleway
 	}
 
 	for _, ip := range ips {

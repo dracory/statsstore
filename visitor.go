@@ -134,9 +134,15 @@ func NewVisitorFromExistingData(data map[string]string) VisitorInterface {
 // == METHODS ==================================================================
 
 // FingerprintCalculate calculates a fingerprint from IP and UserAgent.
+// SHA-256 is used (truncated to MAX_LEN_FINGERPRINT hex chars) — MD5 is
+// cryptographically broken and unsalted MD5 over IP+UA is trivially
+// reversible by dictionary attack.
 func (o *visitorImplementation) FingerprintCalculate() string {
 	fingerprint := o.IPAddressField + o.UserAgentField
-	hash := str.MD5(fingerprint)
+	hash := str.SHA256(fingerprint)
+	if len(hash) > MAX_LEN_FINGERPRINT {
+		hash = hash[:MAX_LEN_FINGERPRINT]
+	}
 	return hash
 }
 

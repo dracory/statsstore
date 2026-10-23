@@ -24,6 +24,19 @@ type NewStoreOptions struct {
 	ExcludedIPs          []string
 	GeoIPResolver        GeoIPResolver // optional; enables VisitorEnhance for batch country enrichment
 	EnhanceBatchSize     int           // number of records per VisitorEnhance call; default 10
+
+	// TrustedProxies lists CIDR ranges or IPs of reverse proxies whose
+	// forwarding headers (X-Forwarded-For, X-Real-IP) may be trusted when
+	// resolving the client IP in VisitorRegister. When empty, req.GetIP is
+	// used and forwarding headers are trusted unconditionally — only safe
+	// when the app runs behind a proxy that sanitizes them.
+	TrustedProxies []string
+
+	// FingerprintSalt is an optional secret prepended before hashing the
+	// visitor fingerprint (SHA-256 of IP + user agent). It makes stored
+	// fingerprints impossible to reverse by dictionary attack on common
+	// IP/UA pairs.
+	FingerprintSalt string
 }
 
 // NewStore creates a new stats store.
@@ -63,6 +76,8 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		excludedIPsOpts:          opts.ExcludedIPs,
 		geoIPResolver:            opts.GeoIPResolver,
 		enhanceBatchSize:         opts.EnhanceBatchSize,
+		trustedProxies:           opts.TrustedProxies,
+		fingerprintSalt:          opts.FingerprintSalt,
 		logger:                   logger,
 	}
 

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/netip"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -73,18 +75,23 @@ func NewDefaultGeoIPResolver() *DefaultGeoIPResolver {
 
 // Resolve looks up the country code for the given IP via ip2c.org.
 func (r *DefaultGeoIPResolver) Resolve(ctx context.Context, ip string) (string, error) {
-	if ip == "" {
+	addr, err := netip.ParseAddr(strings.TrimSpace(ip))
+	if err != nil {
+		return CountryUnknown, nil
+	}
+	// Normalize IPv4-mapped IPv6 to plain IPv4.
+	addr = addr.Unmap()
+
+	// Localhost and private IPs cannot be geolocated
+	if isLocalOrPrivateIP(addr) {
 		return CountryUnknown, nil
 	}
 
-	// Localhost and private IPs cannot be geolocated
-	if isLocalOrPrivateIP(ip) {
-		return CountryUnknown, nil
-	}
+	canonicalIP := addr.String()
 
 	// Check cache
 	if r.CacheTTL > 0 {
-		if country, ok := r.cacheGet(ip); ok {
+		if country, ok := r.cacheGet(canonicalIP); ok {
 			return country, nil
 		}
 	}
@@ -102,7 +109,7 @@ func (r *DefaultGeoIPResolver) Resolve(ctx context.Context, ip string) (string, 
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, endpoint+ip, nil)
+	req, err := http.NewRequestWithContext(timeoutCtx, http.MethodGet, endpoint+url.PathEscape(canonicalIP), nil)
 	if err != nil {
 		return "", err
 	}
@@ -152,7 +159,7 @@ func (r *DefaultGeoIPResolver) Resolve(ctx context.Context, ip string) (string, 
 
 	// Cache the result
 	if r.CacheTTL > 0 {
-		r.cacheSet(ip, code)
+		r.cacheSet(canonicalIP, code)
 	}
 
 	return code, nil
@@ -192,34 +199,21 @@ func (r *DefaultGeoIPResolver) cacheSet(ip, country string) {
 
 // == HELPERS ==================================================================
 
-// isLocalOrPrivateIP returns true for localhost and common private IP ranges
-// that cannot be geolocated to a real country.
-func isLocalOrPrivateIP(ip string) bool {
-	switch ip {
-	case "127.0.0.1", "::1", "0.0.0.0":
+// isLocalOrPrivateIP returns true for addresses that cannot be geolocated
+// to a real country: loopback, RFC 1918 / ULA private ranges, link-local,
+// multicast, unspecified, and carrier-grade NAT (100.64.0.0/10).
+func isLocalOrPrivateIP(ip netip.Addr) bool {
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() {
 		return true
 	}
 
-	// RFC 1918 private ranges
-	if strings.HasPrefix(ip, "10.") ||
-		strings.HasPrefix(ip, "192.168.") ||
-		strings.HasPrefix(ip, "172.16.") ||
-		strings.HasPrefix(ip, "172.17.") ||
-		strings.HasPrefix(ip, "172.18.") ||
-		strings.HasPrefix(ip, "172.19.") ||
-		strings.HasPrefix(ip, "172.20.") ||
-		strings.HasPrefix(ip, "172.21.") ||
-		strings.HasPrefix(ip, "172.22.") ||
-		strings.HasPrefix(ip, "172.23.") ||
-		strings.HasPrefix(ip, "172.24.") ||
-		strings.HasPrefix(ip, "172.25.") ||
-		strings.HasPrefix(ip, "172.26.") ||
-		strings.HasPrefix(ip, "172.27.") ||
-		strings.HasPrefix(ip, "172.28.") ||
-		strings.HasPrefix(ip, "172.29.") ||
-		strings.HasPrefix(ip, "172.30.") ||
-		strings.HasPrefix(ip, "172.31.") {
-		return true
+	// CGNAT 100.64.0.0/10 is not reported as private by netip.
+	if ip.Is4() {
+		a4 := ip.As4()
+		if a4[0] == 100 && a4[1]&0xc0 == 64 {
+			return true
+		}
 	}
 
 	return false

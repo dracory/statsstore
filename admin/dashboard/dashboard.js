@@ -62,7 +62,7 @@ createApp({
             try {
                 const response = await fetch(urlLoadDashboard, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ period: selectedPeriod.value, conditions: conditions.value }),
                 });
                 const data = await response.json();
@@ -89,7 +89,7 @@ createApp({
             try {
                 const response = await fetch(urlLoadDashboard.replace('action=load-dashboard', 'action=export-csv'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ period: selectedPeriod.value, conditions: conditions.value }),
                 });
                 const blob = await response.blob();

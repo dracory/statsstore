@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"os"
 	"slices"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	contractsorm "github.com/dracory/neat/contracts/database/orm"
 	contractsschema "github.com/dracory/neat/contracts/database/schema"
 	"github.com/dracory/req"
+	"github.com/dracory/str"
 	"github.com/dromara/carbon/v2"
 )
 
@@ -47,6 +49,8 @@ type storeImplementation struct {
 	excludedIPsOpts          []string
 	geoIPResolver            GeoIPResolver
 	enhanceBatchSize         int
+	trustedProxies           []string
+	fingerprintSalt          string
 	logger                   *slog.Logger
 }
 
@@ -331,13 +335,19 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		}
 	}
 
-	ip := req.GetIP(r)
+	ip := st.clientIP(r)
+	if ip == "" {
+		if st.debugEnabled {
+			st.logger.Info("ip-filter: skipping unparseable client IP", "remote_addr", r.RemoteAddr)
+		}
+		return nil
+	}
 	userAgent := r.UserAgent()
 	referrer := r.Header.Get("Referer")
 
 	if slices.Contains(excludedIPs, ip) {
 		if st.debugEnabled {
-			st.logger.Info("ip-filter: skipping excluded IP", "ip", ip)
+			st.logger.Info("ip-filter: skipping excluded IP", "ip", redactIP(ip))
 		}
 		return nil
 	}
@@ -353,7 +363,7 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		if isBot || isThreat {
 			if st.debugEnabled {
 				st.logger.Info("bot-filter: skipping bot/threat visit",
-					"user_agent", userAgent, "ip", ip, "path", path)
+					"user_agent", userAgent, "ip", redactIP(ip), "path", path)
 			}
 			return nil
 		}
@@ -378,7 +388,7 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		if st.debugEnabled && (isBot || isThreat) {
 			st.logger.Info("bot-tag: tagging visit",
 				"bot", botVal, "threat", threatVal,
-				"user_agent", userAgent, "ip", ip, "path", path)
+				"user_agent", userAgent, "ip", redactIP(ip), "path", path)
 		}
 	}
 
@@ -396,14 +406,70 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		SetBot(botVal).
 		SetThreat(threatVal)
 
-	visitor.SetFingerprint(visitor.FingerprintCalculate())
+	visitor.SetFingerprint(st.visitorFingerprint(visitor))
 
 	return st.VisitorCreate(ctx, visitor)
+}
+
+// clientIP resolves the client IP for a request. When TrustedProxies is
+// configured, forwarding headers are only honoured from trusted peers;
+// otherwise req.GetIP's default precedence (X-Real-IP, X-Forwarded-For,
+// RemoteAddr) applies. The result is validated and canonicalized; ""
+// means no parseable IP could be determined.
+func (st *storeImplementation) clientIP(r *http.Request) string {
+	var ip string
+	if len(st.trustedProxies) > 0 {
+		ip = req.GetIPWithOptions(r, req.IPOptions{
+			TrustedProxies:            st.trustedProxies,
+			Validate:                  true,
+			ReturnPrivateIfAllPrivate: true,
+		})
+	} else {
+		ip = req.GetIP(r)
+	}
+	addr, err := netip.ParseAddr(strings.TrimSpace(ip))
+	if err != nil {
+		return ""
+	}
+	return addr.String()
+}
+
+// visitorFingerprint computes the stored fingerprint for a visitor. With
+// FingerprintSalt configured it is SHA-256(salt + ip + ua); otherwise
+// plain SHA-256(ip + ua), truncated to MAX_LEN_FINGERPRINT hex chars.
+func (st *storeImplementation) visitorFingerprint(v VisitorInterface) string {
+	if st.fingerprintSalt == "" {
+		return v.FingerprintCalculate()
+	}
+	sum := str.SHA256(st.fingerprintSalt + v.GetIpAddress() + v.GetUserAgent())
+	if len(sum) > MAX_LEN_FINGERPRINT {
+		sum = sum[:MAX_LEN_FINGERPRINT]
+	}
+	return sum
+}
+
+// redactIP masks the last octet (IPv4) or last 16 bits (IPv6) of an
+// address for debug logging so full IPs are not written to stdout.
+func redactIP(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return "<invalid>"
+	}
+	if addr.Is4() {
+		a4 := addr.As4()
+		return netip.AddrFrom4([4]byte{a4[0], a4[1], a4[2], 0}).String()
+	}
+	a16 := addr.As16()
+	a16[14], a16[15] = 0, 0
+	return netip.AddrFrom16(a16).String()
 }
 
 // VisitorCount counts visitors based on a query.
 func (st *storeImplementation) VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error) {
 	if query.HasDistinct() && query.Distinct() != "" {
+		if !visitorQueryColumns[query.Distinct()] {
+			return 0, errors.New("visitor query: distinct is not an allowed column")
+		}
 		q := st.buildQuery(query)
 		var results []map[string]any
 		err := q.Select("DISTINCT " + query.Distinct()).Get(&results)
@@ -530,6 +596,77 @@ func (st *storeImplementation) VisitorDeleteByIP(ctx context.Context, ip string)
 		Table(st.visitorTableName).
 		Where(COLUMN_IP_ADDRESS+" = ?", ip).
 		Delete()
+	if err != nil {
+		return 0, err
+	}
+
+	return rowsAffected.RowsAffected, nil
+}
+
+// VisitorDeleteByIDs permanently deletes all visitor records with the given
+// IDs in a single DELETE. Returns the number of deleted rows.
+func (st *storeImplementation) VisitorDeleteByIDs(ctx context.Context, ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, errors.New("visitor ids are empty")
+	}
+
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+
+	rowsAffected, err := st.db.Query().
+		Table(st.visitorTableName).
+		WhereIn(COLUMN_ID, args).
+		Delete()
+	if err != nil {
+		return 0, err
+	}
+
+	return rowsAffected.RowsAffected, nil
+}
+
+// VisitorSetBotByIP sets the bot flag on all visitor records for the given
+// IP in a single UPDATE. Returns the number of updated rows.
+func (st *storeImplementation) VisitorSetBotByIP(ctx context.Context, ip, bot string) (int64, error) {
+	if ip == "" {
+		return 0, errors.New("visitor ip is empty")
+	}
+	if bot != VALUE_YES && bot != VALUE_NO {
+		return 0, errors.New("invalid bot flag value")
+	}
+
+	rowsAffected, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_IP_ADDRESS+" = ?", ip).
+		Update(map[string]any{
+			COLUMN_BOT:        bot,
+			COLUMN_UPDATED_AT: carbon.Now(carbon.UTC).StdTime(),
+		})
+	if err != nil {
+		return 0, err
+	}
+
+	return rowsAffected.RowsAffected, nil
+}
+
+// VisitorSetThreatByIP sets the threat flag on all visitor records for the
+// given IP in a single UPDATE. Returns the number of updated rows.
+func (st *storeImplementation) VisitorSetThreatByIP(ctx context.Context, ip, threat string) (int64, error) {
+	if ip == "" {
+		return 0, errors.New("visitor ip is empty")
+	}
+	if threat != VALUE_YES && threat != VALUE_NO {
+		return 0, errors.New("invalid threat flag value")
+	}
+
+	rowsAffected, err := st.db.Query().
+		Table(st.visitorTableName).
+		Where(COLUMN_IP_ADDRESS+" = ?", ip).
+		Update(map[string]any{
+			COLUMN_THREAT:     threat,
+			COLUMN_UPDATED_AT: carbon.Now(carbon.UTC).StdTime(),
+		})
 	if err != nil {
 		return 0, err
 	}
@@ -860,6 +997,33 @@ func (st *storeImplementation) VisitorEnhance(ctx context.Context) (int, error) 
 
 // == QUERY BUILDER ============================================================
 
+// visitorQueryColumns is the whitelist of columns accepted by the raw-string
+// Distinct and OrderBy query options. Values not on this list are rejected or
+// ignored so callers may forward request-derived input without risking SQL
+// injection through the query API.
+var visitorQueryColumns = map[string]bool{
+	COLUMN_ID:                   true,
+	COLUMN_PATH:                 true,
+	COLUMN_FINGERPRINT:          true,
+	COLUMN_IP_ADDRESS:           true,
+	COLUMN_COUNTRY:              true,
+	COLUMN_USER_ACCEPT_LANGUAGE: true,
+	COLUMN_USER_ACCEPT_ENCODING: true,
+	COLUMN_USER_AGENT:           true,
+	COLUMN_USER_OS:              true,
+	COLUMN_USER_OS_VERSION:      true,
+	COLUMN_USER_DEVICE:          true,
+	COLUMN_USER_DEVICE_TYPE:     true,
+	COLUMN_USER_BROWSER:         true,
+	COLUMN_USER_BROWSER_VERSION: true,
+	COLUMN_USER_REFERRER:        true,
+	COLUMN_BOT:                  true,
+	COLUMN_THREAT:               true,
+	COLUMN_CREATED_AT:           true,
+	COLUMN_UPDATED_AT:           true,
+	COLUMN_SOFT_DELETED_AT:      true,
+}
+
 func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contractsorm.Query {
 	// Use Model() to enable neat's automatic soft delete handling via SoftDeletesMaxDate
 	q := st.db.Query().Model(&visitorImplementation{}).Table(st.visitorTableName)
@@ -963,10 +1127,10 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 		q = q.Offset(query.Offset())
 	}
 
-	if query.HasOrderBy() && query.OrderBy() != "" {
+	if query.HasOrderBy() && visitorQueryColumns[query.OrderBy()] {
 		sortOrder := "desc"
-		if query.HasSortOrder() && query.SortOrder() != "" {
-			sortOrder = query.SortOrder()
+		if strings.EqualFold(query.SortOrder(), "asc") {
+			sortOrder = "asc"
 		}
 		q = q.OrderBy(query.OrderBy(), sortOrder)
 	}

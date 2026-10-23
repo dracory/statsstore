@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/dracory/api"
@@ -36,11 +37,15 @@ func (controller *ipDetailsController) handleFlagThreat(w http.ResponseWriter, r
 		api.Respond(w, r, api.Error("IP address is required"))
 		return ""
 	}
+	if _, err := netip.ParseAddr(ip); err != nil {
+		api.Respond(w, r, api.Error("Invalid IP address"))
+		return ""
+	}
 
 	// Update all visitor records for this IP to threat='yes'.
 	if err := flagIPVisitorsAsThreat(r.Context(), store, ip); err != nil {
 		slog.Error("statsadmin ipdetails: failed to update visitor threat flag", "ip", ip, "error", err)
-		api.Respond(w, r, api.Error(err.Error()))
+		api.Respond(w, r, api.Error("Failed to flag IP: "+err.Error()))
 		return ""
 	}
 
@@ -48,22 +53,9 @@ func (controller *ipDetailsController) handleFlagThreat(w http.ResponseWriter, r
 	return ""
 }
 
-// flagIPVisitorsAsThreat sets threat='yes' on all visitor records for the given IP.
+// flagIPVisitorsAsThreat sets threat='yes' on all visitor records for the
+// given IP in a single bulk UPDATE.
 func flagIPVisitorsAsThreat(ctx context.Context, store statsstore.StoreInterface, ip string) error {
-	visitors, err := store.VisitorList(ctx, statsstore.VisitorQuery().
-		SetIPIn([]string{ip}).
-		SetLimit(100000))
-	if err != nil {
-		return err
-	}
-	for _, v := range visitors {
-		if v.GetThreat() == statsstore.VALUE_YES {
-			continue
-		}
-		v.SetThreat(statsstore.VALUE_YES)
-		if err := store.VisitorUpdate(ctx, v); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := store.VisitorSetThreatByIP(ctx, ip, statsstore.VALUE_YES)
+	return err
 }

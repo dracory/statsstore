@@ -47,7 +47,7 @@ createApp({
             try {
                 const response = await fetch(urlLoadPaths, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ ip: '__IP__', conditions: conditions.value }),
                 });
                 const data = await response.json();
@@ -116,7 +116,7 @@ createApp({
             try {
                 const response = await fetch(urlFlagBot, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ ip: '__IP__' }),
                 });
                 const data = await response.json();
@@ -149,7 +149,7 @@ createApp({
             try {
                 const response = await fetch(urlFlagThreat, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ ip: '__IP__' }),
                 });
                 const data = await response.json();
@@ -186,7 +186,7 @@ createApp({
             try {
                 const response = await fetch(urlRemoveEntries, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: JSON.stringify({ ip: '__IP__' }),
                 });
                 const data = await response.json();

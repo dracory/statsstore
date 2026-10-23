@@ -66,7 +66,18 @@ type StoreInterface interface {
 	VisitorDelete(ctx context.Context, user VisitorInterface) error
 	VisitorDeleteByID(ctx context.Context, id string) error
 	VisitorDeleteByIP(ctx context.Context, ip string) (int64, error)
+	// VisitorDeleteByIDs permanently deletes all visitor records with the
+	// given IDs in a single DELETE. Returns the number of deleted rows.
+	VisitorDeleteByIDs(ctx context.Context, ids []string) (int64, error)
 	VisitorDeleteOlderThan(ctx context.Context, timestamp string) (int64, error)
+	// VisitorSetBotByIP sets the bot flag on all visitor records for the
+	// given IP in a single UPDATE. Returns the number of updated rows.
+	// Valid bot values are VALUE_YES and VALUE_NO.
+	VisitorSetBotByIP(ctx context.Context, ip, bot string) (int64, error)
+	// VisitorSetThreatByIP sets the threat flag on all visitor records for
+	// the given IP in a single UPDATE. Returns the number of updated rows.
+	// Valid threat values are VALUE_YES and VALUE_NO.
+	VisitorSetThreatByIP(ctx context.Context, ip, threat string) (int64, error)
 	VisitorFindByID(ctx context.Context, userID string) (VisitorInterface, error)
 	VisitorList(ctx context.Context, query VisitorQueryInterface) ([]VisitorInterface, error)
 	VisitorRegister(ctx context.Context, r *http.Request) error
