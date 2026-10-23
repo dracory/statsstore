@@ -286,6 +286,9 @@ func newSessionVisit(v statsstore.VisitorInterface, isBot bool, isThreat bool) s
 // splitDateTime splits a "YYYY-MM-DD HH:MM:SS" string into date and time.
 func splitDateTime(value string) (string, string) {
 	parts := strings.SplitN(value, " ", 2)
+	if len(parts) == 0 {
+		return "", ""
+	}
 	if len(parts) < 2 {
 		return parts[0], ""
 	}
