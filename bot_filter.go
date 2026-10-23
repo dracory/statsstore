@@ -39,6 +39,7 @@ var botUserAgentSpecificPatterns = []string{
 	"claude-web", // Anthropic Claude web fetcher
 	"cohere-ai",  // Cohere AI crawler
 	"colly",
+	"commons-httpclient", // Apache Commons HttpClient default UA
 	"curl",
 	"cve-", // vulnerability scanners / exploit probes
 	"cypress",
@@ -58,18 +59,22 @@ var botUserAgentSpecificPatterns = []string{
 	"httpx",
 	"ia_archiver",
 	"insomnia",
-	"java/", // Apache HttpClient default: "Java/1.8.0_301"
+	"jakarta commons-httpclient", // Apache Commons HttpClient variant
+	"java/",                      // Apache HttpClient default: "Java/1.8.0_301"
 	"keenablebot",
 	"libcurl-agent", // libcurl default UA variant
 	"libwww-perl",   // Perl LWP user agent
 	"lighthouse",
 	"linkedinbot",
+	"masscan", // port scanner / web probe
 	"mechanize",
 	"mechanize-go",
 	"meta-externalagent", // Meta AI/LLM crawler
 	"meta-externalfetcher",
 	"netcraft",
 	"newrelic",
+	"nikto", // web vulnerability scanner
+	"nmap",  // network/vulnerability scanner
 	"node-fetch",
 	"nutch",
 	"okhttp",
@@ -80,12 +85,14 @@ var botUserAgentSpecificPatterns = []string{
 	"postman",
 	"puppeteer",
 	"python-requests",
-	"python/",   // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
-	"restsharp", // .NET HTTP client
+	"python-urllib", // stdlib urllib format: "Python-urllib/3.10"
+	"python/",       // stdlib urllib format: "Python/3.14" — no real browser UA contains "python/"
+	"restsharp",     // .NET HTTP client
 	"scrapy",
 	"selenium",
 	"semrush",
 	"site24x7",
+	"sqlmap", // SQL injection scanning tool
 	"telegrambot",
 	"thewebreport", // theweb.report monitoring service — "TheWebReport/1.0; +https://theweb.report"
 	"twitterbot",
@@ -95,6 +102,7 @@ var botUserAgentSpecificPatterns = []string{
 	"wget",
 	"winhttp", // Windows WinHTTP library
 	"yandex",
+	"zgrab", // banner grabber / scanner
 }
 
 // == REFERRER SPAM DOMAINS ====================================================
@@ -178,10 +186,11 @@ var referrerSpamDomains = map[string]bool{
 // DA25A22F7F7C/ServiceTags_Public.json) instead of hand-maintaining these.
 var dataCenterCIDRs = []string{
 	// AWS
-	"3.0.0.0/9",
+	"3.0.0.0/8",
 	"13.0.0.0/8",
 	"15.0.0.0/8",
-	"18.0.0.0/8",
+	"16.0.0.0/8",
+	"18.128.0.0/9",
 	"34.0.0.0/8",
 	"52.0.0.0/8",
 	"54.0.0.0/8",
@@ -211,17 +220,31 @@ var dataCenterCIDRs = []string{
 	// Oracle Cloud
 	"129.146.0.0/16",
 	"129.148.0.0/16",
+	"129.150.0.0/15",
+	"129.152.0.0/14",
+	"129.156.0.0/14",
 	"129.213.0.0/16",
+	"130.61.0.0/16",
+	"132.145.0.0/16",
 	"140.238.0.0/16",
+	"147.154.0.0/16",
+	"150.136.0.0/16",
 	"152.70.0.0/16",
+	"192.29.0.0/16",
+	"193.122.0.0/15",
 	// Hetzner
 	"5.9.0.0/16",
+	"23.88.0.0/16",
+	"37.120.128.0/19",
 	"46.4.0.0/16",
+	"49.12.0.0/15",
 	"78.46.0.0/15",
+	"88.99.0.0/16",
 	"116.202.0.0/15",
+	"135.181.0.0/16",
 	"136.243.0.0/16",
 	"138.201.0.0/16",
-	"142.132.0.0/16",
+	"142.132.0.0/15",
 	"144.76.0.0/16",
 	"148.251.0.0/16",
 	"159.69.0.0/16",
@@ -238,11 +261,14 @@ var dataCenterCIDRs = []string{
 	"95.216.0.0/16",
 	"95.217.0.0/16",
 	// OVH
+	"37.187.0.0/16",
 	"51.68.0.0/16",
 	"51.77.0.0/16",
+	"51.83.0.0/16",
 	"51.89.0.0/16",
 	"51.91.0.0/16",
 	"51.92.0.0/16",
+	"51.254.0.0/16",
 	"54.36.0.0/16",
 	"54.37.0.0/16",
 	"57.128.0.0/16",
@@ -253,6 +279,7 @@ var dataCenterCIDRs = []string{
 	"137.74.0.0/16",
 	"145.239.0.0/16",
 	"146.59.0.0/16",
+	"149.56.0.0/16",
 	"149.202.0.0/16",
 	"151.80.0.0/16",
 	"158.69.0.0/16",
@@ -262,6 +289,8 @@ var dataCenterCIDRs = []string{
 	"178.32.0.0/16",
 	"193.70.0.0/16",
 	"198.50.0.0/16",
+	"213.186.32.0/19",
+	"217.182.0.0/16",
 	// Linode / Akamai
 	"45.33.0.0/17",
 	"45.56.0.0/17",
@@ -603,8 +632,10 @@ func IsBotPath(path string) bool {
 // evidence of a vulnerability scanner. Stack-dependent patterns are not
 // included — consumers should add their own.
 //
-// File patterns (e.g. .env, shell.php) are matched as a suffix of the last
-// path segment, so "/.env" matches but "/my.envfile.js" does not.
+// File patterns (e.g. shell.php) are matched as a suffix of the last path
+// segment. Dotfile patterns starting with '.' (e.g. .env, .htpasswd) match as
+// a prefix or suffix of the last path segment, capturing variants like
+// .env.bak, .env.old, and .env.local.
 // Directory patterns (e.g. .git/, .svn/) are matched against individual path
 // segments, so "/.git/config" matches but "/.github/workflows" does not.
 func IsMaliciousPath(path string) bool {
@@ -612,6 +643,7 @@ func IsMaliciousPath(path string) bool {
 		return false
 	}
 	pathLower := strings.ToLower(path)
+	lastSeg := pathLastSegment(pathLower)
 	for _, pattern := range maliciousPathPatterns {
 		if strings.HasSuffix(pattern, "/") {
 			dirName := strings.TrimSuffix(pattern, "/")
@@ -620,8 +652,12 @@ func IsMaliciousPath(path string) bool {
 					return true
 				}
 			}
+		} else if strings.HasPrefix(pattern, ".") {
+			if strings.HasPrefix(lastSeg, pattern) || strings.HasSuffix(lastSeg, pattern) {
+				return true
+			}
 		} else {
-			if strings.HasSuffix(pathLastSegment(pathLower), pattern) {
+			if strings.HasSuffix(lastSeg, pattern) {
 				return true
 			}
 		}
@@ -740,6 +776,7 @@ func IsDataCenterIP(ip string) bool {
 	if err != nil {
 		return false
 	}
+	addr = addr.Unmap()
 
 	for _, prefix := range parsedDataCenterCIDRs {
 		if prefix.Contains(addr) {

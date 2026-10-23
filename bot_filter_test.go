@@ -63,6 +63,7 @@ func TestIsBot_KnownBots(t *testing.T) {
 		// Python HTTP clients — stdlib urllib and aiohttp.
 		"Python/3.14 aiohttp/3.14.1", // real scraper UA seen in production
 		"Python/3.12 urllib/3.12",    // stdlib urllib format
+		"Python-urllib/3.10",         // stdlib urllib format
 		"Python/3.10",                // bare stdlib format
 		"aiohttp/3.14.1",             // aiohttp without Python prefix
 		// AI/LLM crawlers without "bot"/"crawler"/"spider" keywords.
@@ -77,6 +78,8 @@ func TestIsBot_KnownBots(t *testing.T) {
 		// Additional HTTP client libraries.
 		"libwww-perl/6.43",
 		"Java/1.8.0_301",
+		"Jakarta Commons-HttpClient/3.1",
+		"Commons-HttpClient/3.1",
 		"GuzzleHttp/7.0",
 		"Faraday/2.7",
 		"RestSharp/106.12",
@@ -84,6 +87,12 @@ func TestIsBot_KnownBots(t *testing.T) {
 		"winhttp",
 		"libcurl-agent/1.0",
 		"Mozilla/4.0 (compatible; Netcraft Web Server Survey)",
+		// Security scanners
+		"sqlmap/1.5.11#stable",
+		"Nikto/2.1.6",
+		"masscan/1.3.2",
+		"zgrab/0.x",
+		"Nmap Scripting Engine",
 	}
 
 	for _, ua := range botUAs {
@@ -258,8 +267,11 @@ func TestIsReferrerSpam_BareDomain(t *testing.T) {
 
 func TestIsDataCenterIP_KnownRanges(t *testing.T) {
 	ips := []string{
-		"3.1.2.3",       // AWS
+		"3.1.2.3",       // AWS lower 3.x
+		"3.128.1.2",     // AWS upper 3.x
 		"13.107.21.200", // AWS/Microsoft
+		"16.1.2.3",      // AWS
+		"18.128.1.2",    // AWS 18.x leased
 		"52.1.2.3",      // AWS
 		"35.192.1.2",    // GCP
 		"35.200.1.2",    // GCP
@@ -268,12 +280,17 @@ func TestIsDataCenterIP_KnownRanges(t *testing.T) {
 		"159.65.1.2",    // DigitalOcean
 		"167.99.1.2",    // DigitalOcean
 		"129.146.1.2",   // Oracle Cloud
+		"129.150.1.2",   // Oracle Cloud
 		// Hetzner
+		"23.88.1.2",
 		"78.46.1.2",
+		"135.181.1.2",
 		"159.69.1.2",
 		"95.216.1.2",
 		// OVH
+		"37.187.1.2",
 		"51.77.1.2",
+		"51.254.1.2",
 		"94.23.1.2",
 		"176.31.1.2",
 		// Linode / Akamai
@@ -316,16 +333,18 @@ func TestIsDataCenterIP_KnownRanges(t *testing.T) {
 
 func TestIsDataCenterIP_IPv6Ranges(t *testing.T) {
 	ips := []string{
-		"2600:1f00:1::1", // AWS
-		"2600:1900:1::1", // GCP
-		"2603:1::1",      // Azure
-		"2a01:4f8:1::1",  // Hetzner
-		"2001:41d0:1::1", // OVH
-		"2600:3c00:1::1", // Linode
-		"2001:19f0:1::1", // Vultr
-		"2400:3200:1::1", // Alibaba
-		"2402:4e00:1::1", // Tencent
-		"2001:bc8:1::1",  // Scaleway
+		"2600:1f00:1::1",      // AWS
+		"::ffff:52.1.2.3",     // IPv4-mapped IPv6 (AWS)
+		"::ffff:3.128.1.2",    // IPv4-mapped IPv6 (AWS upper 3.x)
+		"2600:1900:1::1",      // GCP
+		"2603:1::1",           // Azure
+		"2a01:4f8:1::1",       // Hetzner
+		"2001:41d0:1::1",      // OVH
+		"2600:3c00:1::1",      // Linode
+		"2001:19f0:1::1",      // Vultr
+		"2400:3200:1::1",      // Alibaba
+		"2402:4e00:1::1",      // Tencent
+		"2001:bc8:1::1",       // Scaleway
 	}
 
 	for _, ip := range ips {
@@ -751,9 +770,15 @@ func TestIsMaliciousPath_UniversalMalicious(t *testing.T) {
 		"/.env",
 		"[GET] /.env",
 		"/config/.env",
+		"/.env.bak",
+		"/.env.old",
+		"/.env.local",
+		"/.env.production",
 		"/.git/config",
 		"/.svn/entries",
 		"/.htpasswd",
+		"/.htpasswd.bak",
+		"/.htpasswd.old",
 		"/shell.php",
 		"/uploads/shell.php",
 		// Credential / metadata leak patterns.
