@@ -1,5 +1,9 @@
 # statsstore Admin Panel Overview
 
+> **Moved:** the admin dashboard was extracted to the standalone
+> `github.com/dracory/statsadmin` module. This document is kept as
+> historical reference; the `admin/` package no longer exists in this repo.
+
 ## Purpose
 The statsstore admin panel delivers ready-made dashboards and tables for monitoring visitor activity. It wraps the core `statsstore` APIs in server-rendered interfaces that can be embedded into broader admin experiences.
 

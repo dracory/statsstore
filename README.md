@@ -119,22 +119,21 @@ store, _ := NewStore(NewStoreOptions{
 
 ## Admin Dashboard
 
-The `admin/` subpackage provides a self-contained, reusable visitor analytics
-dashboard. Any project can embed it by injecting a `LayoutInterface`, a
-`statsstore.StoreInterface`, and optional callbacks:
+The admin dashboard lives in the standalone
+[`github.com/dracory/statsadmin`](https://github.com/dracory/statsadmin)
+package (extracted from this repo). Embed it by injecting a
+`statsstore.StoreInterface` and optional callbacks — a default layout is
+built in, or supply `FuncLayout` to wrap the dashboard in your own chrome:
 
 ```go
 import (
+    "github.com/dracory/statsadmin"
     "github.com/dracory/statsstore"
-    "github.com/dracory/statsstore/admin"
 )
 
-// Implement shared.LayoutInterface (SetTitle, SetBody, SetScripts, Render, etc.)
-type myLayout struct { /* ... */ }
-
-handler, err := admin.New(admin.Options{
+handler, err := statsadmin.New(statsadmin.AdminOptions{
     Store:             store,        // required
-    Layout:            &myLayout{},  // required
+    FuncLayout:        myFuncLayout, // optional; default layout used when nil
     HomeURL:           "/admin",     // required
     BaseURL:           "/admin/stats", // defaults to "/admin/stats"
     CountryNameByIso2: countryNameByIso2, // optional
@@ -153,7 +152,7 @@ http.Handle("/admin/stats", handler)
 - **IP Details**: Per-IP deep dive with path history, flag as bot/threat, delete entries
 - **Settings**: Excluded IP management, bot IP management, automated bot identification scan
 - **Vue.js SPA**: Each page is a Vue.js single-page app with AJAX data loading
-- **No host dependencies**: The package depends only on `github.com/dracory/statsstore` and injected interfaces
+- **No host dependencies**: `statsadmin` depends only on `github.com/dracory/statsstore` and injected callbacks
 
 ### Controllers
 
@@ -165,26 +164,5 @@ http.Handle("/admin/stats", handler)
 | Settings | `controller=settings` | Excluded IPs, bot IPs, bot identification |
 | IP Details | `controller=ip-details&ip=X` | Per-IP details and actions |
 
-See `examples/admin-demo/` for a complete working example.
-
-## Screenshots
-
-### Dashboard
-
-![Dashboard](examples/admin-demo/screenshots/screenshot-dashboard.png)
-
-### Visitors
-
-![Visitors](examples/admin-demo/screenshots/screenshot-visitors.png)
-
-### Sessions
-
-![Sessions](examples/admin-demo/screenshots/screenshot-sessions.png)
-
-### Settings
-
-![Settings](examples/admin-demo/screenshots/screenshot-settings.png)
-
-### IP Details
-
-![IP Details](examples/admin-demo/screenshots/screenshot-ip-details.png)
+See the `statsadmin` repository for a complete working example and
+screenshots.
