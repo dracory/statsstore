@@ -17,6 +17,12 @@ type visitorImplementation struct {
 	PathField               string `db:"path"`
 	FingerprintField        string `db:"fingerprint"`
 	SessionIdField          string `db:"session_id"`
+	UtmSourceField          string `db:"utm_source"`
+	UtmMediumField          string `db:"utm_medium"`
+	UtmCampaignField        string `db:"utm_campaign"`
+	UtmTermField            string `db:"utm_term"`
+	UtmContentField         string `db:"utm_content"`
+	ReferrerHostField       string `db:"referrer_host"`
 	IPAddressField          string `db:"ip_address"`
 	CountryField            string `db:"country"`
 	UserAcceptLanguageField string `db:"user_accept_language"`
@@ -49,6 +55,12 @@ func NewVisitor() VisitorInterface {
 	o.SetIpAddress("")
 	o.SetFingerprint("")
 	o.SetSessionID("")
+	o.SetUtmSource("")
+	o.SetUtmMedium("")
+	o.SetUtmCampaign("")
+	o.SetUtmTerm("")
+	o.SetUtmContent("")
+	o.SetReferrerHost("")
 	o.SetUserAcceptEncoding("")
 	o.SetUserAcceptLanguage("")
 	o.SetUserAgent("")
@@ -81,6 +93,24 @@ func NewVisitorFromExistingData(data map[string]string) VisitorInterface {
 	}
 	if v, ok := data[COLUMN_SESSION_ID]; ok {
 		o.SetSessionID(v)
+	}
+	if v, ok := data[COLUMN_UTM_SOURCE]; ok {
+		o.SetUtmSource(v)
+	}
+	if v, ok := data[COLUMN_UTM_MEDIUM]; ok {
+		o.SetUtmMedium(v)
+	}
+	if v, ok := data[COLUMN_UTM_CAMPAIGN]; ok {
+		o.SetUtmCampaign(v)
+	}
+	if v, ok := data[COLUMN_UTM_TERM]; ok {
+		o.SetUtmTerm(v)
+	}
+	if v, ok := data[COLUMN_UTM_CONTENT]; ok {
+		o.SetUtmContent(v)
+	}
+	if v, ok := data[COLUMN_REFERRER_HOST]; ok {
+		o.SetReferrerHost(v)
 	}
 	if v, ok := data[COLUMN_IP_ADDRESS]; ok {
 		o.SetIpAddress(v)
@@ -269,6 +299,72 @@ func (o *visitorImplementation) GetSessionID() string {
 // SetSessionID sets the session id of the visitor.
 func (o *visitorImplementation) SetSessionID(sessionID string) VisitorInterface {
 	o.SessionIdField = truncateString(sessionID, MAX_LEN_SESSION_ID)
+	return o
+}
+
+// GetUtmSource returns the utm_source campaign parameter.
+func (o *visitorImplementation) GetUtmSource() string {
+	return o.UtmSourceField
+}
+
+// SetUtmSource sets the utm_source campaign parameter.
+func (o *visitorImplementation) SetUtmSource(utmSource string) VisitorInterface {
+	o.UtmSourceField = truncateString(utmSource, MAX_LEN_UTM)
+	return o
+}
+
+// GetUtmMedium returns the utm_medium campaign parameter.
+func (o *visitorImplementation) GetUtmMedium() string {
+	return o.UtmMediumField
+}
+
+// SetUtmMedium sets the utm_medium campaign parameter.
+func (o *visitorImplementation) SetUtmMedium(utmMedium string) VisitorInterface {
+	o.UtmMediumField = truncateString(utmMedium, MAX_LEN_UTM)
+	return o
+}
+
+// GetUtmCampaign returns the utm_campaign campaign parameter.
+func (o *visitorImplementation) GetUtmCampaign() string {
+	return o.UtmCampaignField
+}
+
+// SetUtmCampaign sets the utm_campaign campaign parameter.
+func (o *visitorImplementation) SetUtmCampaign(utmCampaign string) VisitorInterface {
+	o.UtmCampaignField = truncateString(utmCampaign, MAX_LEN_UTM)
+	return o
+}
+
+// GetUtmTerm returns the utm_term campaign parameter.
+func (o *visitorImplementation) GetUtmTerm() string {
+	return o.UtmTermField
+}
+
+// SetUtmTerm sets the utm_term campaign parameter.
+func (o *visitorImplementation) SetUtmTerm(utmTerm string) VisitorInterface {
+	o.UtmTermField = truncateString(utmTerm, MAX_LEN_UTM)
+	return o
+}
+
+// GetUtmContent returns the utm_content campaign parameter.
+func (o *visitorImplementation) GetUtmContent() string {
+	return o.UtmContentField
+}
+
+// SetUtmContent sets the utm_content campaign parameter.
+func (o *visitorImplementation) SetUtmContent(utmContent string) VisitorInterface {
+	o.UtmContentField = truncateString(utmContent, MAX_LEN_UTM)
+	return o
+}
+
+// GetReferrerHost returns the hostname extracted from the referrer URL.
+func (o *visitorImplementation) GetReferrerHost() string {
+	return o.ReferrerHostField
+}
+
+// SetReferrerHost sets the hostname extracted from the referrer URL.
+func (o *visitorImplementation) SetReferrerHost(referrerHost string) VisitorInterface {
+	o.ReferrerHostField = truncateString(referrerHost, MAX_LEN_REFERRER_HOST)
 	return o
 }
 

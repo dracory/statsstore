@@ -22,6 +22,12 @@ const (
 	COLUMN_BOT                  = "bot"
 	COLUMN_THREAT               = "threat"
 	COLUMN_SESSION_ID           = "session_id"
+	COLUMN_UTM_SOURCE           = "utm_source"
+	COLUMN_UTM_MEDIUM           = "utm_medium"
+	COLUMN_UTM_CAMPAIGN         = "utm_campaign"
+	COLUMN_UTM_TERM             = "utm_term"
+	COLUMN_UTM_CONTENT          = "utm_content"
+	COLUMN_REFERRER_HOST        = "referrer_host"
 )
 
 // Yes/No string values used for boolean-like columns (bot, threat).
@@ -63,6 +69,8 @@ const (
 	MAX_LEN_BOT                  = 3
 	MAX_LEN_THREAT               = 3
 	MAX_LEN_SESSION_ID           = 40
+	MAX_LEN_UTM                  = 255
+	MAX_LEN_REFERRER_HOST        = 255
 )
 
 // SESSION_GAP_MINUTES is the maximum gap between consecutive page views that

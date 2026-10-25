@@ -33,6 +33,24 @@ type VisitorInterface interface {
 	GetSessionID() string
 	SetSessionID(sessionID string) VisitorInterface
 
+	GetUtmSource() string
+	SetUtmSource(utmSource string) VisitorInterface
+
+	GetUtmMedium() string
+	SetUtmMedium(utmMedium string) VisitorInterface
+
+	GetUtmCampaign() string
+	SetUtmCampaign(utmCampaign string) VisitorInterface
+
+	GetUtmTerm() string
+	SetUtmTerm(utmTerm string) VisitorInterface
+
+	GetUtmContent() string
+	SetUtmContent(utmContent string) VisitorInterface
+
+	GetReferrerHost() string
+	SetReferrerHost(referrerHost string) VisitorInterface
+
 	GetIpAddress() string
 	SetIpAddress(ipAddress string) VisitorInterface
 

@@ -3,7 +3,7 @@ module github.com/dracory/statsstore
 go 1.27.0
 
 require (
-	github.com/LumenResearch/uasurfer v0.3.1
+	github.com/dracory/botdetect v0.1.0
 	github.com/dracory/neat v0.57.0
 	github.com/dracory/req v0.1.0
 	github.com/dracory/str v0.19.0
@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/LumenResearch/uasurfer v0.3.1 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

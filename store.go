@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -137,6 +138,32 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 				return err
 			}
 		}
+
+		// Add UTM/referrer columns to existing tables that predate them.
+		// Default "" required: NOT NULL columns cannot be added to populated
+		// tables without a default.
+		for _, col := range []struct {
+			name   string
+			maxLen int
+		}{
+			{COLUMN_UTM_SOURCE, MAX_LEN_UTM},
+			{COLUMN_UTM_MEDIUM, MAX_LEN_UTM},
+			{COLUMN_UTM_CAMPAIGN, MAX_LEN_UTM},
+			{COLUMN_UTM_TERM, MAX_LEN_UTM},
+			{COLUMN_UTM_CONTENT, MAX_LEN_UTM},
+			{COLUMN_REFERRER_HOST, MAX_LEN_REFERRER_HOST},
+		} {
+			if !st.db.Schema().HasColumn(st.visitorTableName, col.name) {
+				if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+					table.String(col.name, col.maxLen).Default("")
+				}); err != nil {
+					if st.debugEnabled {
+						st.logger.Error("MigrateUp: add column failed", "column", col.name, "error", err)
+					}
+					return err
+				}
+			}
+		}
 	} else {
 		err := st.db.Schema().Create(st.visitorTableName, func(table contractsschema.Blueprint) {
 			table.String(COLUMN_ID, MAX_LEN_ID)
@@ -158,6 +185,12 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.String(COLUMN_BOT, MAX_LEN_BOT).Default(VALUE_NO)
 			table.String(COLUMN_THREAT, MAX_LEN_THREAT).Default(VALUE_NO)
 			table.String(COLUMN_SESSION_ID, MAX_LEN_SESSION_ID)
+			table.String(COLUMN_UTM_SOURCE, MAX_LEN_UTM)
+			table.String(COLUMN_UTM_MEDIUM, MAX_LEN_UTM)
+			table.String(COLUMN_UTM_CAMPAIGN, MAX_LEN_UTM)
+			table.String(COLUMN_UTM_TERM, MAX_LEN_UTM)
+			table.String(COLUMN_UTM_CONTENT, MAX_LEN_UTM)
+			table.String(COLUMN_REFERRER_HOST, MAX_LEN_REFERRER_HOST)
 			table.DateTime(COLUMN_CREATED_AT)
 			table.DateTime(COLUMN_UPDATED_AT)
 			table.DateTime(COLUMN_SOFT_DELETED_AT)
@@ -168,6 +201,8 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.Index(COLUMN_BOT)
 			table.Index(COLUMN_THREAT)
 			table.Index(COLUMN_SESSION_ID)
+			table.Index(COLUMN_UTM_SOURCE)
+			table.Index(COLUMN_REFERRER_HOST)
 		})
 
 		if err != nil {
@@ -421,9 +456,20 @@ func (st *storeImplementation) VisitorRegister(ctx context.Context, r *http.Requ
 		}
 	}
 
+	// UTM campaign parameters and referrer host are captured from the
+	// request URL / Referer header at ingestion so traffic sources can be
+	// broken down without re-parsing stored URLs.
+	q := r.URL.Query()
+
 	visitor := NewVisitor().
 		SetPath(path).
 		SetIpAddress(ip).
+		SetUtmSource(q.Get(COLUMN_UTM_SOURCE)).
+		SetUtmMedium(q.Get(COLUMN_UTM_MEDIUM)).
+		SetUtmCampaign(q.Get(COLUMN_UTM_CAMPAIGN)).
+		SetUtmTerm(q.Get(COLUMN_UTM_TERM)).
+		SetUtmContent(q.Get(COLUMN_UTM_CONTENT)).
+		SetReferrerHost(referrerHost(referrer)).
 		SetUserAgent(userAgent).
 		SetUserBrowser(uaInfo.Browser).
 		SetUserBrowserVersion(uaInfo.BrowserVersion).
@@ -475,6 +521,21 @@ func (st *storeImplementation) visitorFingerprint(v VisitorInterface) string {
 		sum = sum[:MAX_LEN_FINGERPRINT]
 	}
 	return sum
+}
+
+// referrerHost extracts the lowercase hostname from a referrer URL. The
+// "www." prefix is stripped (same convention as IsReferrerSpam) so grouping
+// lines up across analytics and spam checks. Returns "" when the referrer is
+// empty or unparseable.
+func referrerHost(referrer string) string {
+	if referrer == "" {
+		return ""
+	}
+	u, err := url.Parse(referrer)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
 }
 
 // redactIP masks the last octet (IPv4) or last 16 bits (IPv6) of an
@@ -612,6 +673,12 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 		COLUMN_PATH:                 visitor.GetPath(),
 		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
 		COLUMN_SESSION_ID:           visitor.GetSessionID(),
+		COLUMN_UTM_SOURCE:           visitor.GetUtmSource(),
+		COLUMN_UTM_MEDIUM:           visitor.GetUtmMedium(),
+		COLUMN_UTM_CAMPAIGN:         visitor.GetUtmCampaign(),
+		COLUMN_UTM_TERM:             visitor.GetUtmTerm(),
+		COLUMN_UTM_CONTENT:          visitor.GetUtmContent(),
+		COLUMN_REFERRER_HOST:        visitor.GetReferrerHost(),
 		COLUMN_IP_ADDRESS:           visitor.GetIpAddress(),
 		COLUMN_COUNTRY:              visitor.GetCountry(),
 		COLUMN_USER_ACCEPT_LANGUAGE: visitor.GetUserAcceptLanguage(),
@@ -795,6 +862,12 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		Path               string    `db:"path"`
 		Fingerprint        string    `db:"fingerprint"`
 		SessionID          string    `db:"session_id"`
+		UtmSource          string    `db:"utm_source"`
+		UtmMedium          string    `db:"utm_medium"`
+		UtmCampaign        string    `db:"utm_campaign"`
+		UtmTerm            string    `db:"utm_term"`
+		UtmContent         string    `db:"utm_content"`
+		ReferrerHost       string    `db:"referrer_host"`
 		IPAddress          string    `db:"ip_address"`
 		Country            string    `db:"country"`
 		UserAcceptLanguage string    `db:"user_accept_language"`
@@ -826,6 +899,12 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		v.SetPath(r.Path)
 		v.SetFingerprint(r.Fingerprint)
 		v.SetSessionID(r.SessionID)
+		v.SetUtmSource(r.UtmSource)
+		v.SetUtmMedium(r.UtmMedium)
+		v.SetUtmCampaign(r.UtmCampaign)
+		v.SetUtmTerm(r.UtmTerm)
+		v.SetUtmContent(r.UtmContent)
+		v.SetReferrerHost(r.ReferrerHost)
 		v.SetIpAddress(r.IPAddress)
 		v.SetCountry(r.Country)
 		v.SetUserAcceptLanguage(r.UserAcceptLanguage)
@@ -902,6 +981,12 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 		COLUMN_PATH:                 visitor.GetPath(),
 		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
 		COLUMN_SESSION_ID:           visitor.GetSessionID(),
+		COLUMN_UTM_SOURCE:           visitor.GetUtmSource(),
+		COLUMN_UTM_MEDIUM:           visitor.GetUtmMedium(),
+		COLUMN_UTM_CAMPAIGN:         visitor.GetUtmCampaign(),
+		COLUMN_UTM_TERM:             visitor.GetUtmTerm(),
+		COLUMN_UTM_CONTENT:          visitor.GetUtmContent(),
+		COLUMN_REFERRER_HOST:        visitor.GetReferrerHost(),
 		COLUMN_IP_ADDRESS:           visitor.GetIpAddress(),
 		COLUMN_COUNTRY:              visitor.GetCountry(),
 		COLUMN_USER_ACCEPT_LANGUAGE: visitor.GetUserAcceptLanguage(),
@@ -1080,6 +1165,12 @@ var visitorQueryColumns = map[string]bool{
 	COLUMN_PATH:                 true,
 	COLUMN_FINGERPRINT:          true,
 	COLUMN_SESSION_ID:           true,
+	COLUMN_UTM_SOURCE:           true,
+	COLUMN_UTM_MEDIUM:           true,
+	COLUMN_UTM_CAMPAIGN:         true,
+	COLUMN_UTM_TERM:             true,
+	COLUMN_UTM_CONTENT:          true,
+	COLUMN_REFERRER_HOST:        true,
 	COLUMN_IP_ADDRESS:           true,
 	COLUMN_COUNTRY:              true,
 	COLUMN_USER_ACCEPT_LANGUAGE: true,
@@ -1160,6 +1251,25 @@ func (st *storeImplementation) applyVisitorFilters(q contractsorm.Query, query V
 
 	if query.HasSessionID() && query.SessionID() != "" {
 		q = q.Where(COLUMN_SESSION_ID+" = ?", query.SessionID())
+	}
+
+	if query.HasUtmSource() && query.UtmSource() != "" {
+		q = q.Where(COLUMN_UTM_SOURCE+" = ?", query.UtmSource())
+	}
+	if query.HasUtmMedium() && query.UtmMedium() != "" {
+		q = q.Where(COLUMN_UTM_MEDIUM+" = ?", query.UtmMedium())
+	}
+	if query.HasUtmCampaign() && query.UtmCampaign() != "" {
+		q = q.Where(COLUMN_UTM_CAMPAIGN+" = ?", query.UtmCampaign())
+	}
+	if query.HasUtmTerm() && query.UtmTerm() != "" {
+		q = q.Where(COLUMN_UTM_TERM+" = ?", query.UtmTerm())
+	}
+	if query.HasUtmContent() && query.UtmContent() != "" {
+		q = q.Where(COLUMN_UTM_CONTENT+" = ?", query.UtmContent())
+	}
+	if query.HasReferrerHost() && query.ReferrerHost() != "" {
+		q = q.Where(COLUMN_REFERRER_HOST+" = ?", query.ReferrerHost())
 	}
 
 	if query.HasDeviceType() && query.DeviceType() != "" {

@@ -339,10 +339,10 @@ func TestVisitorEnhanceLookupFailureLeavesEmpty(t *testing.T) {
 	}
 
 	// UA fields should be populated even though geo-IP failed
-	if found.GetUserBrowser() != "Chrome" {
+	if found.GetUserBrowser() != "chrome" {
 		t.Fatalf("expected browser 'Chrome', got %q", found.GetUserBrowser())
 	}
-	if found.GetUserOs() != "Windows" {
+	if found.GetUserOs() != "windows" {
 		t.Fatalf("expected OS 'Windows', got %q", found.GetUserOs())
 	}
 	if found.GetUserDeviceType() != "desktop" {

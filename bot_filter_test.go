@@ -153,54 +153,8 @@ func TestIsBot_WordBoundary(t *testing.T) {
 		}
 	}
 
-	// UAs where "bot" appears inside a word but NOT as a standalone token
-	// should NOT match on the broad "bot" pattern. These may still match if
-	// they contain a specific pattern, but the "bot" broad pattern should
-	// not be the reason they match.
-	//
-	// "iBotonic" contains "bot" but it's inside a word — no boundary.
-	// "RoboBotonic" same thing.
-	// We can't test these directly with IsBot since other patterns might
-	// match, but we can test matchWordBoundary directly.
-	if matchWordBoundary("mozilla/5.0 (ibotonic/1.0)", "bot") {
-		t.Error("matchWordBoundary should not match 'bot' inside 'ibotonic'")
-	}
-	if matchWordBoundary("mozilla/5.0 (robobotonic/1.0)", "bot") {
-		t.Error("matchWordBoundary should not match 'bot' inside 'robobotonic'")
-	}
-	// "bot" at end of string is a valid boundary.
-	if !matchWordBoundary("somebot", "bot") {
-		t.Error("matchWordBoundary should match 'bot' at end of string")
-	}
-	// "bot/" has a boundary (slash).
-	if !matchWordBoundary("googlebot/2.1", "bot") {
-		t.Error("matchWordBoundary should match 'bot/' ")
-	}
-	// "bot;" has a boundary (semicolon).
-	if !matchWordBoundary("googlebot; +http://x.com", "bot") {
-		t.Error("matchWordBoundary should match 'bot;'")
-	}
-	// "bot)" has a boundary (closing paren).
-	if !matchWordBoundary("(googlebot)", "bot") {
-		t.Error("matchWordBoundary should match 'bot)'")
-	}
-	// "bot " has a boundary (space).
-	if !matchWordBoundary("googlebot 2.1", "bot") {
-		t.Error("matchWordBoundary should match 'bot '")
-	}
-	// "bot." has a boundary (dot).
-	if !matchWordBoundary("googlebot. v2", "bot") {
-		t.Error("matchWordBoundary should match 'bot.'")
-	}
-	// "bot123" — digit after, NOT a boundary.
-	if matchWordBoundary("googlebot123", "bot") {
-		t.Error("matchWordBoundary should not match 'bot123' (digit is not a boundary)")
-	}
-	// "botbot" — first "bot" is followed by "b" (alpha), not a boundary.
-	// Second "bot" is at end of string, IS a boundary.
-	if !matchWordBoundary("botbot", "bot") {
-		t.Error("matchWordBoundary should match second 'bot' in 'botbot' (end of string)")
-	}
+	// Word-boundary internals are covered by botdetect's own tests; the
+	// exported behavior above is what statsstore depends on.
 }
 
 // == IsReferrerSpam TESTS ====================================================

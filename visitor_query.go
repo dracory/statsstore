@@ -62,6 +62,30 @@ type VisitorQueryInterface interface {
 	SessionID() string
 	SetSessionID(sessionID string) VisitorQueryInterface
 
+	HasUtmSource() bool
+	UtmSource() string
+	SetUtmSource(utmSource string) VisitorQueryInterface
+
+	HasUtmMedium() bool
+	UtmMedium() string
+	SetUtmMedium(utmMedium string) VisitorQueryInterface
+
+	HasUtmCampaign() bool
+	UtmCampaign() string
+	SetUtmCampaign(utmCampaign string) VisitorQueryInterface
+
+	HasUtmTerm() bool
+	UtmTerm() string
+	SetUtmTerm(utmTerm string) VisitorQueryInterface
+
+	HasUtmContent() bool
+	UtmContent() string
+	SetUtmContent(utmContent string) VisitorQueryInterface
+
+	HasReferrerHost() bool
+	ReferrerHost() string
+	SetReferrerHost(referrerHost string) VisitorQueryInterface
+
 	HasPathExact() bool
 	PathExact() string
 	SetPathExact(pathExact string) VisitorQueryInterface
@@ -230,6 +254,78 @@ func (q *visitorQuery) HasSessionID() bool { return q.hasProperty("session_id") 
 func (q *visitorQuery) SessionID() string  { return q.properties["session_id"].(string) }
 func (q *visitorQuery) SetSessionID(v string) VisitorQueryInterface {
 	q.properties["session_id"] = v
+	return q
+}
+
+func (q *visitorQuery) HasUtmSource() bool { return q.hasProperty("utm_source") }
+func (q *visitorQuery) UtmSource() string {
+	if !q.HasUtmSource() {
+		return ""
+	}
+	return q.properties["utm_source"].(string)
+}
+func (q *visitorQuery) SetUtmSource(v string) VisitorQueryInterface {
+	q.properties["utm_source"] = v
+	return q
+}
+
+func (q *visitorQuery) HasUtmMedium() bool { return q.hasProperty("utm_medium") }
+func (q *visitorQuery) UtmMedium() string {
+	if !q.HasUtmMedium() {
+		return ""
+	}
+	return q.properties["utm_medium"].(string)
+}
+func (q *visitorQuery) SetUtmMedium(v string) VisitorQueryInterface {
+	q.properties["utm_medium"] = v
+	return q
+}
+
+func (q *visitorQuery) HasUtmCampaign() bool { return q.hasProperty("utm_campaign") }
+func (q *visitorQuery) UtmCampaign() string {
+	if !q.HasUtmCampaign() {
+		return ""
+	}
+	return q.properties["utm_campaign"].(string)
+}
+func (q *visitorQuery) SetUtmCampaign(v string) VisitorQueryInterface {
+	q.properties["utm_campaign"] = v
+	return q
+}
+
+func (q *visitorQuery) HasUtmTerm() bool { return q.hasProperty("utm_term") }
+func (q *visitorQuery) UtmTerm() string {
+	if !q.HasUtmTerm() {
+		return ""
+	}
+	return q.properties["utm_term"].(string)
+}
+func (q *visitorQuery) SetUtmTerm(v string) VisitorQueryInterface {
+	q.properties["utm_term"] = v
+	return q
+}
+
+func (q *visitorQuery) HasUtmContent() bool { return q.hasProperty("utm_content") }
+func (q *visitorQuery) UtmContent() string {
+	if !q.HasUtmContent() {
+		return ""
+	}
+	return q.properties["utm_content"].(string)
+}
+func (q *visitorQuery) SetUtmContent(v string) VisitorQueryInterface {
+	q.properties["utm_content"] = v
+	return q
+}
+
+func (q *visitorQuery) HasReferrerHost() bool { return q.hasProperty("referrer_host") }
+func (q *visitorQuery) ReferrerHost() string {
+	if !q.HasReferrerHost() {
+		return ""
+	}
+	return q.properties["referrer_host"].(string)
+}
+func (q *visitorQuery) SetReferrerHost(v string) VisitorQueryInterface {
+	q.properties["referrer_host"] = v
 	return q
 }
 
