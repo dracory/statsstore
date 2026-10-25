@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/dracory/neat"
 	contractsorm "github.com/dracory/neat/contracts/database/orm"
@@ -86,8 +87,23 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			}
 		}
 
-		// Add indexes on bot/threat columns for existing tables that predate them.
-		// neat generates index names as "{table}_{column}_index".
+		// Add session_id column to existing tables that predate it.
+		// neat's HasColumn guards against re-adding.
+		if !st.db.Schema().HasColumn(st.visitorTableName, COLUMN_SESSION_ID) {
+			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+				// Default "" required: NOT NULL columns cannot be added to
+				// populated tables without a default.
+				table.String(COLUMN_SESSION_ID, MAX_LEN_SESSION_ID).Default("")
+			}); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("MigrateUp: add session_id column failed", "error", err)
+				}
+				return err
+			}
+		}
+
+		// Add indexes on bot/threat/session_id columns for existing tables that
+		// predate them. neat generates index names as "{table}_{column}_index".
 		botIndexName := strings.ToLower(st.visitorTableName + "_" + COLUMN_BOT + "_index")
 		if !st.db.Schema().HasIndex(st.visitorTableName, botIndexName) {
 			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
@@ -106,6 +122,17 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			}); err != nil {
 				if st.debugEnabled {
 					st.logger.Error("MigrateUp: add threat index failed", "error", err)
+				}
+				return err
+			}
+		}
+		sessionIndexName := strings.ToLower(st.visitorTableName + "_" + COLUMN_SESSION_ID + "_index")
+		if !st.db.Schema().HasIndex(st.visitorTableName, sessionIndexName) {
+			if err := st.db.Schema().Table(st.visitorTableName, func(table contractsschema.Blueprint) {
+				table.Index(COLUMN_SESSION_ID)
+			}); err != nil {
+				if st.debugEnabled {
+					st.logger.Error("MigrateUp: add session_id index failed", "error", err)
 				}
 				return err
 			}
@@ -130,6 +157,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.String(COLUMN_USER_REFERRER, MAX_LEN_USER_REFERRER)
 			table.String(COLUMN_BOT, MAX_LEN_BOT).Default(VALUE_NO)
 			table.String(COLUMN_THREAT, MAX_LEN_THREAT).Default(VALUE_NO)
+			table.String(COLUMN_SESSION_ID, MAX_LEN_SESSION_ID)
 			table.DateTime(COLUMN_CREATED_AT)
 			table.DateTime(COLUMN_UPDATED_AT)
 			table.DateTime(COLUMN_SOFT_DELETED_AT)
@@ -139,6 +167,7 @@ func (st *storeImplementation) MigrateUp(ctx context.Context, tx ...*sql.Tx) err
 			table.Index(COLUMN_FINGERPRINT)
 			table.Index(COLUMN_BOT)
 			table.Index(COLUMN_THREAT)
+			table.Index(COLUMN_SESSION_ID)
 		})
 
 		if err != nil {
@@ -518,6 +547,45 @@ func (st *storeImplementation) ensureBotThreatFlags(visitor VisitorInterface) {
 	}
 }
 
+// ensureSessionID assigns a session id when the visitor does not already have
+// one. It looks up the most recent row for the same fingerprint created within
+// SESSION_GAP_MINUTES of this visitor's created_at and reuses its session id;
+// otherwise a fresh id is minted. Rows predating the session_id column (empty
+// session id) never extend a session — they simply start a new one.
+func (st *storeImplementation) ensureSessionID(visitor VisitorInterface) {
+	if visitor.GetSessionID() != "" {
+		return
+	}
+
+	if visitor.GetFingerprint() == "" {
+		visitor.SetSessionID(uuid.NewV7().String())
+		return
+	}
+
+	cutoff := visitor.GetCreatedAtCarbon().StdTime().Add(-time.Duration(SESSION_GAP_MINUTES) * time.Minute)
+
+	var rows []struct {
+		SessionID string `db:"session_id"`
+	}
+	err := st.db.Query().
+		Model(&visitorImplementation{}).
+		Table(st.visitorTableName).
+		Select(COLUMN_SESSION_ID).
+		Where(COLUMN_FINGERPRINT+" = ?", visitor.GetFingerprint()).
+		Where(COLUMN_SESSION_ID+" != ?", "").
+		Where(COLUMN_CREATED_AT+" >= ?", cutoff).
+		OrderBy(COLUMN_CREATED_AT, "desc").
+		Limit(1).
+		Get(&rows)
+
+	if err == nil && len(rows) > 0 && rows[0].SessionID != "" {
+		visitor.SetSessionID(rows[0].SessionID)
+		return
+	}
+
+	visitor.SetSessionID(uuid.NewV7().String())
+}
+
 // VisitorCreate creates a new visitor.
 func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor VisitorInterface) error {
 	if visitor == nil {
@@ -537,10 +605,13 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 		visitor.SetThreat(VALUE_NO)
 	}
 
+	st.ensureSessionID(visitor)
+
 	row := map[string]any{
 		COLUMN_ID:                   visitor.GetID(),
 		COLUMN_PATH:                 visitor.GetPath(),
 		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
+		COLUMN_SESSION_ID:           visitor.GetSessionID(),
 		COLUMN_IP_ADDRESS:           visitor.GetIpAddress(),
 		COLUMN_COUNTRY:              visitor.GetCountry(),
 		COLUMN_USER_ACCEPT_LANGUAGE: visitor.GetUserAcceptLanguage(),
@@ -723,6 +794,7 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		ID                 string    `db:"id"`
 		Path               string    `db:"path"`
 		Fingerprint        string    `db:"fingerprint"`
+		SessionID          string    `db:"session_id"`
 		IPAddress          string    `db:"ip_address"`
 		Country            string    `db:"country"`
 		UserAcceptLanguage string    `db:"user_accept_language"`
@@ -753,6 +825,7 @@ func (st *storeImplementation) VisitorList(ctx context.Context, query VisitorQue
 		v.SetID(r.ID)
 		v.SetPath(r.Path)
 		v.SetFingerprint(r.Fingerprint)
+		v.SetSessionID(r.SessionID)
 		v.SetIpAddress(r.IPAddress)
 		v.SetCountry(r.Country)
 		v.SetUserAcceptLanguage(r.UserAcceptLanguage)
@@ -828,6 +901,7 @@ func (st *storeImplementation) VisitorUpdate(ctx context.Context, visitor Visito
 	row := map[string]any{
 		COLUMN_PATH:                 visitor.GetPath(),
 		COLUMN_FINGERPRINT:          visitor.GetFingerprint(),
+		COLUMN_SESSION_ID:           visitor.GetSessionID(),
 		COLUMN_IP_ADDRESS:           visitor.GetIpAddress(),
 		COLUMN_COUNTRY:              visitor.GetCountry(),
 		COLUMN_USER_ACCEPT_LANGUAGE: visitor.GetUserAcceptLanguage(),
@@ -1005,6 +1079,7 @@ var visitorQueryColumns = map[string]bool{
 	COLUMN_ID:                   true,
 	COLUMN_PATH:                 true,
 	COLUMN_FINGERPRINT:          true,
+	COLUMN_SESSION_ID:           true,
 	COLUMN_IP_ADDRESS:           true,
 	COLUMN_COUNTRY:              true,
 	COLUMN_USER_ACCEPT_LANGUAGE: true,
@@ -1024,10 +1099,11 @@ var visitorQueryColumns = map[string]bool{
 	COLUMN_SOFT_DELETED_AT:      true,
 }
 
-func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contractsorm.Query {
-	// Use Model() to enable neat's automatic soft delete handling via SoftDeletesMaxDate
-	q := st.db.Query().Model(&visitorImplementation{}).Table(st.visitorTableName)
-
+// applyVisitorFilters applies the WHERE clauses of a visitor query to q.
+// Row-level limit, offset, ordering and soft-delete handling are applied by
+// buildQuery, so callers that aggregate over the same filters (e.g. sessions)
+// are not bound to row-level pagination.
+func (st *storeImplementation) applyVisitorFilters(q contractsorm.Query, query VisitorQueryInterface) contractsorm.Query {
 	if query.HasID() && query.ID() != "" {
 		q = q.Where(COLUMN_ID+" = ?", query.ID())
 	}
@@ -1082,6 +1158,10 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 		q = q.Where("LOWER("+COLUMN_PATH+") LIKE LOWER(?)", "%"+query.PathContains()+"%")
 	}
 
+	if query.HasSessionID() && query.SessionID() != "" {
+		q = q.Where(COLUMN_SESSION_ID+" = ?", query.SessionID())
+	}
+
 	if query.HasDeviceType() && query.DeviceType() != "" {
 		if strings.EqualFold(query.DeviceType(), "empty") {
 			q = q.Where(COLUMN_USER_DEVICE_TYPE+" = ?", "")
@@ -1118,6 +1198,15 @@ func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contracts
 			return q.Where("1 = 0")
 		}
 	}
+
+	return q
+}
+
+func (st *storeImplementation) buildQuery(query VisitorQueryInterface) contractsorm.Query {
+	// Use Model() to enable neat's automatic soft delete handling via SoftDeletesMaxDate
+	q := st.db.Query().Model(&visitorImplementation{}).Table(st.visitorTableName)
+
+	q = st.applyVisitorFilters(q, query)
 
 	if query.HasLimit() && query.Limit() > 0 {
 		q = q.Limit(query.Limit())

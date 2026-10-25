@@ -58,6 +58,10 @@ type VisitorQueryInterface interface {
 	PathContains() string
 	SetPathContains(pathContains string) VisitorQueryInterface
 
+	HasSessionID() bool
+	SessionID() string
+	SetSessionID(sessionID string) VisitorQueryInterface
+
 	HasPathExact() bool
 	PathExact() string
 	SetPathExact(pathExact string) VisitorQueryInterface
@@ -222,8 +226,20 @@ func (q *visitorQuery) SetPathExact(v string) VisitorQueryInterface {
 	return q
 }
 
+func (q *visitorQuery) HasSessionID() bool { return q.hasProperty("session_id") }
+func (q *visitorQuery) SessionID() string  { return q.properties["session_id"].(string) }
+func (q *visitorQuery) SetSessionID(v string) VisitorQueryInterface {
+	q.properties["session_id"] = v
+	return q
+}
+
 func (q *visitorQuery) HasSortOrder() bool { return q.hasProperty("sort_order") }
-func (q *visitorQuery) SortOrder() string  { return q.properties["sort_order"].(string) }
+func (q *visitorQuery) SortOrder() string {
+	if !q.HasSortOrder() {
+		return ""
+	}
+	return q.properties["sort_order"].(string)
+}
 func (q *visitorQuery) SetSortOrder(v string) VisitorQueryInterface {
 	q.properties["sort_order"] = v
 	return q

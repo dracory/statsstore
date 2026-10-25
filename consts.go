@@ -21,6 +21,7 @@ const (
 	COLUMN_USER_REFERRER        = "user_referrer"
 	COLUMN_BOT                  = "bot"
 	COLUMN_THREAT               = "threat"
+	COLUMN_SESSION_ID           = "session_id"
 )
 
 // Yes/No string values used for boolean-like columns (bot, threat).
@@ -61,7 +62,13 @@ const (
 	MAX_LEN_USER_REFERRER        = 510
 	MAX_LEN_BOT                  = 3
 	MAX_LEN_THREAT               = 3
+	MAX_LEN_SESSION_ID           = 40
 )
+
+// SESSION_GAP_MINUTES is the maximum gap between consecutive page views that
+// keeps them in the same session. A view arriving more than this many minutes
+// after the fingerprint's previous view starts a new session.
+const SESSION_GAP_MINUTES = 30
 
 // MAX_DATETIME is a far-future datetime used as the default soft-delete sentinel.
 const MAX_DATETIME = "9999-12-31 23:59:59"

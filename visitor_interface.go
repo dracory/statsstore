@@ -30,6 +30,9 @@ type VisitorInterface interface {
 	GetFingerprint() string
 	SetFingerprint(fingerprint string) VisitorInterface
 
+	GetSessionID() string
+	SetSessionID(sessionID string) VisitorInterface
+
 	GetIpAddress() string
 	SetIpAddress(ipAddress string) VisitorInterface
 

@@ -16,6 +16,7 @@ type visitorImplementation struct {
 
 	PathField               string `db:"path"`
 	FingerprintField        string `db:"fingerprint"`
+	SessionIdField          string `db:"session_id"`
 	IPAddressField          string `db:"ip_address"`
 	CountryField            string `db:"country"`
 	UserAcceptLanguageField string `db:"user_accept_language"`
@@ -47,6 +48,7 @@ func NewVisitor() VisitorInterface {
 	o.SetCountry("")
 	o.SetIpAddress("")
 	o.SetFingerprint("")
+	o.SetSessionID("")
 	o.SetUserAcceptEncoding("")
 	o.SetUserAcceptLanguage("")
 	o.SetUserAgent("")
@@ -76,6 +78,9 @@ func NewVisitorFromExistingData(data map[string]string) VisitorInterface {
 	}
 	if v, ok := data[COLUMN_FINGERPRINT]; ok {
 		o.SetFingerprint(v)
+	}
+	if v, ok := data[COLUMN_SESSION_ID]; ok {
+		o.SetSessionID(v)
 	}
 	if v, ok := data[COLUMN_IP_ADDRESS]; ok {
 		o.SetIpAddress(v)
@@ -253,6 +258,17 @@ func (o *visitorImplementation) GetFingerprint() string {
 // SetFingerprint sets the fingerprint of the visitor.
 func (o *visitorImplementation) SetFingerprint(fingerprint string) VisitorInterface {
 	o.FingerprintField = fingerprint
+	return o
+}
+
+// GetSessionID returns the session id of the visitor.
+func (o *visitorImplementation) GetSessionID() string {
+	return o.SessionIdField
+}
+
+// SetSessionID sets the session id of the visitor.
+func (o *visitorImplementation) SetSessionID(sessionID string) VisitorInterface {
+	o.SessionIdField = truncateString(sessionID, MAX_LEN_SESSION_ID)
 	return o
 }
 

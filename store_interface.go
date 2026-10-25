@@ -95,4 +95,15 @@ type StoreInterface interface {
 	//
 	// If no GeoIPResolver was configured, it returns 0 and an error.
 	VisitorEnhance(ctx context.Context) (int, error)
+
+	// SessionList aggregates visitor rows into sessions (same fingerprint,
+	// consecutive views within SESSION_GAP_MINUTES). VisitorQuery filters
+	// apply to the underlying rows; limit/offset paginate sessions ordered by
+	// last activity. Rows predating the session_id column are excluded.
+	SessionList(ctx context.Context, query VisitorQueryInterface) ([]SessionInterface, error)
+	// SessionCount counts distinct session ids matching the visitor query.
+	SessionCount(ctx context.Context, query VisitorQueryInterface) (int64, error)
+	// SessionIDBackfill assigns session ids to legacy rows that predate the
+	// session_id column, oldest-first so sessions chain across the gap window.
+	SessionIDBackfill(ctx context.Context, query VisitorQueryInterface) (int64, error)
 }
