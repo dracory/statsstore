@@ -54,6 +54,9 @@ type storeImplementation struct {
 	trustedProxies           []string
 	fingerprintSalt          string
 	logger                   *slog.Logger
+	// visitorAsync holds the async insert queue when
+	// NewStoreOptions.VisitorCreateAsyncEnabled is set; nil otherwise.
+	visitorAsync *visitorAsyncState
 }
 
 // == MIGRATE ==================================================================
@@ -696,6 +699,10 @@ func (st *storeImplementation) VisitorCreate(ctx context.Context, visitor Visito
 		COLUMN_CREATED_AT:           visitor.GetCreatedAtCarbon().StdTime(),
 		COLUMN_UPDATED_AT:           visitor.GetUpdatedAtCarbon().StdTime(),
 		COLUMN_SOFT_DELETED_AT:      visitor.GetSoftDeletedAtCarbon().StdTime(),
+	}
+
+	if st.visitorInsertAsync(row) {
+		return nil
 	}
 
 	return st.db.Query().Table(st.visitorTableName).Create(row)

@@ -63,6 +63,13 @@ type StoreInterface interface {
 
 	VisitorCount(ctx context.Context, query VisitorQueryInterface) (int64, error)
 	VisitorCreate(ctx context.Context, user VisitorInterface) error
+	// DrainVisitorWrites flushes the async insert queue (when
+	// VisitorCreateAsyncEnabled is set) and returns after all pending
+	// rows are written. Safe to call when async is disabled.
+	DrainVisitorWrites()
+	// VisitorDroppedCount returns rows dropped because the async insert
+	// queue was full or already drained. Always 0 when async is disabled.
+	VisitorDroppedCount() uint64
 	VisitorDelete(ctx context.Context, user VisitorInterface) error
 	VisitorDeleteByID(ctx context.Context, id string) error
 	VisitorDeleteByIP(ctx context.Context, ip string) (int64, error)

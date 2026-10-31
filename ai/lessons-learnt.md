@@ -90,5 +90,11 @@ Prefer this over re-deriving facts. Update it when you discover new non-obvious 
 - **`ParseUserAgent` now returns lowercase names** (`chrome`, `windows`, `iphone` not `Chrome`/`Windows`/`iPhone`) since the bot-detection extraction to `github.com/dracory/botdetect`. Stored-data change: `user_browser`/`user_os`/`user_device*` columns will contain both cases across the boundary — dashboards grouping on them see split groups (`Chrome` vs `chrome`) unless data is backfilled or the UI normalizes.
 - **UTM + referrer capture:** `utm_source/medium/campaign/term/content` parsed from `r.URL.Query()` in `VisitorRegister`; `referrer_host` is the lowercased `Referer` hostname (port stripped, `www.` trimmed — consistent with `IsReferrerSpam`). Six new columns; `Default("")` required when adding to populated tables (NOT NULL columns can't be added without a default on SQLite).
 
+## [2026-10-31] Async visitor inserts
+- **VisitorCreateAsyncEnabled (NewStoreOptions)** makes VisitorCreate queue the INSERT on a single background worker instead of blocking on the DB write. Row building (flags, timestamps, session ID, fingerprint) stays synchronous; only the INSERT is deferred. Errors are logged, not returned.
+- **Queue semantics:** bounded buffer (VisitorCreateAsyncBufferSize option, default 4096), drop-on-full counted by VisitorDroppedCount(). Analytics must never block or fail the request path.
+- **DrainVisitorWrites()** must be called on shutdown before closing the DB. Writes after drain drop silently (closed flag checked before send to avoid panic on closed channel).
+- **Interface addition:** DrainVisitorWrites + VisitorDroppedCount are on StoreInterface, both no-ops/zero when async is disabled.
+
 ## License
 - **AGPL-3.0**; commercial use needs a separate commercial license (see README). Keep license headers intact. Do NOT advise embedding this code into proprietary/closed distributions without flagging the AGPL implication.

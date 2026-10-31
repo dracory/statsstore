@@ -37,6 +37,18 @@ type NewStoreOptions struct {
 	// fingerprints impossible to reverse by dictionary attack on common
 	// IP/UA pairs.
 	FingerprintSalt string
+
+	// VisitorCreateAsyncEnabled makes VisitorCreate queue the INSERT on a
+	// background worker instead of waiting for the database write. Use on
+	// request hot paths (per-request visitor tracking) where insert
+	// latency must not block the response. Errors are logged, not
+	// returned. Call DrainVisitorWrites during shutdown, before closing
+	// the underlying database.
+	VisitorCreateAsyncEnabled bool
+
+	// VisitorCreateAsyncBufferSize bounds the pending-insert queue.
+	// Values <= 0 use VisitorCreateAsyncBufferSizeDefault.
+	VisitorCreateAsyncBufferSize int
 }
 
 // NewStore creates a new stats store.
@@ -79,6 +91,10 @@ func NewStore(opts NewStoreOptions) (StoreInterface, error) {
 		trustedProxies:           opts.TrustedProxies,
 		fingerprintSalt:          opts.FingerprintSalt,
 		logger:                   logger,
+	}
+
+	if opts.VisitorCreateAsyncEnabled {
+		store.startVisitorAsyncWorker(opts.VisitorCreateAsyncBufferSize)
 	}
 
 	if store.automigrateEnabled {
