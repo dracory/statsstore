@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/dracory/botdetect v0.6.0
-	github.com/dracory/neat v0.58.0
+	github.com/dracory/neat v0.60.0
 	github.com/dracory/req v0.1.0
 	github.com/dracory/str v0.19.0
 	github.com/dromara/carbon/v2 v2.7.0

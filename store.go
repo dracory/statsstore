@@ -1246,7 +1246,7 @@ func (st *storeImplementation) applyVisitorFilters(q contractsorm.Query, query V
 	if query.HasPathExact() && query.PathExact() != "" {
 		q = q.Where(COLUMN_PATH+" = ?", query.PathExact())
 	} else if query.HasPathContains() && query.PathContains() != "" {
-		q = q.Where("LOWER("+COLUMN_PATH+") LIKE LOWER(?)", "%"+query.PathContains()+"%")
+		q = q.Where("LOWER("+COLUMN_PATH+") LIKE ?", "%"+strings.ToLower(query.PathContains())+"%")
 	}
 
 	if query.HasSessionID() && query.SessionID() != "" {
@@ -1283,8 +1283,8 @@ func (st *storeImplementation) applyVisitorFilters(q contractsorm.Query, query V
 	if query.HasBot() && query.Bot() != "" {
 		if query.Bot() == VALUE_NO {
 			q = q.Where("("+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" = ? OR "+COLUMN_BOT+" IS NULL)", VALUE_NO, "").
-				Where("("+COLUMN_USER_DEVICE_TYPE+" != ? OR "+COLUMN_USER_DEVICE_TYPE+" IS NULL)", "bot").
-				Where("("+COLUMN_USER_DEVICE+" != ? OR "+COLUMN_USER_DEVICE+" IS NULL)", "bot")
+				Where("COALESCE("+COLUMN_USER_DEVICE_TYPE+", '') != ?", "bot").
+				Where("COALESCE("+COLUMN_USER_DEVICE+", '') != ?", "bot")
 		} else {
 			q = q.Where("("+COLUMN_BOT+" = ? OR "+COLUMN_USER_DEVICE_TYPE+" = ? OR "+COLUMN_USER_DEVICE+" = ?)", VALUE_YES, "bot", "bot")
 		}
