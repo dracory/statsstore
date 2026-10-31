@@ -8,7 +8,7 @@ require (
 	github.com/dracory/req v0.1.0
 	github.com/dracory/str v0.19.0
 	github.com/dromara/carbon/v2 v2.7.0
-	modernc.org/sqlite v1.61.0
+	modernc.org/sqlite v1.61.1
 )
 
 require (
